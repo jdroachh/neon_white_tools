@@ -1,0 +1,65 @@
+# ── Secrets / credentials ─────────────────────────────────────────────
+# Never commit these. They're OAuth client secrets and cached user tokens.
+SteamScraper/credentials.json
+SteamScraper/credentials.json.old
+SteamScraper/credentials.json.old2
+SteamScraper/token.json
+SteamScraper/tokenold.json
+
+# ── User config (per-machine paths, Sheet IDs) ────────────────────────
+# Track a neonwhite_config.example.json template instead (todo item).
+SteamScraper/neonwhite_config.json
+
+# ── Third-party redistributables ──────────────────────────────────────
+# Valve's Steam runtime DLL — users should supply their own from their
+# Neon White install via neonwhite_config.json's dll_path.
+SteamScraper/steam_api64.dll
+
+# ── Claude Code local-only settings ───────────────────────────────────
+# Permission allowlists granted on this machine. A shared .claude/settings.json
+# (without `.local`) IS meant to be tracked if you ever add one.
+.claude/settings.local.json
+
+# ── Python ────────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.pytest_cache/
+
+# ── PyInstaller build artifacts ───────────────────────────────────────
+SteamScraper/build/
+SteamScraper/dist/
+*.manifest
+NeonWhiteLeaderboardTool.exe
+SteamScraper/NeonWhiteLeaderboardTool.exe
+
+# ── Compiled C side-products (keep shuffle.dll itself) ────────────────
+# shuffle.dll is committed so the app runs out-of-box without a C compiler.
+# These are intermediate MSVC linker outputs from compile_shuffle.py.
+SteamScraper/shuffle.exp
+SteamScraper/shuffle.lib
+SteamScraper/shuffle.obj
+
+# ── CSV outputs (sample/test data, regenerable) ───────────────────────
+SteamScraper/*.csv
+
+# ── Obsidian per-user state ───────────────────────────────────────────
+# workspace.json churns every time you change panes — would dominate diffs.
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/cache
+
+# ── OS / editor cruft ─────────────────────────────────────────────────
+Thumbs.db
+desktop.ini
+.DS_Store
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# ── Logs ──────────────────────────────────────────────────────────────
+*.log
