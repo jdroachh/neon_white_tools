@@ -15,6 +15,9 @@ from urllib.request import urlopen
 from shuffle_lib import _load_c_shuffle, full_shuffle
 from seed_search import _seed_search_worker, _expected_match_count
 
+from logger import get_logger
+logger = get_logger(__name__)
+
 # Google Sheets imports — gracefully optional until credentials.json is present
 SHEETS_AVAILABLE = False
 try:
@@ -412,7 +415,7 @@ def load_config():
                 cfg.setdefault(k, v)
             return cfg
         except Exception:
-            pass
+            logger.exception("Failed to load %s; falling back to DEFAULT_CONFIG", CONFIG_FILE)
     return dict(DEFAULT_CONFIG)
 
 def save_config(cfg):
@@ -437,6 +440,8 @@ def fetch_cheater_list():
                     break
         return len(cheater_ids)
     except Exception:
+        logger.warning("Cheater list fetch failed (%s); cheater filtering disabled this session",
+                       CHEATER_LIST_URL, exc_info=True)
         cheater_ids = set()
         return 0
 
@@ -536,11 +541,11 @@ def init_steam(dll_path):
     try:
         os.add_dll_directory(steam_dir)
     except Exception:
-        pass
+        logger.debug("add_dll_directory(%r) skipped", steam_dir, exc_info=True)
     try:
         os.add_dll_directory(os.path.dirname(dll_path))
     except Exception:
-        pass
+        logger.debug("add_dll_directory(%r) skipped", os.path.dirname(dll_path), exc_info=True)
 
     with open("steam_appid.txt", "w") as f:
         f.write(APP_ID)
@@ -813,7 +818,8 @@ def fetch_community_medals():
         with urlopen(COMMUNITY_MEDALS_URL, timeout=8) as resp:
             COMMUNITY_MEDAL_DATA = json.loads(resp.read().decode("utf-8"))
     except Exception:
-        pass
+        logger.warning("Community medals fetch failed (%s); medal data unavailable this session",
+                       COMMUNITY_MEDALS_URL, exc_info=True)
 
 # ── Main App ───────────────────────────────────────────────────────────────
 class NeonWhiteApp:
@@ -2520,6 +2526,7 @@ class NeonWhiteApp:
                 messagebox.showinfo("Success", "Pushed to Google Sheet:\n" + "\n".join(parts))
 
             except Exception as e:
+                logger.exception("Google Sheets push failed")
                 messagebox.showerror("Push failed", str(e))
             finally:
                 self.push_sheet_btn.configure(state=tk.NORMAL, text="Push to Google Sheet")
