@@ -35,6 +35,8 @@ try:
     SHEETS_AVAILABLE = True
 except Exception:
     SHEETS_AVAILABLE = False
+    logger.info("Google Sheets libraries not available; Sheets push will be disabled",
+                exc_info=True)
 
 SHEETS_SCOPE      = ["https://www.googleapis.com/auth/spreadsheets"]
 CREDENTIALS_FILE  = "credentials.json"
@@ -553,6 +555,7 @@ def init_steam(dll_path):
     try:
         steam = ctypes.CDLL(dll_path)
     except Exception as e:
+        logger.error("Failed to load Steam DLL %r", dll_path, exc_info=True)
         return False, f"Failed to load DLL: {e}"
 
     steam.SteamAPI_Init.restype = ctypes.c_bool
@@ -796,6 +799,8 @@ def load_gohu_font():
         result = ctypes.windll.gdi32.AddFontResourceExW(GOHU_FONT_PATH, FR_PRIVATE, 0)
         return result > 0
     except Exception:
+        logger.debug("Custom font load via AddFontResourceExW failed; using fallback",
+                     exc_info=True)
         return False
 
 def gohu(size=14, bold=False, italic=False):
@@ -2376,6 +2381,9 @@ class NeonWhiteApp:
     def _init_c_shuffle(self):
         ok = _load_c_shuffle()
         mode = "C-accelerated" if ok else "Python fallback"
+        if not ok:
+            logger.warning("shuffle.dll did not load; seed search will use the slow "
+                           "Python fallback. Run compile_shuffle.py to (re)build.")
         self.root.after(0, lambda m=mode: self.finder_status_var.set(
             f"Seed search engine: {m}"
         ))
@@ -2464,6 +2472,7 @@ class NeonWhiteApp:
                 )
                 messagebox.showinfo("Google Sheets", "Successfully signed in!")
             except Exception as e:
+                logger.exception("Google Sheets authentication failed")
                 messagebox.showerror("Authentication failed", str(e))
         threading.Thread(target=auth_worker, daemon=True).start()
 
