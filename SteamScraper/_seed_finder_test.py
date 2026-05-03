@@ -1,44 +1,46 @@
 """
 Headless test for the Rush Seed Finder.
 Reproduces the GUI's seed-search behavior without tkinter or Steam.
+
+After the modularization split, this exercises the slim seed_search +
+shuffle_lib modules directly — no neonwhite_app import needed.
 """
 import multiprocessing
 import time
-import importlib
 
-import neonwhite_app as nw
+import shuffle_lib as sl
+import seed_search as ss
 
 
 def test_main_process_dll():
     """Verify shuffle.dll loads in the main process and gives the expected answer."""
-    ok = nw._load_c_shuffle()
+    ok = sl._load_c_shuffle()
     print(f"[main] _load_c_shuffle() -> {ok}")
-    print(f"[main] _SHUFFLE_LIB is None? {nw._SHUFFLE_LIB is None}")
+    print(f"[main] _SHUFFLE_LIB is None? {sl._SHUFFLE_LIB is None}")
 
-    order = nw.full_shuffle(96, 58685)
+    order = sl.full_shuffle(96, 58685)
     print(f"[main] full_shuffle(96, 58685)[0] = {order[0]} (expected 60)")
 
     N = 50_000
     t0 = time.time()
     for s in range(1, N + 1):
-        nw.full_shuffle(96, s)
+        sl.full_shuffle(96, s)
     elapsed = time.time() - t0
     print(f"[main, C lib] {N} shuffles in {elapsed:.2f}s = {N/elapsed:,.0f} seeds/sec")
 
 
 def test_worker_self_loads_dll():
     """
-    Run _seed_search_worker directly in a child process and confirm it now
-    loads the C lib itself (Bug 1 fix).
+    Run _seed_search_worker directly in a child process and confirm it
+    loads the C lib itself (Bug 1 fix, still in place after split).
     """
     print("\n--- Worker self-loads DLL test ---")
     q = multiprocessing.Queue()
     stop = multiprocessing.Event()
-    # Search 500k seeds with an impossible target so we exercise the loop fully
     target_set = set(range(96))  # impossible to fit all 96 in any depth < 96
     args = (1, 500_001, 96, target_set, 5, q, stop)
     t0 = time.time()
-    p = multiprocessing.Process(target=nw._seed_search_worker, args=(args,))
+    p = multiprocessing.Process(target=ss._seed_search_worker, args=(args,))
     p.start()
     p.join(timeout=60)
     elapsed = time.time() - t0
@@ -47,7 +49,6 @@ def test_worker_self_loads_dll():
         print("  [worker] TIMED OUT (would indicate C lib not loaded)")
         return
 
-    # Drain the queue
     progress_msgs = 0
     matches = 0
     sentinel = False
@@ -73,7 +74,7 @@ def test_progress_messages_emitted():
     q = multiprocessing.Queue()
     stop = multiprocessing.Event()
     args = (1, 1_000_001, 96, set([0, 1, 2]), 5, q, stop)
-    p = multiprocessing.Process(target=nw._seed_search_worker, args=(args,))
+    p = multiprocessing.Process(target=ss._seed_search_worker, args=(args,))
     p.start()
     p.join(timeout=60)
 
@@ -90,7 +91,7 @@ def test_progress_messages_emitted():
 
 
 def test_expected_match_count():
-    """Sanity-check the Bug 4 probability helper."""
+    """Sanity-check the probability helper."""
     print("\n--- Expected match count helper ---")
     cases = [
         (96, 12, 25),
@@ -100,7 +101,7 @@ def test_expected_match_count():
         (8, 3, 5),
     ]
     for nl, nt, d in cases:
-        e = nw._expected_match_count(nl, nt, d)
+        e = ss._expected_match_count(nl, nt, d)
         flag = "  [WOULD WARN]" if e < 10 else ""
         print(f"  num_levels={nl:>3}  targets={nt:>2}  depth={d:>2}  -> expected ~{e:>12,.2f}{flag}")
 
