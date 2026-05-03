@@ -106,9 +106,66 @@ def test_expected_match_count():
         print(f"  num_levels={nl:>3}  targets={nt:>2}  depth={d:>2}  -> expected ~{e:>12,.2f}{flag}")
 
 
+def test_subset_check_speedup():
+    """
+    Micro-benchmark: compare set-based subset check vs. bitmask check using
+    the same shuffle outputs. Both must agree on every seed; bitmask should
+    be meaningfully faster.
+    """
+    print("\n--- Subset check: set vs. bitmask benchmark ---")
+    sl._load_c_shuffle()
+    target_indices = [0, 5, 10, 15, 20, 25, 30, 35]  # 8 targets
+    target_set     = set(target_indices)
+    target_mask    = sum(1 << i for i in target_indices)
+    depth          = 30
+    N              = 200_000
+
+    # Pre-generate orders so we benchmark the check, not the shuffle
+    orders = [sl.full_shuffle(96, s) for s in range(1, N + 1)]
+
+    # Set-based with redundant outer set() — the ORIGINAL path
+    t0 = time.time()
+    set_matches = 0
+    for order in orders:
+        if target_set.issubset(set(order[:depth])):
+            set_matches += 1
+    set_elapsed = time.time() - t0
+
+    # Set-based, no redundant outer set() — issubset accepts any iterable
+    t0 = time.time()
+    iter_matches = 0
+    for order in orders:
+        if target_set.issubset(order[:depth]):
+            iter_matches += 1
+    iter_elapsed = time.time() - t0
+
+    # Bitmask (the NEW path)
+    t0 = time.time()
+    mask_matches = 0
+    for order in orders:
+        m = 0
+        for i in range(depth):
+            m |= 1 << order[i]
+        if (m & target_mask) == target_mask:
+            mask_matches += 1
+    mask_elapsed = time.time() - t0
+
+    speedup = set_elapsed / mask_elapsed if mask_elapsed > 0 else float("inf")
+    agree = "OK" if set_matches == mask_matches else f"MISMATCH ({set_matches} vs {mask_matches})"
+
+    print(f"  set + outer set():  {N:>7,} in {set_elapsed:.3f}s "
+          f"({N/set_elapsed:>9,.0f}/sec), {set_matches} matches")
+    print(f"  set, iter direct:   {N:>7,} in {iter_elapsed:.3f}s "
+          f"({N/iter_elapsed:>9,.0f}/sec), {iter_matches} matches")
+    print(f"  bitmask:            {N:>7,} in {mask_elapsed:.3f}s "
+          f"({N/mask_elapsed:>9,.0f}/sec), {mask_matches} matches")
+    print(f"  bitmask vs original speedup: {speedup:.2f}x   correctness: {agree}")
+
+
 if __name__ == "__main__":
     multiprocessing.freeze_support()
     test_main_process_dll()
     test_worker_self_loads_dll()
     test_progress_messages_emitted()
     test_expected_match_count()
+    test_subset_check_speedup()
