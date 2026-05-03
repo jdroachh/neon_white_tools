@@ -39,6 +39,7 @@ main (if __name__ == "__main__")                          ← line 2985
 | [`shuffle_lib.py`](../SteamScraper/shuffle_lib.py) | Slim module: `_load_c_shuffle`, `full_shuffle`, reference C source. Imports only `ctypes`/`os`. |
 | [`seed_search.py`](../SteamScraper/seed_search.py) | Slim module: `_seed_search_worker`, `_expected_match_count`. Workers spawn against this so they re-import ~170 lines instead of all 2800+ of `neonwhite_app.py` + tkinter. |
 | [`logger.py`](../SteamScraper/logger.py) | Centralized logging. Rotating file handler at `SteamScraper/logs/app.log` (5 MB × 3 backups) plus stderr when run from a terminal. Level via `LOG_LEVEL` env var, default `INFO`. Use `from logger import get_logger` then `logger = get_logger(__name__)`. |
+| [`rush_data.py`](../SteamScraper/rush_data.py) | Static read-only level data: `LEVELS`, `LEVEL_LOOKUP`, `WHOLE_GAME_LEVELS`, `CHAPTERS`, `RUSH_LEVELS`, `RUSH_ALIASES`, `STANDARD_MEDAL_DATA`. Imported by `neonwhite_app.py` only — workers don't need it. |
 | [`compile_shuffle.py`](../SteamScraper/compile_shuffle.py) | Compiles `shuffle.dll` (C extension) for fast seed searching |
 | [`rthook_google.py`](../SteamScraper/rthook_google.py) | PyInstaller runtime hook — fixes Google namespace packages on Python 3.12+ |
 | [`neonwhite.spec`](../SteamScraper/neonwhite.spec) | PyInstaller build spec — produces `NeonWhiteLeaderboardTool.exe` |
