@@ -24,6 +24,12 @@ from rush_data import (
     RUSH_LEVELS, RUSH_ALIASES, STANDARD_MEDAL_DATA,
 )
 
+# Steam Steamworks API — globals are module-level state in steam_api.
+# Reference live values via attribute access (e.g. steam_api.steam_ready),
+# NOT `from steam_api import steam_ready` — the latter captures the value
+# at import time and won't see mutations from steam_api.steam_api.init_steam().
+import steam_api
+
 # Google Sheets imports — gracefully optional until credentials.json is present
 SHEETS_AVAILABLE = False
 try:
@@ -49,8 +55,6 @@ CREDENTIALS_FILE  = "credentials.json"
 TOKEN_FILE        = "token.json"
 
 # ── Constants ──────────────────────────────────────────────────────────────
-APP_ID       = "1533420"
-BATCH_SIZE   = 100
 CONFIG_FILE  = "neonwhite_config.json"
 APP_TITLE    = "Neon White Leaderboard Tool"
 VERSION      = "1.10.5"
@@ -66,39 +70,6 @@ DEFAULT_CONFIG = {
     "ranks_tab":          "",
     "ranks_start_cell":   "A1",
 }
-
-# ── External resource URLs ─────────────────────────────────────────────────
-CHEATER_LIST_URL = "https://raw.githubusercontent.com/Faustas156/NeonLite/main/Resources/cheaterlist.json"
-
-# ── Steam API globals ──────────────────────────────────────────────────────
-steam        = None
-user_stats   = None
-utils_iface  = None
-friends      = None
-steam_ready  = False
-player_name  = "Not connected"
-logged_in_steam_id = 0
-cheater_ids  = set()  # populated on startup
-
-class LeaderboardFindResult(ctypes.Structure):
-    _fields_ = [("leaderboard_handle", ctypes.c_uint64),
-                ("leaderboard_found",  ctypes.c_uint8)]
-
-class LeaderboardEntry(ctypes.Structure):
-    _fields_ = [("steam_id_user",  ctypes.c_uint64),
-                ("global_rank",    ctypes.c_int32),
-                ("score",          ctypes.c_int32),
-                ("details_count",  ctypes.c_int32),
-                ("ugc_handle",     ctypes.c_uint64)]
-
-class LeaderboardScoresDownloaded(ctypes.Structure):
-    _fields_ = [("leaderboard_handle",        ctypes.c_uint64),
-                ("leaderboard_entries_handle", ctypes.c_uint64),
-                ("entry_count",               ctypes.c_int32)]
-
-LEADERBOARD_FIND_CALLBACK   = 1104
-LEADERBOARD_SCORES_CALLBACK = 1105
-
 
 # Community medal data — fetched live on startup, falls back to embedded
 COMMUNITY_MEDAL_DATA = {}
@@ -121,28 +92,6 @@ def save_config(cfg):
     with open(CONFIG_FILE, "w") as f:
         json.dump(cfg, f, indent=2)
 
-# ── Cheater list ───────────────────────────────────────────────────────────
-def fetch_cheater_list():
-    """Fetch cheater Steam IDs from NeonLite GitHub. Returns a set of ints."""
-    global cheater_ids
-    try:
-        with urlopen(CHEATER_LIST_URL, timeout=8) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-        # Handle both array of ints and array of strings
-        if isinstance(data, list):
-            cheater_ids = {int(x) for x in data}
-        elif isinstance(data, dict):
-            # Some lists use {"cheaters": [...]} or similar
-            for v in data.values():
-                if isinstance(v, list):
-                    cheater_ids = {int(x) for x in v}
-                    break
-        return len(cheater_ids)
-    except Exception:
-        logger.warning("Cheater list fetch failed (%s); cheater filtering disabled this session",
-                       CHEATER_LIST_URL, exc_info=True)
-        cheater_ids = set()
-        return 0
 
 # ── Google Sheets helpers ──────────────────────────────────────────────────
 def get_sheets_service():
@@ -232,204 +181,6 @@ def format_time_mmss(score_ms):
     seconds       = total_seconds % 60
     return f"{minutes:02d}:{seconds:06.3f}"
 
-# ── Steam API functions ────────────────────────────────────────────────────
-def init_steam(dll_path):
-    global steam, user_stats, utils_iface, friends, steam_ready, player_name, logged_in_steam_id
-
-    steam_dir = r"C:\Program Files (x86)\Steam"
-    try:
-        os.add_dll_directory(steam_dir)
-    except Exception:
-        logger.debug("add_dll_directory(%r) skipped", steam_dir, exc_info=True)
-    try:
-        os.add_dll_directory(os.path.dirname(dll_path))
-    except Exception:
-        logger.debug("add_dll_directory(%r) skipped", os.path.dirname(dll_path), exc_info=True)
-
-    with open("steam_appid.txt", "w") as f:
-        f.write(APP_ID)
-
-    try:
-        steam = ctypes.CDLL(dll_path)
-    except Exception as e:
-        logger.error("Failed to load Steam DLL %r", dll_path, exc_info=True)
-        return False, f"Failed to load DLL: {e}"
-
-    steam.SteamAPI_Init.restype = ctypes.c_bool
-    if not steam.SteamAPI_Init():
-        return False, "SteamAPI_Init failed — is Steam running and logged in?"
-
-    steam.SteamAPI_GetHSteamPipe.restype = ctypes.c_int
-    steam.SteamAPI_GetHSteamUser.restype = ctypes.c_int
-    h_pipe = steam.SteamAPI_GetHSteamPipe()
-    h_user = steam.SteamAPI_GetHSteamUser()
-
-    steam.SteamInternal_CreateInterface.restype = ctypes.c_void_p
-    steam.SteamInternal_CreateInterface.argtypes = [ctypes.c_char_p]
-    client = steam.SteamInternal_CreateInterface(b"SteamClient021") or \
-             steam.SteamInternal_CreateInterface(b"SteamClient020")
-
-    steam.SteamAPI_ISteamClient_GetISteamUserStats.restype = ctypes.c_void_p
-    steam.SteamAPI_ISteamClient_GetISteamUserStats.argtypes = [
-        ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_char_p
-    ]
-    user_stats = steam.SteamAPI_ISteamClient_GetISteamUserStats(
-        client, h_user, h_pipe, b"STEAMUSERSTATS_INTERFACE_VERSION012"
-    ) or steam.SteamAPI_ISteamClient_GetISteamUserStats(
-        client, h_user, h_pipe, b"STEAMUSERSTATS_INTERFACE_VERSION011"
-    )
-
-    steam.SteamAPI_ISteamClient_GetISteamUtils.restype = ctypes.c_void_p
-    steam.SteamAPI_ISteamClient_GetISteamUtils.argtypes = [
-        ctypes.c_void_p, ctypes.c_int, ctypes.c_char_p
-    ]
-    utils_iface = steam.SteamAPI_ISteamClient_GetISteamUtils(
-        client, h_pipe, b"SteamUtils010"
-    ) or steam.SteamAPI_ISteamClient_GetISteamUtils(
-        client, h_pipe, b"SteamUtils009"
-    )
-
-    steam.SteamAPI_ISteamClient_GetISteamFriends.restype = ctypes.c_void_p
-    steam.SteamAPI_ISteamClient_GetISteamFriends.argtypes = [
-        ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_char_p
-    ]
-    friends = steam.SteamAPI_ISteamClient_GetISteamFriends(
-        client, h_user, h_pipe, b"SteamFriends017"
-    ) or steam.SteamAPI_ISteamClient_GetISteamFriends(
-        client, h_user, h_pipe, b"SteamFriends015"
-    )
-
-    steam.SteamAPI_ISteamUserStats_RequestCurrentStats.restype = ctypes.c_bool
-    steam.SteamAPI_ISteamUserStats_RequestCurrentStats.argtypes = [ctypes.c_void_p]
-    steam.SteamAPI_ISteamUserStats_RequestCurrentStats(user_stats)
-    steam.SteamAPI_RunCallbacks()
-    time.sleep(1)
-
-    # Get logged-in player name and Steam ID
-    steam.SteamAPI_ISteamFriends_GetPersonaName.restype = ctypes.c_char_p
-    steam.SteamAPI_ISteamFriends_GetPersonaName.argtypes = [ctypes.c_void_p]
-    name_bytes = steam.SteamAPI_ISteamFriends_GetPersonaName(friends)
-    player_name = name_bytes.decode("utf-8", errors="replace") if name_bytes else "Unknown"
-
-    steam.SteamAPI_ISteamUser_GetSteamID.restype = ctypes.c_uint64
-    steam.SteamAPI_ISteamUser_GetSteamID.argtypes = [ctypes.c_void_p]
-    steam.SteamAPI_ISteamClient_GetISteamUser.restype = ctypes.c_void_p
-    steam.SteamAPI_ISteamClient_GetISteamUser.argtypes = [
-        ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_char_p
-    ]
-    isteam_user = steam.SteamAPI_ISteamClient_GetISteamUser(
-        client, h_user, h_pipe, b"SteamUser023"
-    ) or steam.SteamAPI_ISteamClient_GetISteamUser(
-        client, h_user, h_pipe, b"SteamUser021"
-    )
-    if isteam_user:
-        logged_in_steam_id = steam.SteamAPI_ISteamUser_GetSteamID(isteam_user)
-
-    # Setup remaining signatures
-    steam.SteamAPI_ISteamUtils_IsAPICallCompleted.restype = ctypes.c_bool
-    steam.SteamAPI_ISteamUtils_IsAPICallCompleted.argtypes = [
-        ctypes.c_void_p, ctypes.c_uint64, ctypes.POINTER(ctypes.c_bool)
-    ]
-    steam.SteamAPI_ISteamUtils_GetAPICallResult.restype = ctypes.c_bool
-    steam.SteamAPI_ISteamUtils_GetAPICallResult.argtypes = [
-        ctypes.c_void_p, ctypes.c_uint64, ctypes.c_void_p,
-        ctypes.c_int, ctypes.c_int, ctypes.POINTER(ctypes.c_bool)
-    ]
-    steam.SteamAPI_ISteamUserStats_FindLeaderboard.restype = ctypes.c_uint64
-    steam.SteamAPI_ISteamUserStats_FindLeaderboard.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
-    steam.SteamAPI_ISteamUserStats_DownloadLeaderboardEntries.restype = ctypes.c_uint64
-    steam.SteamAPI_ISteamUserStats_DownloadLeaderboardEntries.argtypes = [
-        ctypes.c_void_p, ctypes.c_uint64, ctypes.c_int, ctypes.c_int, ctypes.c_int
-    ]
-    steam.SteamAPI_ISteamUserStats_DownloadLeaderboardEntriesForUsers.restype = ctypes.c_uint64
-    steam.SteamAPI_ISteamUserStats_DownloadLeaderboardEntriesForUsers.argtypes = [
-        ctypes.c_void_p, ctypes.c_uint64, ctypes.POINTER(ctypes.c_uint64), ctypes.c_int
-    ]
-    steam.SteamAPI_ISteamUserStats_GetDownloadedLeaderboardEntry.restype = ctypes.c_bool
-    steam.SteamAPI_ISteamUserStats_GetDownloadedLeaderboardEntry.argtypes = [
-        ctypes.c_void_p, ctypes.c_uint64, ctypes.c_int,
-        ctypes.POINTER(LeaderboardEntry), ctypes.c_void_p, ctypes.c_int
-    ]
-    steam.SteamAPI_ISteamUserStats_GetLeaderboardEntryCount.restype = ctypes.c_int
-    steam.SteamAPI_ISteamUserStats_GetLeaderboardEntryCount.argtypes = [
-        ctypes.c_void_p, ctypes.c_uint64
-    ]
-    steam.SteamAPI_ISteamFriends_GetFriendPersonaName.restype = ctypes.c_char_p
-    steam.SteamAPI_ISteamFriends_GetFriendPersonaName.argtypes = [
-        ctypes.c_void_p, ctypes.c_uint64
-    ]
-
-    steam_ready = True
-    return True, "Connected"
-
-def wait_for_call(call_handle, result_struct, callback_id, timeout=10.0):
-    failed = ctypes.c_bool(False)
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        steam.SteamAPI_RunCallbacks()
-        time.sleep(0.1)
-        if steam.SteamAPI_ISteamUtils_IsAPICallCompleted(
-                utils_iface, call_handle, ctypes.byref(failed)):
-            break
-    if failed.value:
-        return False
-    io_failed = ctypes.c_bool(False)
-    return steam.SteamAPI_ISteamUtils_GetAPICallResult(
-        utils_iface, call_handle, ctypes.byref(result_struct),
-        ctypes.sizeof(result_struct), callback_id, ctypes.byref(io_failed)
-    )
-
-def find_leaderboard(name):
-    call = steam.SteamAPI_ISteamUserStats_FindLeaderboard(user_stats, name.encode())
-    result = LeaderboardFindResult()
-    if wait_for_call(call, result, LEADERBOARD_FIND_CALLBACK):
-        if result.leaderboard_found:
-            return result.leaderboard_handle
-    return None
-
-def fetch_batch(lb_handle, start, end):
-    call = steam.SteamAPI_ISteamUserStats_DownloadLeaderboardEntries(
-        user_stats, lb_handle, 0, start, end
-    )
-    result = LeaderboardScoresDownloaded()
-    if not wait_for_call(call, result, LEADERBOARD_SCORES_CALLBACK):
-        return []
-    entries = []
-    for i in range(result.entry_count):
-        entry = LeaderboardEntry()
-        ok = steam.SteamAPI_ISteamUserStats_GetDownloadedLeaderboardEntry(
-            user_stats, result.leaderboard_entries_handle, i,
-            ctypes.byref(entry), None, 0
-        )
-        if ok:
-            # Skip known cheaters
-            if entry.steam_id_user in cheater_ids:
-                continue
-            nb = steam.SteamAPI_ISteamFriends_GetFriendPersonaName(friends, entry.steam_id_user)
-            pname = nb.decode("utf-8", errors="replace") if nb else str(entry.steam_id_user)
-            entries.append({
-                "rank": entry.global_rank, "steam_id": entry.steam_id_user,
-                "name": pname, "score_ms": entry.score,
-                "time": f"{entry.score / 1000:.3f}",
-            })
-    return entries
-
-def get_player_entry(lb_handle, steam_id):
-    id_array = (ctypes.c_uint64 * 1)(steam_id)
-    call = steam.SteamAPI_ISteamUserStats_DownloadLeaderboardEntriesForUsers(
-        user_stats, lb_handle, id_array, 1
-    )
-    result = LeaderboardScoresDownloaded()
-    if not wait_for_call(call, result, LEADERBOARD_SCORES_CALLBACK):
-        return None
-    if result.entry_count == 0:
-        return None
-    entry = LeaderboardEntry()
-    ok = steam.SteamAPI_ISteamUserStats_GetDownloadedLeaderboardEntry(
-        user_stats, result.leaderboard_entries_handle, 0,
-        ctypes.byref(entry), None, 0
-    )
-    return entry if (ok and entry.steam_id_user == steam_id) else None
 
 # ── Themes ─────────────────────────────────────────────────────────────────
 THEMES = {
@@ -2013,7 +1764,7 @@ class NeonWhiteApp:
             self._set_status(False, "No DLL path set. Go to Settings.")
             return
         self._set_status(None, "Connecting...")
-        ok, msg = init_steam(path)
+        ok, msg = steam_api.init_steam(path)
         if ok:
             self._set_status(True, "Connected", path)
         else:
@@ -2033,7 +1784,7 @@ class NeonWhiteApp:
         if connected is True:
             color = t["success"]
             self.status_label.configure(text="Connected", fg=t["success"])
-            self.player_label.configure(text=f"Player: {player_name}")
+            self.player_label.configure(text=f"Player: {steam_api.player_name}")
         elif connected is False:
             color = t["error"]
             self.status_label.configure(text=message, fg=t["error"])
@@ -2087,7 +1838,7 @@ class NeonWhiteApp:
 
     # ── Cheater list ───────────────────────────────────────────────────────
     def _fetch_cheaters_bg(self):
-        count = fetch_cheater_list()
+        count = steam_api.fetch_cheater_list()
         if count > 0:
             self.cheater_label.configure(
                 text=f"Cheaters filtered: {count:,}",
@@ -2101,13 +1852,13 @@ class NeonWhiteApp:
 
     # ── Use My Steam ID ────────────────────────────────────────────────────
     def _use_my_steam_id(self):
-        if not steam_ready or not logged_in_steam_id:
+        if not steam_api.steam_ready or not steam_api.logged_in_steam_id:
             messagebox.showerror(
                 "Not connected",
                 "Connect to Steam first in Settings — your Steam ID will be populated automatically."
             )
             return
-        self.player_id_var.set(str(logged_in_steam_id))
+        self.player_id_var.set(str(steam_api.logged_in_steam_id))
 
     # ── Browse helpers ─────────────────────────────────────────────────────
     def _browse_dll(self):
@@ -2243,7 +1994,7 @@ class NeonWhiteApp:
 
     # ── Run: Global Export ─────────────────────────────────────────────────
     def _run_global(self):
-        if not steam_ready:
+        if not steam_api.steam_ready:
             messagebox.showerror("Not connected", "Connect to Steam first in Settings.")
             return
         if self.running:
@@ -2282,18 +2033,18 @@ class NeonWhiteApp:
         total_levels = len(LEVELS)
         for idx, (display, internal) in enumerate(LEVELS, 1):
             self._log("global", f"[{idx}/{total_levels}] {display}...")
-            lb = find_leaderboard(internal)
+            lb = steam_api.find_leaderboard(internal)
             if not lb:
                 self._log("global", f"  → not found, skipping.")
                 continue
 
-            total_entries = steam.SteamAPI_ISteamUserStats_GetLeaderboardEntryCount(user_stats, lb)
+            total_entries = steam_api.steam.SteamAPI_ISteamUserStats_GetLeaderboardEntryCount(steam_api.user_stats, lb)
             fetch = min(total_entries, count)
             start = 1
             level_rows = []
             while start <= fetch:
-                end   = min(start + BATCH_SIZE - 1, fetch)
-                batch = fetch_batch(lb, start, end)
+                end   = min(start + steam_api.BATCH_SIZE - 1, fetch)
+                batch = steam_api.fetch_batch(lb, start, end)
                 if not batch:
                     break
                 for e in batch:
@@ -2322,7 +2073,7 @@ class NeonWhiteApp:
 
     # ── Run: Level Search ──────────────────────────────────────────────────
     def _run_level(self):
-        if not steam_ready:
+        if not steam_api.steam_ready:
             messagebox.showerror("Not connected", "Connect to Steam first in Settings.")
             return
         if self.running:
@@ -2356,22 +2107,22 @@ class NeonWhiteApp:
 
     def _level_worker(self, display_name, internal_name, count, out):
         self._log("level", f"Finding leaderboard for {display_name}...")
-        lb = find_leaderboard(internal_name)
+        lb = steam_api.find_leaderboard(internal_name)
         if not lb:
             self._log("level", "Leaderboard not found.")
             self.level_run_btn.configure(state=tk.NORMAL, text="Search")
             self.running = False
             return
 
-        total = steam.SteamAPI_ISteamUserStats_GetLeaderboardEntryCount(user_stats, lb)
+        total = steam_api.steam.SteamAPI_ISteamUserStats_GetLeaderboardEntryCount(steam_api.user_stats, lb)
         fetch = min(total, count)
         self._log("level", f"Total entries: {total:,}  |  Fetching top {fetch}...")
 
         start = 1
         all_rows = []
         while start <= fetch:
-            end   = min(start + BATCH_SIZE - 1, fetch)
-            batch = fetch_batch(lb, start, end)
+            end   = min(start + steam_api.BATCH_SIZE - 1, fetch)
+            batch = steam_api.fetch_batch(lb, start, end)
             if not batch:
                 break
             all_rows.extend(batch)
@@ -2398,7 +2149,7 @@ class NeonWhiteApp:
 
     # ── Run: Player Lookup ─────────────────────────────────────────────────
     def _run_player(self):
-        if not steam_ready:
+        if not steam_api.steam_ready:
             messagebox.showerror("Not connected", "Connect to Steam first in Settings.")
             return
         if self.running:
@@ -2452,19 +2203,19 @@ class NeonWhiteApp:
 
     def _player_worker(self, steam_id, levels_to_search, context, out):
         # Resolve player name once upfront
-        nb = steam.SteamAPI_ISteamFriends_GetFriendPersonaName(friends, steam_id)
+        nb = steam_api.steam.SteamAPI_ISteamFriends_GetFriendPersonaName(steam_api.friends, steam_id)
         looked_up_name = nb.decode("utf-8", errors="replace") if nb else str(steam_id)
         self._log("player", f"Looking up {looked_up_name} across {len(levels_to_search)} levels...")
         rows = []
 
         for display_name, internal_name in levels_to_search:
             self._log("player", f"  {display_name}...")
-            lb = find_leaderboard(internal_name)
+            lb = steam_api.find_leaderboard(internal_name)
             if not lb:
                 self._log("player", f"  {display_name}... not found.")
                 continue
-            total = steam.SteamAPI_ISteamUserStats_GetLeaderboardEntryCount(user_stats, lb)
-            entry = get_player_entry(lb, steam_id)
+            total = steam_api.steam.SteamAPI_ISteamUserStats_GetLeaderboardEntryCount(steam_api.user_stats, lb)
+            entry = steam_api.get_player_entry(lb, steam_id)
             if entry:
                 time_str = f"{entry.score / 1000:.3f}"
                 self._log("player", f"  {display_name}... rank #{entry.global_rank}, {time_str}s")
@@ -2595,5 +2346,5 @@ if __name__ == "__main__":
     root = tk.Tk()
     app  = NeonWhiteApp(root)
     root.mainloop()
-    if steam_ready:
-        steam.SteamAPI_Shutdown()
+    if steam_api.steam_ready:
+        steam_api.steam.SteamAPI_Shutdown()
