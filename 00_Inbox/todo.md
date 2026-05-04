@@ -38,7 +38,7 @@
 
 3. **Pipeline leaderboard fetches** in `_run_global` (line 2637) and `_run_player` (line 2792). Steam's `DownloadLeaderboardEntries` is async — currently awaited one level at a time. Cap at N concurrent calls and drain results as they come. "Player Lookup across all 96 levels" is the most user-visible win.
 
-4. **Move the entire seed-search loop into C** (extends `compile_shuffle.py` and the DLL ABI). Add `find_seeds(num_levels, seed_start, seed_end, target_mask, depth, out_buffer)` that does the shuffle + subset check inside the DLL, returning matches in a buffer. Python crosses the ctypes boundary once per ~1M-seed slab instead of every seed. Estimated 5–20× speedup on top of the current C shuffle. Do this after #1 and #2.
+4. ~~**Move the entire seed-search loop into C.**~~ **DONE — ~12× end-to-end speedup.** Added `find_seeds_batch` to `shuffle.dll`; worker now calls it in 250k-seed slabs. Old path: ~89k seeds/sec (ctypes allocation + list round-trip + issubset dominated). New: ~1.1M seeds/sec. Stop latency: ~234ms. Deviation from design doc: used two `uint64_t` masks (`target_mask_lo`/`hi`) instead of one — required because White rush has 96 levels and `1ULL<<64` is UB on x86. Also `arr[64]` → `arr[128]` and `SLAB_SIZE` → 250k (design doc said 1M, but 96-level slab took ~910ms > 500ms stop budget).
 
 5. **Reuse the shuffle output buffer** — `full_shuffle` (line 488) re-allocates `(ctypes.c_int * num_levels)` every call and re-initializes it with `*range(num_levels)`, but the C side already writes `arr[i] = i` itself (`compile_shuffle.py:39`). Allocate once per worker, reuse forever. Disappears entirely if #4 is done.
 

@@ -19,6 +19,7 @@ import glob
 
 C_CODE = r"""
 #include <string.h>
+#include <stdint.h>
 #define MBIG 2147483647LL
 __declspec(dllexport) void full_shuffle(int num_levels, int seed, int* arr) {
     long long SA[56]; int i, k;
@@ -49,6 +50,65 @@ __declspec(dllexport) void full_shuffle(int num_levels, int seed, int* arr) {
         if (j < 0) j += num_levels;
         int tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
     }
+}
+
+/* target_mask_lo: bits for indices 0-63; target_mask_hi: bits for indices 64-127.
+   Splitting avoids undefined behavior from 1ULL<<N with N>=64 on x86. */
+__declspec(dllexport) int find_seeds_batch(
+    int      num_levels,
+    int      seed_start,
+    int      seed_end,
+    uint64_t target_mask_lo,
+    uint64_t target_mask_hi,
+    int      depth,
+    int*     out_seeds,
+    int      out_capacity,
+    int*     out_count
+) {
+    int seed;
+    for (seed = seed_start; seed < seed_end; seed++) {
+        long long SA[56]; int i, k;
+        int arr[128];  /* 96 levels max in practice; 128 gives headroom */
+        memset(SA, 0, sizeof(SA));
+        long long absseed = seed >= 0 ? (long long)seed : -(long long)seed;
+        long long mj = 161803398LL - absseed;
+        SA[55] = mj;
+        long long mk = 1;
+        for (i = 1; i < 55; i++) {
+            int ix = (21 * i) % 55; SA[ix] = mk;
+            mk = mj - mk; if (mk < 0) mk += MBIG; mj = SA[ix];
+        }
+        for (k = 0; k < 4; k++)
+            for (i = 1; i < 56; i++) {
+                int n = i + 30; if (n >= 55) n -= 55;
+                SA[i] -= SA[1 + n]; if (SA[i] < 0) SA[i] += MBIG;
+            }
+        for (i = 0; i < num_levels; i++) arr[i] = i;
+        int ie = 0, ixx = 21;
+        for (i = 0; i < num_levels; i++) {
+            if (++ie  >= 56) ie  = 1;
+            if (++ixx >= 56) ixx = 1;
+            long long r = SA[ie] - SA[ixx];
+            if (r == MBIG) r--;
+            if (r < 0) r += MBIG;
+            SA[ie] = r;
+            int j = (int)(r % (long long)num_levels);
+            if (j < 0) j += num_levels;
+            int tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+        }
+        uint64_t seen_lo = 0, seen_hi = 0;
+        for (i = 0; i < depth; i++) {
+            if (arr[i] < 64) seen_lo |= (1ULL << arr[i]);
+            else             seen_hi |= (1ULL << (arr[i] - 64));
+        }
+        if ((target_mask_lo & seen_lo) == target_mask_lo &&
+            (target_mask_hi & seen_hi) == target_mask_hi) {
+            out_seeds[*out_count] = seed;
+            (*out_count)++;
+            if (*out_count == out_capacity) return seed + 1;
+        }
+    }
+    return seed_end;
 }
 """
 
@@ -189,7 +249,33 @@ def verify_dll():
         for s in range(1, N + 1):
             lib.full_shuffle(96, s, arr)
         rate = N / (time.time() - t0)
-        return True, f"{rate:,.0f} seeds/sec"
+
+        # Smoke-test find_seeds_batch: num_levels=8, seeds 0..999, target_mask=0b111 (levels 0,1,2), depth=3
+        # Expected: seeds where levels 0,1,2 all appear in first 3 positions.
+        lib.find_seeds_batch.argtypes = [
+            ctypes.c_int, ctypes.c_int, ctypes.c_int,
+            ctypes.c_uint64, ctypes.c_uint64, ctypes.c_int,
+            ctypes.POINTER(ctypes.c_int), ctypes.c_int,
+            ctypes.POINTER(ctypes.c_int),
+        ]
+        lib.find_seeds_batch.restype = ctypes.c_int
+
+        out_buf   = (ctypes.c_int * 4096)()
+        out_count = ctypes.c_int(0)
+        stopped   = lib.find_seeds_batch(8, 0, 1000, 0b111, 0, 3, out_buf, 4096, ctypes.byref(out_count))
+
+        # Cross-check with full_shuffle
+        expected = []
+        arr8 = (ctypes.c_int * 8)()
+        for s in range(1000):
+            lib.full_shuffle(8, s, arr8)
+            if {0, 1, 2}.issubset(arr8[:3]):
+                expected.append(s)
+        actual = sorted(out_buf[i] for i in range(out_count.value))
+        if actual != expected:
+            return False, f"find_seeds_batch smoke check failed: got {actual}, expected {expected}"
+
+        return True, f"{rate:,.0f} seeds/sec (full_shuffle); find_seeds_batch smoke OK ({out_count.value} matches in seeds 0–999)"
     except Exception as e:
         return False, str(e)
 

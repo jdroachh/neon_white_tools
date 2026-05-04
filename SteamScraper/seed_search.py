@@ -5,7 +5,11 @@ Deliberately tiny: only depends on shuffle_lib (and stdlib). Workers spawned
 against this module's _seed_search_worker re-import only this file plus
 shuffle_lib + ctypes, instead of all 2991 lines of neonwhite_app.py.
 """
-from shuffle_lib import _load_c_shuffle, full_shuffle
+import ctypes
+from shuffle_lib import _load_c_shuffle, find_seeds_batch
+
+SLAB_SIZE        = 250_000
+MATCHES_PER_SLAB = 4096
 
 
 def _expected_match_count(num_levels, num_targets, depth, seed_range=2_147_483_647):
@@ -34,26 +38,33 @@ def _seed_search_worker(args):
         None                   -> sentinel: worker finished
     """
     seed_start, seed_end, num_levels, target_set, depth, result_queue, stop_event = args
-    # On Windows, spawned children don't run NeonWhiteApp.__init__, so
-    # _SHUFFLE_LIB stays None and full_shuffle silently uses the slow Python
-    # fallback. Load the DLL here so workers run the native shuffle.
     _load_c_shuffle()
 
-    PROGRESS_BATCH = 200_000
-    since_report = 0
-    for seed in range(seed_start, seed_end):
+    target_mask_lo = 0
+    target_mask_hi = 0
+    for idx in target_set:
+        if idx < 64:
+            target_mask_lo |= (1 << idx)
+        else:
+            target_mask_hi |= (1 << (idx - 64))
+
+    out_buffer = (ctypes.c_int * MATCHES_PER_SLAB)()
+    out_count  = ctypes.c_int(0)
+
+    seed = seed_start
+    while seed < seed_end:
         if stop_event.is_set():
             break
-        order = full_shuffle(num_levels, seed)
-        # issubset accepts any iterable and builds its own internal set; the
-        # explicit outer set(order[:depth]) used to be there is a wasted
-        # allocation per seed (~1.8x slower than passing the slice directly).
-        if target_set.issubset(order[:depth]):
-            result_queue.put(seed)
-        since_report += 1
-        if since_report >= PROGRESS_BATCH:
-            result_queue.put(("progress", since_report))
-            since_report = 0
-    if since_report:
-        result_queue.put(("progress", since_report))
+        slab_end = min(seed + SLAB_SIZE, seed_end)
+        out_count.value = 0
+        stopped_at = find_seeds_batch(
+            num_levels, seed, slab_end,
+            target_mask_lo, target_mask_hi, depth,
+            out_buffer, ctypes.byref(out_count),
+        )
+        for i in range(out_count.value):
+            result_queue.put(out_buffer[i])
+        result_queue.put(("progress", stopped_at - seed))
+        seed = stopped_at
+
     result_queue.put(None)  # sentinel — this worker is done

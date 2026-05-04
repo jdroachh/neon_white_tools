@@ -61,6 +61,13 @@ def _load_c_shuffle():
             ctypes.c_int, ctypes.c_int, ctypes.POINTER(ctypes.c_int)
         ]
         lib.full_shuffle.restype = None
+        lib.find_seeds_batch.argtypes = [
+            ctypes.c_int, ctypes.c_int, ctypes.c_int,
+            ctypes.c_uint64, ctypes.c_uint64, ctypes.c_int,
+            ctypes.POINTER(ctypes.c_int), ctypes.c_int,
+            ctypes.POINTER(ctypes.c_int),
+        ]
+        lib.find_seeds_batch.restype = ctypes.c_int
         # Quick sanity check
         arr = (ctypes.c_int * 96)()
         lib.full_shuffle(96, 58685, arr)
@@ -70,6 +77,19 @@ def _load_c_shuffle():
         return True
     except Exception:
         return False
+
+
+def find_seeds_batch(num_levels, seed_start, seed_end, target_mask_lo, target_mask_hi,
+                     depth, out_buffer, out_count_box):
+    """Run the seed search inside shuffle.dll. Returns seed it stopped at."""
+    if _SHUFFLE_LIB is None:
+        raise RuntimeError("shuffle.dll not loaded — run compile_shuffle.py")
+    return _SHUFFLE_LIB.find_seeds_batch(
+        num_levels, seed_start, seed_end,
+        target_mask_lo, target_mask_hi, depth,
+        out_buffer, len(out_buffer),
+        out_count_box,
+    )
 
 
 def full_shuffle(num_levels, seed):
