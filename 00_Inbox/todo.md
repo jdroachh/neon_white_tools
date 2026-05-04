@@ -6,8 +6,29 @@
 -->
 
 - May have to archive NeonWhite App versions
-- Modularize the code
 - Run insights
+- Start config for sub-agent work
+
+## Seed Finder error paths reference undefined `self.finder_result`
+
+- **Repro:** in Seed Finder, leave the levels field empty (or matching the placeholder) and click Find Seed. Or enter non-numeric Search Depth. Or enter an unknown level name. Or click "No" on the unlikely-search confirmation dialog.
+- **Symptom:** `AttributeError: 'NeonWhiteApp' object has no attribute 'finder_result'`. `_build_rush_finder` never creates `finder_result` — the Treeview-based results layout has no `_rush_result_box` like the other Rush tabs do.
+- **Confirmed not** caused by the 2026-05-04 finder extraction — copy-paste of the original `_run_finder`. Pre-existing.
+- **Fix sketch:** either (a) replace those `self._rush_show(self.finder_result, ...)` calls with `self.finder_status_var.set(...)` + maybe a `messagebox.showerror(...)`, or (b) add a small status label below the Treeview and use it as `finder_result`. Option (a) is simpler and matches the rest of the finder UX (uses `finder_status_var`).
+
+## Run Timer split-input parser is too brittle
+
+- **Repro:** paste lines like `Stomp Traversal 38.28` and `Fireball Traversal 2:27.26` into the Run Timer input. Errors out on row 1 (no colon → entire line treated as time) and on rows with `mm:ss.xxx` times prefixed by a name (splits at the *first* colon, so `name = "Fireball Traversal 2"`, `time = "27.26"`, and cumulative-time monotonicity check fails).
+- **Confirmed not** caused by the 2026-05-04 timer extraction — copy-paste of the original `_run_timer`/`_parse_time_to_secs` logic. Pre-existing.
+- **Fix sketch:** parse the *trailing* whitespace-separated token as the time first (covers `Name 1:51.85` and `Name 38.28`); fall back to the existing `Name: time` colon-split for backward compat; keep the bare-time path. ~10 lines in `tab_rush_timer.RushTimerTabMixin._run_timer`.
+- **User-facing impact:** the format speedrunners actually paste from livesplit/etc. is `Name<whitespace>time` — current parser forces them to manually insert colons.
+
+## Seed/shuffle discrepancy (investigation needed)
+
+- **Repro:** Red rush, seed `54304`. User-expected play order: Stomp → Dominion → Godspeed → Elevate II → Fireball → Purify → Elevate I → Book of Life. App (Parser AND Splits Updater both) outputs: Godspeed → Purify → Elevate II → Book of Life → Elevate I → Fireball → Stomp → Dominion.
+- **Confirmed not** caused by the 2026-05-04 splits/parser tab extraction — Parser produces the same "wrong" order, and Parser code is unchanged in behavior. Pre-existing.
+- **Suspect:** the C Fisher-Yates in `shuffle.dll` (`compile_shuffle.py`) doesn't replicate the game's actual algorithm, OR the seed number the user sees in-game maps to a different internal seed (some hash/transform). Worth checking against in-game runs across multiple seeds + rushes to see if the discrepancy is systematic.
+- Test harness `SteamScraper/_seed_finder_test.py` could be extended once we have a known-good seed→order mapping from the game.
 
 ## Efficiency / performance (ranked by ROI — impact ÷ effort)
 
@@ -51,3 +72,4 @@ Ranked by ROI. Best done *after* the `steam_api.py` extraction so they live as i
 - Decide what to do with the credential files currently bundled into the EXE (`neonwhite.spec` line 27-28) — they should not land in a public repo
 - Document the `neonwhite_config.json` schema (expected keys: `dll_path`, output dirs, sheet IDs) somewhere in `01_Codebase_Map/` or as a README
 - Consider an `_archive/` subfolder under `SteamScraper/` to separate live code from legacy scripts and `Neon White App versions/`
+

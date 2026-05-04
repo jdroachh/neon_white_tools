@@ -8,4 +8,4 @@
 
 - Rewrite entire app using opus
 - Google Auth alternatives
-- 
+-  "let's tackle UI section split (modularization step 4)" or "let's do API efficiency work"
