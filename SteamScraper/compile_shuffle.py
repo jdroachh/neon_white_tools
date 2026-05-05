@@ -21,6 +21,7 @@ C_CODE = r"""
 #include <string.h>
 #include <stdint.h>
 #define MBIG 2147483647LL
+#define MAX_LEVELS 128  /* 96 White-rush levels + headroom */
 __declspec(dllexport) void full_shuffle(int num_levels, int seed, int* arr) {
     long long SA[56]; int i, k;
     memset(SA, 0, sizeof(SA));
@@ -68,7 +69,7 @@ __declspec(dllexport) int find_seeds_batch(
     int seed;
     for (seed = seed_start; seed < seed_end; seed++) {
         long long SA[56]; int i, k;
-        int arr[128];  /* 96 levels max in practice; 128 gives headroom */
+        int arr[MAX_LEVELS];
         memset(SA, 0, sizeof(SA));
         long long absseed = seed >= 0 ? (long long)seed : -(long long)seed;
         long long mj = 161803398LL - absseed;
@@ -275,7 +276,88 @@ def verify_dll():
         if actual != expected:
             return False, f"find_seeds_batch smoke check failed: got {actual}, expected {expected}"
 
-        return True, f"{rate:,.0f} seeds/sec (full_shuffle); find_seeds_batch smoke OK ({out_count.value} matches in seeds 0–999)"
+        # --- 96-level hi-mask smoke test: straddles the 64-boundary ---
+        # Levels 5 and 60 land in target_mask_lo; 70 and 90 land in target_mask_hi.
+        # depth=50 gives ~3400 expected matches in 50K seeds, making the
+        # buffer-full test below meaningful (depth=10 gives ~3, too sparse).
+        target_levels_96 = {5, 60, 70, 90}
+        DEPTH_96 = 50
+        target_mask_lo_96 = 0
+        target_mask_hi_96 = 0
+        for lv in target_levels_96:
+            if lv < 64:
+                target_mask_lo_96 |= (1 << lv)
+            else:
+                target_mask_hi_96 |= (1 << (lv - 64))
+
+        arr96 = (ctypes.c_int * 96)()
+        expected_96 = []
+        for s in range(50_000):
+            lib.full_shuffle(96, s, arr96)
+            if target_levels_96.issubset(set(arr96[:DEPTH_96])):
+                expected_96.append(s)
+
+        out_buf_96   = (ctypes.c_int * 4096)()
+        out_count_96 = ctypes.c_int(0)
+        lib.find_seeds_batch(
+            96, 0, 50_000,
+            target_mask_lo_96, target_mask_hi_96, DEPTH_96,
+            out_buf_96, 4096, ctypes.byref(out_count_96),
+        )
+        actual_96 = sorted(out_buf_96[i] for i in range(out_count_96.value))
+        if actual_96 != expected_96:
+            missing = [s for s in expected_96 if s not in set(actual_96)]
+            extra   = [s for s in actual_96   if s not in set(expected_96)]
+            # Diagnose which mask half causes missed seeds: re-check each missing
+            # seed and see whether it satisfies lo/hi independently.
+            lo_only_fail = hi_only_fail = both_fail = 0
+            for s in missing[:200]:
+                lib.full_shuffle(96, s, arr96)
+                top = set(arr96[:10])
+                lo_ok = {lv for lv in target_levels_96 if lv < 64}.issubset(top)
+                hi_ok = {lv for lv in target_levels_96 if lv >= 64}.issubset(top)
+                if not lo_ok and not hi_ok: both_fail += 1
+                elif not lo_ok:             lo_only_fail += 1
+                else:                       hi_only_fail += 1
+            return False, (
+                f"96-level hi-mask smoke failed: {len(missing)} missing, {len(extra)} extra. "
+                f"First missing: {missing[:3]}, first extra: {extra[:3]}. "
+                f"(lo-only failures: {lo_only_fail}, hi-only: {hi_only_fail}, both: {both_fail})"
+            )
+
+        # --- buffer-full path test: out_capacity=4 forces multiple slab calls ---
+        SMALL_CAP   = 4
+        out_buf_sm  = (ctypes.c_int * SMALL_CAP)()
+        accumulated = []
+        total_scanned = 0
+        cur = 0
+        while cur < 50_000:
+            out_count_sm = ctypes.c_int(0)
+            stopped = lib.find_seeds_batch(
+                96, cur, 50_000,
+                target_mask_lo_96, target_mask_hi_96, DEPTH_96,
+                out_buf_sm, SMALL_CAP, ctypes.byref(out_count_sm),
+            )
+            total_scanned += stopped - cur
+            accumulated.extend(out_buf_sm[i] for i in range(out_count_sm.value))
+            cur = stopped
+
+        if accumulated != expected_96:
+            missing_bf = [s for s in expected_96 if s not in set(accumulated)]
+            extra_bf   = [s for s in accumulated  if s not in set(expected_96)]
+            return False, (
+                f"buffer-full path failed: {len(missing_bf)} missing, {len(extra_bf)} extra. "
+                f"First missing: {missing_bf[:3]}, first extra: {extra_bf[:3]}"
+            )
+        if total_scanned != 50_000:
+            return False, f"buffer-full coverage wrong: scanned {total_scanned}, expected 50000"
+
+        return True, (
+            f"{rate:,.0f} seeds/sec (full_shuffle); "
+            f"find_seeds_batch smoke OK ({out_count.value} matches in 0–999); "
+            f"96-level hi-mask OK ({len(expected_96)} matches in 0–49999); "
+            f"buffer-full path OK"
+        )
     except Exception as e:
         return False, str(e)
 
