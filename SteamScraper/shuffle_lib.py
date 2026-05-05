@@ -72,6 +72,12 @@ def _load_c_shuffle():
         lib.full_shuffle(96, 58685, arr)
         if arr[0] != 95:
             return False  # DLL produces wrong results
+        # Smoke-test find_seeds_batch: 8 levels, seeds 0–99, target={0,1,2} at depth=3
+        out_buf   = (ctypes.c_int * 16)()
+        out_count = ctypes.c_int(0)
+        lib.find_seeds_batch(8, 0, 100, 0b111, 0, 3, out_buf, 16, ctypes.pointer(out_count))
+        if out_count.value < 0:
+            return False
         _SHUFFLE_LIB = lib
         return True
     except Exception:

@@ -66,6 +66,7 @@ __declspec(dllexport) int find_seeds_batch(
     int*     out_count
 ) {
     int seed;
+    if (depth > num_levels) depth = num_levels;
     for (seed = seed_start; seed < seed_end; seed++) {
         long long SA[56]; int i, k;
         int arr[MAX_LEVELS];
@@ -395,7 +396,7 @@ def main():
         print(f"failed\n  {err}")
         print()
         print("To fix:")
-        print("  1. Open Visual Studio Installer → Modify → ensure")
+        print("  1. Open Visual Studio Installer > Modify > ensure")
         print("     'Desktop development with C++' workload is installed")
         print("  2. Or install MinGW from winlibs.com and add to PATH")
         sys.exit(1)

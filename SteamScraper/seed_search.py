@@ -57,10 +57,11 @@ def _seed_search_worker(args):
             break
         slab_end = min(seed + SLAB_SIZE, seed_end)
         out_count.value = 0
+        out_count_ptr = ctypes.pointer(out_count)
         stopped_at = find_seeds_batch(
             num_levels, seed, slab_end,
             target_mask_lo, target_mask_hi, depth,
-            out_buffer, ctypes.byref(out_count),
+            out_buffer, out_count_ptr,
         )
         for i in range(out_count.value):
             result_queue.put(out_buffer[i])
