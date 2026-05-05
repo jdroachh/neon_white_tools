@@ -23,30 +23,30 @@ C_CODE = r"""
 #define MBIG 2147483647LL
 #define MAX_LEVELS 128  /* 96 White-rush levels + headroom */
 __declspec(dllexport) void full_shuffle(int num_levels, int seed, int* arr) {
-    long long SA[56]; int i, k;
+    int SA[56]; int i, k;
     memset(SA, 0, sizeof(SA));
     long long absseed = seed >= 0 ? (long long)seed : -(long long)seed;
     long long mj = 161803398LL - absseed;
-    SA[55] = mj;
+    SA[55] = (int)mj;
     long long mk = 1;
     for (i = 1; i < 55; i++) {
-        int ix = (21 * i) % 55; SA[ix] = mk;
+        int ix = (21 * i) % 55; SA[ix] = (int)mk;
         mk = mj - mk; if (mk < 0) mk += MBIG; mj = SA[ix];
     }
     for (k = 0; k < 4; k++)
         for (i = 1; i < 56; i++) {
             int n = i + 30; if (n >= 55) n -= 55;
-            SA[i] -= SA[1 + n]; if (SA[i] < 0) SA[i] += MBIG;
+            SA[i] = (int)((long long)SA[i] - SA[1 + n]); if (SA[i] < 0) SA[i] += MBIG;
         }
     for (i = 0; i < num_levels; i++) arr[i] = i;
     int ie = 0, ixx = 21;
     for (i = 0; i < num_levels; i++) {
         if (++ie  >= 56) ie  = 1;
         if (++ixx >= 56) ixx = 1;
-        long long r = SA[ie] - SA[ixx];
+        long long r = (long long)SA[ie] - (long long)SA[ixx];
         if (r == MBIG) r--;
         if (r < 0) r += MBIG;
-        SA[ie] = r;
+        SA[ie] = (int)r;
         int j = (int)((double)r * (1.0 / MBIG) * num_levels);
         int tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
     }
@@ -54,7 +54,9 @@ __declspec(dllexport) void full_shuffle(int num_levels, int seed, int* arr) {
 
 /* target_mask_lo: bits for indices 0-63; target_mask_hi: bits for indices 64-127.
    Splitting avoids undefined behavior from 1ULL<<N with N>=64 on x86. */
-__declspec(dllexport) int find_seeds_batch(
+/* Returns count<<32 | stopped_at_seed (packed long long).
+   No pointer output arg — eliminates ctypes POINTER-in-stack-args issues on Python 3.14. */
+__declspec(dllexport) long long find_seeds_batch(
     int      num_levels,
     int      seed_start,
     int      seed_end,
@@ -62,37 +64,36 @@ __declspec(dllexport) int find_seeds_batch(
     uint64_t target_mask_hi,
     int      depth,
     int*     out_seeds,
-    int      out_capacity,
-    int*     out_count
+    int      out_capacity
 ) {
-    int seed;
+    int seed, count = 0;
     if (depth > num_levels) depth = num_levels;
     for (seed = seed_start; seed < seed_end; seed++) {
-        long long SA[56]; int i, k;
+        int SA[56]; int i, k;
         int arr[MAX_LEVELS];
         memset(SA, 0, sizeof(SA));
         long long absseed = seed >= 0 ? (long long)seed : -(long long)seed;
         long long mj = 161803398LL - absseed;
-        SA[55] = mj;
+        SA[55] = (int)mj;
         long long mk = 1;
         for (i = 1; i < 55; i++) {
-            int ix = (21 * i) % 55; SA[ix] = mk;
+            int ix = (21 * i) % 55; SA[ix] = (int)mk;
             mk = mj - mk; if (mk < 0) mk += MBIG; mj = SA[ix];
         }
         for (k = 0; k < 4; k++)
             for (i = 1; i < 56; i++) {
                 int n = i + 30; if (n >= 55) n -= 55;
-                SA[i] -= SA[1 + n]; if (SA[i] < 0) SA[i] += MBIG;
+                SA[i] = (int)((long long)SA[i] - SA[1 + n]); if (SA[i] < 0) SA[i] += MBIG;
             }
         for (i = 0; i < num_levels; i++) arr[i] = i;
         int ie = 0, ixx = 21;
         for (i = 0; i < num_levels; i++) {
             if (++ie  >= 56) ie  = 1;
             if (++ixx >= 56) ixx = 1;
-            long long r = SA[ie] - SA[ixx];
+            long long r = (long long)SA[ie] - (long long)SA[ixx];
             if (r == MBIG) r--;
             if (r < 0) r += MBIG;
-            SA[ie] = r;
+            SA[ie] = (int)r;
             int j = (int)((double)r * (1.0 / MBIG) * num_levels);
             int tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
         }
@@ -103,12 +104,12 @@ __declspec(dllexport) int find_seeds_batch(
         }
         if ((target_mask_lo & seen_lo) == target_mask_lo &&
             (target_mask_hi & seen_hi) == target_mask_hi) {
-            out_seeds[*out_count] = seed;
-            (*out_count)++;
-            if (*out_count == out_capacity) return seed + 1;
+            out_seeds[count++] = seed;
+            if (count == out_capacity)
+                return ((long long)count << 32) | (unsigned int)(seed + 1);
         }
     }
-    return seed_end;
+    return ((long long)count << 32) | (unsigned int)seed_end;
 }
 """
 
@@ -256,13 +257,13 @@ def verify_dll():
             ctypes.c_int, ctypes.c_int, ctypes.c_int,
             ctypes.c_uint64, ctypes.c_uint64, ctypes.c_int,
             ctypes.POINTER(ctypes.c_int), ctypes.c_int,
-            ctypes.POINTER(ctypes.c_int),
         ]
-        lib.find_seeds_batch.restype = ctypes.c_int
+        lib.find_seeds_batch.restype = ctypes.c_longlong
 
-        out_buf   = (ctypes.c_int * 4096)()
-        out_count = ctypes.c_int(0)
-        stopped   = lib.find_seeds_batch(8, 0, 1000, 0b111, 0, 3, out_buf, 4096, ctypes.byref(out_count))
+        out_buf  = (ctypes.c_int * 4096)()
+        r        = lib.find_seeds_batch(8, 0, 1000, 0b111, 0, 3, out_buf, 4096)
+        stopped  = r & 0xFFFFFFFF
+        n_found  = (r >> 32) & 0xFFFFFFFF
 
         # Cross-check with full_shuffle
         expected = []
@@ -271,7 +272,7 @@ def verify_dll():
             lib.full_shuffle(8, s, arr8)
             if {0, 1, 2}.issubset(arr8[:3]):
                 expected.append(s)
-        actual = sorted(out_buf[i] for i in range(out_count.value))
+        actual = sorted(out_buf[i] for i in range(n_found))
         if actual != expected:
             return False, f"find_seeds_batch smoke check failed: got {actual}, expected {expected}"
 
@@ -296,14 +297,13 @@ def verify_dll():
             if target_levels_96.issubset(arr96[:DEPTH_96]):
                 expected_96.append(s)
 
-        out_buf_96   = (ctypes.c_int * 4096)()
-        out_count_96 = ctypes.c_int(0)
-        lib.find_seeds_batch(
+        out_buf_96 = (ctypes.c_int * 4096)()
+        r96        = lib.find_seeds_batch(
             96, 0, 50_000,
             target_mask_lo_96, target_mask_hi_96, DEPTH_96,
-            out_buf_96, 4096, ctypes.byref(out_count_96),
+            out_buf_96, 4096,
         )
-        actual_96 = sorted(out_buf_96[i] for i in range(out_count_96.value))
+        actual_96 = sorted(out_buf_96[i] for i in range((r96 >> 32) & 0xFFFFFFFF))
         if actual_96 != expected_96:
             missing = [s for s in expected_96 if s not in set(actual_96)]
             extra   = [s for s in actual_96   if s not in set(expected_96)]
@@ -331,14 +331,15 @@ def verify_dll():
         total_scanned = 0
         cur = 0
         while cur < 50_000:
-            out_count_sm = ctypes.c_int(0)
-            stopped = lib.find_seeds_batch(
+            rsm     = lib.find_seeds_batch(
                 96, cur, 50_000,
                 target_mask_lo_96, target_mask_hi_96, DEPTH_96,
-                out_buf_sm, SMALL_CAP, ctypes.byref(out_count_sm),
+                out_buf_sm, SMALL_CAP,
             )
+            stopped = rsm & 0xFFFFFFFF
+            cnt_sm  = (rsm >> 32) & 0xFFFFFFFF
             total_scanned += stopped - cur
-            accumulated.extend(out_buf_sm[i] for i in range(out_count_sm.value))
+            accumulated.extend(out_buf_sm[i] for i in range(cnt_sm))
             cur = stopped
 
         if accumulated != expected_96:
@@ -351,11 +352,38 @@ def verify_dll():
         if total_scanned != 50_000:
             return False, f"buffer-full coverage wrong: scanned {total_scanned}, expected 50000"
 
+        # --- high-seed cross-check: DLL vs Python fallback ---
+        import sys as _sys
+        _script_dir = os.path.dirname(os.path.abspath(__file__))
+        if _script_dir not in _sys.path:
+            _sys.path.insert(0, _script_dir)
+        import shuffle_lib as _sl
+        _saved_lib = _sl._SHUFFLE_LIB
+        _sl._SHUFFLE_LIB = None  # force Python branch for cross-check
+        try:
+            _high_seeds = [200_000_000, 257_267_304, 500_000_000,
+                           1_000_000_000, 1_500_000_000, 2_147_483_647]
+            _arr_dll = (ctypes.c_int * 96)()
+            for _hs in _high_seeds:
+                lib.full_shuffle(96, _hs, _arr_dll)
+                _py = _sl.full_shuffle(96, _hs)
+                if list(_arr_dll) != _py:
+                    return False, (
+                        f"high-seed cross-check failed at seed {_hs}: "
+                        f"DLL[0:5]={list(_arr_dll)[:5]}, Python[0:5]={_py[:5]}"
+                    )
+            # crash check: previously-AV-ing seed range must return cleanly
+            _out_crash = (ctypes.c_int * 32)()
+            lib.find_seeds_batch(96, 257_267_303, 257_267_310, 0, 0, 25, _out_crash, 32)
+        finally:
+            _sl._SHUFFLE_LIB = _saved_lib
+
         return True, (
             f"{rate:,.0f} seeds/sec (full_shuffle); "
-            f"find_seeds_batch smoke OK ({out_count.value} matches in 0–999); "
+            f"find_seeds_batch smoke OK ({n_found} matches in 0–999); "
             f"96-level hi-mask OK ({len(expected_96)} matches in 0–49999); "
-            f"buffer-full path OK"
+            f"buffer-full path OK; "
+            f"high-seed cross-check OK ({len(_high_seeds)} seeds)"
         )
     except Exception as e:
         return False, str(e)
