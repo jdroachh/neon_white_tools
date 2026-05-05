@@ -8,7 +8,7 @@ is never created. Those branches (placeholder/empty input, non-numeric depth,
 parse error) will raise AttributeError if ever hit. Preserved as-is during
 extraction; tracked separately.
 """
-import multiprocessing
+import os
 import queue
 import threading
 import tkinter as tk
@@ -179,7 +179,7 @@ class RushFinderTabMixin:
         names      = RUSH_LEVELS[rush_key]
 
         # Determine core count — all minus one, minimum 1
-        num_cores  = max(1, multiprocessing.cpu_count() - 1)
+        num_cores  = max(1, (os.cpu_count() or 1) - 1)
         MAX_SEED   = 2_147_483_647
         chunk_size = MAX_SEED // num_cores
 
