@@ -41,8 +41,7 @@ void full_shuffle(int num_levels, int seed, int* arr) {
         if (r == MBIG) r--;
         if (r < 0) r += MBIG;
         SA[ie] = r;
-        int j = (int)(r % (long long)num_levels);
-        if (j < 0) j += num_levels;
+        int j = (int)((double)r * (1.0 / MBIG) * num_levels);
         int tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
     }
 }
@@ -71,7 +70,7 @@ def _load_c_shuffle():
         # Quick sanity check
         arr = (ctypes.c_int * 96)()
         lib.full_shuffle(96, 58685, arr)
-        if arr[0] != 60:
+        if arr[0] != 95:
             return False  # DLL produces wrong results
         _SHUFFLE_LIB = lib
         return True
@@ -129,6 +128,6 @@ def full_shuffle(num_levels, seed):
         if r == _MBIG: r -= 1
         if r < 0:      r += _MBIG
         SA[ie] = r
-        j = r % num_levels
+        j = int(r * (1.0 / _MBIG) * num_levels)
         arr[i], arr[j] = arr[j], arr[i]
     return arr

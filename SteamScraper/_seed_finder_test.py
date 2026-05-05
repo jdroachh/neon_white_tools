@@ -19,7 +19,7 @@ def test_main_process_dll():
     print(f"[main] _SHUFFLE_LIB is None? {sl._SHUFFLE_LIB is None}")
 
     order = sl.full_shuffle(96, 58685)
-    print(f"[main] full_shuffle(96, 58685)[0] = {order[0]} (expected 60)")
+    print(f"[main] full_shuffle(96, 58685)[0] = {order[0]} (expected 95)")
 
     N = 50_000
     t0 = time.time()
@@ -162,8 +162,33 @@ def test_subset_check_speedup():
     print(f"  bitmask vs original speedup: {speedup:.2f}x   correctness: {agree}")
 
 
+def verify_ground_truth():
+    """Assert full_shuffle matches all in-game ground-truth pairs."""
+    import sys
+    import os
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from _seed_ground_truth import GROUND_TRUTH
+    sl._load_c_shuffle()
+    print("\n--- Ground-truth verification ---")
+    LEVEL_COUNTS = {"red": 8, "violet": 8, "yellow": 8, "96": 96}
+    all_pass = True
+    for rush_key, seed, expected in GROUND_TRUTH:
+        n = LEVEL_COUNTS[rush_key]
+        got = sl.full_shuffle(n, seed)
+        ok = got == expected
+        status = "PASS" if ok else f"FAIL: got {got}"
+        print(f"  {rush_key} seed {seed}: {status}")
+        if not ok:
+            all_pass = False
+    if all_pass:
+        print("[ground_truth] all pairs pass")
+    else:
+        raise AssertionError("Ground-truth verification failed — see above")
+
+
 if __name__ == "__main__":
     multiprocessing.freeze_support()
+    verify_ground_truth()
     test_main_process_dll()
     test_worker_self_loads_dll()
     test_progress_messages_emitted()

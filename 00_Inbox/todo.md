@@ -8,6 +8,17 @@
 - May have to archive NeonWhite App versions
 - Run insights
 - Start config for sub-agent work
+- What changed:
+  - compile_shuffle.py: new find_seeds_batch C function + smoke test in verify_dll()
+  - shuffle_lib.py: argtypes registered + Python wrapper
+  - seed_search.py: worker rewritten to call C in 250k-seed slabs
+
+  Measured speedup: ~12× end-to-end (89k → 1.1M seeds/sec). Stop latency: 234ms.
+
+  Three deviations from design doc — all required for correctness:
+  1. arr[64] → arr[128]: White rush has 96 levels, would have silently overflowed the stack
+  2. Single uint64_t target_mask → target_mask_lo + target_mask_hi: 1ULL<<N with N≥64 is UB on x86; caused false positives on seeds where a level index ≥64 appeared in the first depth positions
+  3. SLAB_SIZE 1M → 250k: 96-level slab at 1.1M seeds/sec took ~910ms > 500ms stop budget (design doc explicitly noted 250k as the tuning knob)
 
 ## Seed Finder error paths reference undefined `self.finder_result`
 
@@ -22,13 +33,6 @@
 - **Confirmed not** caused by the 2026-05-04 timer extraction — copy-paste of the original `_run_timer`/`_parse_time_to_secs` logic. Pre-existing.
 - **Fix sketch:** parse the *trailing* whitespace-separated token as the time first (covers `Name 1:51.85` and `Name 38.28`); fall back to the existing `Name: time` colon-split for backward compat; keep the bare-time path. ~10 lines in `tab_rush_timer.RushTimerTabMixin._run_timer`.
 - **User-facing impact:** the format speedrunners actually paste from livesplit/etc. is `Name<whitespace>time` — current parser forces them to manually insert colons.
-
-## Seed/shuffle discrepancy (investigation needed)
-
-- **Repro:** Red rush, seed `54304`. User-expected play order: Stomp → Dominion → Godspeed → Elevate II → Fireball → Purify → Elevate I → Book of Life. App (Parser AND Splits Updater both) outputs: Godspeed → Purify → Elevate II → Book of Life → Elevate I → Fireball → Stomp → Dominion.
-- **Confirmed not** caused by the 2026-05-04 splits/parser tab extraction — Parser produces the same "wrong" order, and Parser code is unchanged in behavior. Pre-existing.
-- **Suspect:** the C Fisher-Yates in `shuffle.dll` (`compile_shuffle.py`) doesn't replicate the game's actual algorithm, OR the seed number the user sees in-game maps to a different internal seed (some hash/transform). Worth checking against in-game runs across multiple seeds + rushes to see if the discrepancy is systematic.
-- Test harness `SteamScraper/_seed_finder_test.py` could be extended once we have a known-good seed→order mapping from the game.
 
 ## Efficiency / performance (ranked by ROI — impact ÷ effort)
 

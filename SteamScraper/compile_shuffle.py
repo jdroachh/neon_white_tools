@@ -47,8 +47,7 @@ __declspec(dllexport) void full_shuffle(int num_levels, int seed, int* arr) {
         if (r == MBIG) r--;
         if (r < 0) r += MBIG;
         SA[ie] = r;
-        int j = (int)(r % (long long)num_levels);
-        if (j < 0) j += num_levels;
+        int j = (int)((double)r * (1.0 / MBIG) * num_levels);
         int tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
     }
 }
@@ -93,8 +92,7 @@ __declspec(dllexport) int find_seeds_batch(
             if (r == MBIG) r--;
             if (r < 0) r += MBIG;
             SA[ie] = r;
-            int j = (int)(r % (long long)num_levels);
-            if (j < 0) j += num_levels;
+            int j = (int)((double)r * (1.0 / MBIG) * num_levels);
             int tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
         }
         uint64_t seen_lo = 0, seen_hi = 0;
@@ -241,8 +239,8 @@ def verify_dll():
 
         arr = (ctypes.c_int * 96)()
         lib.full_shuffle(96, 58685, arr)
-        if arr[0] != 60:
-            return False, f"Correctness check failed: expected 60, got {arr[0]}"
+        if arr[0] != 95:
+            return False, f"Correctness check failed: expected 95, got {arr[0]}"
 
         import time
         N = 200_000
