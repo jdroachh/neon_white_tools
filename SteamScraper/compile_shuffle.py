@@ -294,7 +294,7 @@ def verify_dll():
         expected_96 = []
         for s in range(50_000):
             lib.full_shuffle(96, s, arr96)
-            if target_levels_96.issubset(set(arr96[:DEPTH_96])):
+            if target_levels_96.issubset(arr96[:DEPTH_96]):
                 expected_96.append(s)
 
         out_buf_96   = (ctypes.c_int * 4096)()
@@ -313,7 +313,7 @@ def verify_dll():
             lo_only_fail = hi_only_fail = both_fail = 0
             for s in missing[:200]:
                 lib.full_shuffle(96, s, arr96)
-                top = set(arr96[:10])
+                top = set(arr96[:DEPTH_96])
                 lo_ok = {lv for lv in target_levels_96 if lv < 64}.issubset(top)
                 hi_ok = {lv for lv in target_levels_96 if lv >= 64}.issubset(top)
                 if not lo_ok and not hi_ok: both_fail += 1
