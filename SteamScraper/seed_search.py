@@ -49,21 +49,18 @@ def _seed_search_worker(args):
             target_mask_hi |= (1 << (idx - 64))
 
     out_buffer = (ctypes.c_int * MATCHES_PER_SLAB)()
-    out_count  = ctypes.c_int(0)
 
     seed = seed_start
     while seed < seed_end:
         if stop_event.is_set():
             break
-        slab_end = min(seed + SLAB_SIZE, seed_end)
-        out_count.value = 0
-        out_count_ptr = ctypes.pointer(out_count)
-        stopped_at = find_seeds_batch(
+        slab_end   = min(seed + SLAB_SIZE, seed_end)
+        stopped_at, count = find_seeds_batch(
             num_levels, seed, slab_end,
             target_mask_lo, target_mask_hi, depth,
-            out_buffer, out_count_ptr,
+            out_buffer, MATCHES_PER_SLAB,
         )
-        for i in range(out_count.value):
+        for i in range(count):
             result_queue.put(out_buffer[i])
         result_queue.put(("progress", stopped_at - seed))
         seed = stopped_at
