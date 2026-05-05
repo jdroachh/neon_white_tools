@@ -9,6 +9,7 @@ parse error) will raise AttributeError if ever hit. Preserved as-is during
 extraction; tracked separately.
 """
 import multiprocessing
+import queue
 import threading
 import tkinter as tk
 from tkinter import ttk, messagebox
@@ -195,7 +196,7 @@ class RushFinderTabMixin:
                 return
 
         self._finder_running   = True
-        self._finder_stop_event = multiprocessing.Event()
+        self._finder_stop_event = threading.Event()
         self.finder_run_btn.configure(state=tk.DISABLED)
         self.finder_stop_btn.configure(state=tk.NORMAL)
         self.finder_progress.configure(value=0)
@@ -205,21 +206,21 @@ class RushFinderTabMixin:
             self.finder_tree.delete(item)
 
         def manager_thread():
-            result_queue = multiprocessing.Queue()
+            result_queue = queue.Queue()
             workers      = []
             MAX_SEED     = 2_147_483_647
 
             for core in range(num_cores):
                 start = core * chunk_size + 1
-                end   = (core + 1) * chunk_size + 1 if core < num_cores - 1 else MAX_SEED + 1
-                p = multiprocessing.Process(
+                end   = (core + 1) * chunk_size + 1 if core < num_cores - 1 else MAX_SEED
+                t = threading.Thread(
                     target=_seed_search_worker,
                     args=((start, end, num_levels, target_set, depth,
                            result_queue, self._finder_stop_event),),
                     daemon=True
                 )
-                p.start()
-                workers.append(p)
+                t.start()
+                workers.append(t)
 
             found         = []
             done_workers  = 0
