@@ -835,8 +835,9 @@ class JsApi:
 
             csv_path = None
             if out_mode in ("csv", "both") and all_rows:
+                safe_name = "".join(c if c.isalnum() or c in " _-" else "" for c in pname).strip().replace(" ", "_")
                 safe_ctx = context.replace(" ", "_").replace("/", "_").replace("-", "")
-                csv_path = os.path.join(folder.strip(), f"player_{safe_ctx}.csv")
+                csv_path = os.path.join(folder.strip(), f"{safe_name}_{safe_ctx}.csv")
                 with open(csv_path, "w", newline="", encoding="utf-8") as f:
                     writer = _csv.DictWriter(
                         f, fieldnames=["level", "rank", "time", "score_ms", "total"])

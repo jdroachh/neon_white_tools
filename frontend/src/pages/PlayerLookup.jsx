@@ -135,7 +135,7 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "" }) {
               <Seg options={["display", "csv", "both"]} value={outMode} onChange={setOutMode} />
             </Field>
             {showFolder && (
-              <Field label="Output folder" hint="Saved as player_{context}.csv">
+              <Field label="Output folder" hint="Saved as {DisplayName}_{context}.csv">
                 <div style={{ display: "flex", gap: 8 }}>
                   <input className="input" style={{ flex: 1, fontSize: 10 }} value={folder}
                          onChange={e => { setFolder(e.target.value); setFolderTouched(true); }}
