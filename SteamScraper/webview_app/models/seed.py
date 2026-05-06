@@ -25,7 +25,6 @@ class SeedFindRequest(BaseModel):
     hell_rush: HellRushSpec | None = None
     seed_min: int = 0
     seed_max: int = 2_147_483_647
-    # TODO(M1-Q5): Hell Rush spacing score formula not yet implemented
     use_gpu: bool = False  # unused — kept for forward-compat with the advanced panel
 
 

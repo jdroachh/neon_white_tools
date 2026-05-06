@@ -28,7 +28,6 @@ class SplitsUpdateRequest(BaseModel):
 class StandardizeRequest(BaseModel):
     file_path: str
     rush_name: str
-    # TODO(M1-Q2): canonical_orders per rush — needs rush_data.py audit or new data/canonical_orders.json
 
 
 class StandardizeResponse(BaseModel):

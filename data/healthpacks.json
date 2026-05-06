@@ -1,0 +1,17 @@
+{
+  "description": "Authoritative list of White/Mikey rush levels that contain a health pack. Used by Hell Rush Mode scoring.",
+  "count": 11,
+  "levels": [
+    "Glass Port",
+    "Jumper",
+    "The Clocktower",
+    "Apartment",
+    "Fuse",
+    "Estate",
+    "Ricochet",
+    "Fortress",
+    "The Third Temple",
+    "Congregation",
+    "Absolution"
+  ]
+}
