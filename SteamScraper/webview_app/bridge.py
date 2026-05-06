@@ -555,7 +555,7 @@ class JsApi:
             "ok":          ok,
             "message":     msg,
             "player_name": steam_api.player_name if ok else "",
-            "steam_id":    steam_api.logged_in_steam_id if ok else 0,
+            "steam_id":    str(steam_api.logged_in_steam_id) if ok else "",
         }
 
     def get_steam_status(self) -> dict:
@@ -563,7 +563,7 @@ class JsApi:
         return {
             "ready":       steam_api.steam_ready,
             "player_name": steam_api.player_name,
-            "steam_id":    steam_api.logged_in_steam_id,
+            "steam_id":    str(steam_api.logged_in_steam_id),
         }
 
     def pick_dll_file(self) -> dict:
