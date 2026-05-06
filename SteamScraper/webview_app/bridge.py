@@ -584,7 +584,7 @@ class JsApi:
         try:
             import webview
             if webview.windows:
-                result = webview.windows[0].create_file_dialog(webview.FOLDER_DIALOG)
+                result = webview.windows[0].create_file_dialog(webview.FileDialog.FOLDER)
                 if result:
                     return {"ok": True, "path": result[0]}
         except Exception:
