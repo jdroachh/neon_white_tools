@@ -99,8 +99,10 @@ export default function SeedFinder() {
         setResults(prev => [...prev, data]);
         setStatus(prev => `Found ${data.seed} — still searching…`);
       } else if (data.type === "done") {
-        setPct(100);
-        setStatus(data.message);
+        if (!data.stopped) {
+          setPct(100);
+          setStatus(data.message);
+        }
         setRunning(false);
       } else if (data.type === "error") {
         setError(data.message);

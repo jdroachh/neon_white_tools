@@ -78,7 +78,7 @@ export default function RunTimer() {
 
   function handleCopySegments() {
     if (!rows) return;
-    const text = rows.map(r => `${r.name}\t${r.segment_fmt}${r.medal ? "\t" + r.medal : ""}`).join("\n");
+    const text = rows.map(r => `${r.name}: ${r.segment_fmt}${r.medal ? "  " + r.medal : ""}`).join("\n");
     navigator.clipboard.writeText(text).catch(() => {});
   }
 

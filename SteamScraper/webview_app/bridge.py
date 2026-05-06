@@ -91,13 +91,7 @@ def _get_medal(level_name: str, secs: float, rush_key: str) -> str:
     if not code:
         return ""
     us = int(secs * 1_000_000)
-    std = STANDARD_MEDAL_DATA.get(code)
-    if std:
-        if us <= std[4]: return "DEV"
-        if us <= std[3]: return "ACE"
-        if us <= std[2]: return "GOLD"
-        if us <= std[1]: return "SILVER"
-        if us <= std[0]: return "BRONZE"
+    # Community medals represent times faster than DEV — check them first.
     comm = _COMMUNITY_MEDAL_DATA.get(code)
     if comm and len(comm) >= 3:
         if len(comm) >= 5 and us <= comm[4]: return "BLOOD DIAMOND"
@@ -105,6 +99,13 @@ def _get_medal(level_name: str, secs: float, rush_key: str) -> str:
         if us <= comm[2]: return "SAPPHIRE"
         if us <= comm[1]: return "AMETHYST"
         if us <= comm[0]: return "EMERALD"
+    std = STANDARD_MEDAL_DATA.get(code)
+    if std:
+        if us <= std[4]: return "DEV"
+        if us <= std[3]: return "ACE"
+        if us <= std[2]: return "GOLD"
+        if us <= std[1]: return "SILVER"
+        if us <= std[0]: return "BRONZE"
     return ""
 
 
@@ -342,13 +343,15 @@ class JsApi:
                     self._finder_stop_event.set()
                     break
 
+            user_stopped = self._finder_stop_event.is_set()
             self._finder_stop_event.set()
             for w in workers:
                 w.join(timeout=2)
 
             msg = (f"Done. Found {len(found)} seed(s)."
                    if found else "No matching seeds found in full range.")
-            _emit({"type": "done", "found_count": len(found), "message": msg})
+            _emit({"type": "done", "stopped": user_stopped,
+                   "found_count": len(found), "message": msg})
             self._finder_running = False
 
         threading.Thread(target=manager, daemon=True).start()
