@@ -66,6 +66,10 @@ Ranked by ROI. Best done *after* the `steam_api.py` extraction so they live as i
 
 - **Silence Google OAuth URL print** in `sheets.get_sheets_service`. `flow.run_local_server` prints the auth URL to stdout as a browser-open fallback. Pass `authorization_prompt_message=""` to suppress, or route through `logger.info` so it ends up in `app.log` instead. One-line change.
 
+## M3 backlog
+
+- **Seed Finder resume** — after clicking Stop, "Find Seed" currently starts fresh from seed 1. A resume feature would checkpoint the workers' last position and restart from there. Requires passing `seed_start` back to JS on stop and using it as the range start on the next run.
+
 ## Bigger-picture ideas (from 00_Inbox/ideas.md)
 
 - **Rewrite the entire app using Opus.** Larger conversation. Worth scoping: clean-room rewrite vs. incremental refactor + AI-assisted polish. The current modularization work makes a clean-room rewrite easier to justify (slim modules already).
