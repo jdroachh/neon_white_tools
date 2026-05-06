@@ -68,7 +68,7 @@ const NAV_ITEMS = {
 };
 
 /* onNav: (key: string) => void — called when a nav item is clicked */
-export const Sidebar = ({ active = "parse", onNav }) => (
+export const Sidebar = ({ active = "parse", onNav, steamReady = false, playerName = "" }) => (
   <div className="sidebar">
     <div className="sidebar-brand">
       <div className="logo">NEON<br /><span className="accent">WHITE</span></div>
@@ -93,11 +93,15 @@ export const Sidebar = ({ active = "parse", onNav }) => (
       </div>
     ))}
     <div className="sidebar-spacer"></div>
-    <div className="nav" onClick={() => onNav && onNav("settings")} style={{ cursor: "pointer" }}>
+    <div className={"nav " + (active === "settings" ? "active" : "")}
+         onClick={() => onNav && onNav("settings")} style={{ cursor: "pointer" }}>
       <span className="icn"><Icon name="gear" /></span>Settings
     </div>
     <div className="sidebar-footer">
-      <div className="row"><span className="dot ok"></span>Connected</div>
+      <div className="row">
+        <span className={"dot " + (steamReady ? "ok" : "bad")}></span>
+        {steamReady ? (playerName || "Connected") : "Not connected"}
+      </div>
     </div>
   </div>
 );

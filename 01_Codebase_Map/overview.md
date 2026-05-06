@@ -36,20 +36,28 @@ Requires `steam_api64.dll` (from the Neon White game install) at the path set in
 
 Neon White speedrunners and competitive players who want to analyze leaderboard standings, plan randomizer runs, or push data to community spreadsheets.
 
-## New UI layer (M1 wired — 2026-05-06)
+## New UI layer (M3 complete — 2026-05-06)
 
 | Path | Responsibility |
 |---|---|
-| `SteamScraper/webview_app/` | pywebview bridge package — see `01_Codebase_Map/webview_app.md` |
-| `SteamScraper/webview_app/bridge.py` | `JsApi` — `ping`, `get_rushes`, `parse_seed`, `reorder_splits`, `standardize_splits` |
+| `SteamScraper/webview_app/` | pywebview bridge package |
+| `SteamScraper/webview_app/bridge.py` | `JsApi` — all bridge methods (Rush tools + Leaderboard + Steam + Config) |
 | `SteamScraper/webview_app/hell_rush.py` | Hell Rush spacing scorer (`score_hell_rush`) |
 | `SteamScraper/webview_app/models/` | Pydantic request/response types for all endpoints |
 | `frontend/src/` | JSX source — `shared.jsx`, `api.js`, `pages/` |
 | `frontend/dist/` | esbuild output (gitignored) — `bundle.js`, `bundle.css`, `index.html` |
 | `data/healthpacks.json` | Authoritative 11-level HP list for Hell Rush mode |
-| `tests/test_bridge.py` | Bridge smoke tests (no webview required) |
 
-M1 pages live: Seed Parser, Splits Updater, Standardize Splits. M2 pages live: Seed Finder + Run Timer. M3 next: Leaderboard tools (Global Export, Level Search, Player Lookup) + Steam runtime.
+**Bridge methods by group:**
+- Rush tools: `ping`, `get_rushes`, `parse_seed`, `reorder_splits`, `standardize_splits`, `get_standard_order`, `start_finder`, `stop_finder`, `load_timer_seed`, `calculate_timer`
+- Config: `get_config`, `save_config_field`
+- Steam: `init_steam`, `get_steam_status`, `pick_dll_file`
+- Leaderboard metadata: `get_levels`, `get_chapters`
+- Leaderboard ops (streaming via `_nw<Page>Event`): `run_global_export`, `run_level_search`, `run_player_lookup`, `stop_leaderboard`
+
+**Event handlers (JS side):** `window._nwFinderEvent` (Seed Finder), `window._nwGlobalEvent` (Global Export), `window._nwLevelEvent` (Level Search), `window._nwPlayerEvent` (Player Lookup)
+
+All 9 pages live: Seed Parser, Splits Updater, Standardize, Seed Finder, Run Timer, Global Export, Level Search, Player Lookup, Settings.
 
 ## Legacy tkinter module layout
 

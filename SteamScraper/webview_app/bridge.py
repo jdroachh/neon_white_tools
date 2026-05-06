@@ -17,7 +17,8 @@ from urllib.request import urlopen
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from shuffle_lib import _load_c_shuffle, full_shuffle
-from rush_data import LEVELS, LEVEL_LOOKUP, RUSH_LEVELS, RUSH_ALIASES, STANDARD_MEDAL_DATA
+from rush_data import (LEVELS, LEVEL_LOOKUP, RUSH_LEVELS, RUSH_ALIASES, STANDARD_MEDAL_DATA,
+                       CHAPTERS, WHOLE_GAME_LEVELS)
 from seed_search import _seed_search_worker, _expected_match_count
 
 APP_VERSION = "2.0.0-dev"
@@ -73,6 +74,33 @@ RUSHES = [
 _loaded = _load_c_shuffle()
 
 MAX_SEED = 2_147_483_647
+
+# ── Config ────────────────────────────────────────────────────────────────
+_CONFIG_FILE = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "neonwhite_config.json",
+)
+_DEFAULT_CONFIG = {
+    "dll_path":      "",
+    "output_folder": os.path.expanduser("~\\Desktop"),
+    "entry_count":   1000,
+}
+
+def _load_config() -> dict:
+    if os.path.exists(_CONFIG_FILE):
+        try:
+            with open(_CONFIG_FILE) as f:
+                cfg = json.load(f)
+            for k, v in _DEFAULT_CONFIG.items():
+                cfg.setdefault(k, v)
+            return cfg
+        except Exception:
+            pass
+    return dict(_DEFAULT_CONFIG)
+
+def _save_config(cfg: dict) -> None:
+    with open(_CONFIG_FILE, "w") as f:
+        json.dump(cfg, f, indent=2)
 
 
 def _resolve_rush(rush_name: str) -> tuple[str, int, list[str]]:
@@ -193,6 +221,17 @@ def _emit(event_data: dict) -> None:
         import webview
         if webview.windows:
             js = f"window._nwFinderEvent && window._nwFinderEvent({json.dumps(event_data)})"
+            webview.windows[0].evaluate_js(js)
+    except Exception:
+        pass
+
+
+def _emit_to(handler: str, event_data: dict) -> None:
+    """Push an event to a named JS handler."""
+    try:
+        import webview
+        if webview.windows:
+            js = f"window.{handler} && window.{handler}({json.dumps(event_data)})"
             webview.windows[0].evaluate_js(js)
     except Exception:
         pass
@@ -475,6 +514,274 @@ class JsApi:
             })
 
         return {"ok": True, "rows": rows}
+
+    # ── Standardize Splits ────────────────────────────────────────────────────
+
+    # ── Config ───────────────────────────────────────────────────────────────
+
+    def get_config(self) -> dict:
+        return _load_config()
+
+    def save_config_field(self, key: str, value) -> dict:
+        cfg = _load_config()
+        cfg[key] = value
+        _save_config(cfg)
+        return {"ok": True}
+
+    # ── Steam runtime ─────────────────────────────────────────────────────────
+
+    def init_steam(self, dll_path: str) -> dict:
+        import steam_api
+        ok, msg = steam_api.init_steam(dll_path)
+        if ok:
+            cfg = _load_config()
+            cfg["dll_path"] = dll_path
+            _save_config(cfg)
+            if not getattr(self, "_steam_polling", False):
+                self._steam_polling = True
+                import time as _time
+
+                def _poll():
+                    while steam_api.steam_ready:
+                        try:
+                            steam_api.steam.SteamAPI_RunCallbacks()
+                        except Exception:
+                            pass
+                        _time.sleep(0.1)
+                    self._steam_polling = False
+
+                threading.Thread(target=_poll, daemon=True).start()
+        return {
+            "ok":          ok,
+            "message":     msg,
+            "player_name": steam_api.player_name if ok else "",
+            "steam_id":    steam_api.logged_in_steam_id if ok else 0,
+        }
+
+    def get_steam_status(self) -> dict:
+        import steam_api
+        return {
+            "ready":       steam_api.steam_ready,
+            "player_name": steam_api.player_name,
+            "steam_id":    steam_api.logged_in_steam_id,
+        }
+
+    def pick_dll_file(self) -> dict:
+        try:
+            import webview
+            if webview.windows:
+                result = webview.windows[0].create_file_dialog(
+                    webview.OPEN_DIALOG,
+                    file_types=("DLL Files (*.dll)", "All Files (*.*)"),
+                )
+                if result:
+                    return {"ok": True, "path": result[0]}
+        except Exception:
+            pass
+        return {"ok": False, "path": ""}
+
+    # ── Level / chapter metadata ──────────────────────────────────────────────
+
+    def get_levels(self) -> list:
+        return [{"display": d, "internal": i} for d, i in LEVELS]
+
+    def get_chapters(self) -> list:
+        return [{"name": k, "levels": v} for k, v in CHAPTERS.items()]
+
+    # ── Leaderboard operations ────────────────────────────────────────────────
+
+    def run_global_export(self, count: str) -> dict:
+        import steam_api, time as _time
+        if not steam_api.steam_ready:
+            return {"ok": False, "error": "Steam not connected. Connect in Settings first."}
+        if getattr(self, "_lb_running", False):
+            return {"ok": False, "error": "An operation is already running."}
+        try:
+            count_int = max(1, int(str(count).strip()))
+        except ValueError:
+            return {"ok": False, "error": "Entry count must be a number."}
+
+        self._lb_stop_event = threading.Event()
+        self._lb_running = True
+
+        def worker():
+            total_levels = len(LEVELS)
+            all_rows = 0
+            for idx, (display, internal) in enumerate(LEVELS, 1):
+                if self._lb_stop_event.is_set():
+                    break
+                _emit_to("_nwGlobalEvent", {
+                    "type": "progress", "level_idx": idx,
+                    "total_levels": total_levels, "level_name": display,
+                })
+                lb = steam_api.find_leaderboard(internal)
+                if not lb:
+                    continue
+                total_lb = steam_api.steam.SteamAPI_ISteamUserStats_GetLeaderboardEntryCount(
+                    steam_api.user_stats, lb)
+                fetch = min(total_lb, count_int)
+                start = 1
+                while start <= fetch and not self._lb_stop_event.is_set():
+                    end = min(start + steam_api.BATCH_SIZE - 1, fetch)
+                    batch = steam_api.fetch_batch(lb, start, end)
+                    if not batch:
+                        break
+                    for e in batch:
+                        _emit_to("_nwGlobalEvent", {
+                            "type": "row", "rank": e["rank"],
+                            "level": display, "name": e["name"], "time": e["time"],
+                        })
+                    all_rows += len(batch)
+                    start = end + 1
+                    _time.sleep(0.05)
+            stopped = self._lb_stop_event.is_set()
+            _emit_to("_nwGlobalEvent", {
+                "type": "done", "total_rows": all_rows, "stopped": stopped,
+                "message": (f"Stopped. {all_rows} entries fetched." if stopped
+                            else f"Done. {all_rows} entries fetched."),
+            })
+            self._lb_running = False
+
+        threading.Thread(target=worker, daemon=True).start()
+        return {"ok": True}
+
+    def run_level_search(self, level_name: str, count: str) -> dict:
+        import steam_api, time as _time
+        if not steam_api.steam_ready:
+            return {"ok": False, "error": "Steam not connected. Connect in Settings first."}
+        if getattr(self, "_lb_running", False):
+            return {"ok": False, "error": "An operation is already running."}
+
+        match = LEVEL_LOOKUP.get(str(level_name).strip().lower())
+        if not match:
+            return {"ok": False, "error": f"Level '{level_name}' not found."}
+        display, internal = match
+
+        try:
+            count_int = max(1, int(str(count).strip()))
+        except ValueError:
+            return {"ok": False, "error": "Entry count must be a number."}
+
+        self._lb_stop_event = threading.Event()
+        self._lb_running = True
+
+        def worker():
+            _emit_to("_nwLevelEvent", {"type": "status", "message": f"Finding {display}..."})
+            lb = steam_api.find_leaderboard(internal)
+            if not lb:
+                _emit_to("_nwLevelEvent", {"type": "error", "message": "Leaderboard not found."})
+                self._lb_running = False
+                return
+            total_lb = steam_api.steam.SteamAPI_ISteamUserStats_GetLeaderboardEntryCount(
+                steam_api.user_stats, lb)
+            fetch = min(total_lb, count_int)
+            _emit_to("_nwLevelEvent", {
+                "type": "status",
+                "message": f"Total: {total_lb:,}  |  Fetching top {fetch:,}...",
+            })
+            rows = 0
+            start = 1
+            while start <= fetch and not self._lb_stop_event.is_set():
+                end = min(start + steam_api.BATCH_SIZE - 1, fetch)
+                batch = steam_api.fetch_batch(lb, start, end)
+                if not batch:
+                    break
+                for e in batch:
+                    _emit_to("_nwLevelEvent", {
+                        "type": "row", "rank": e["rank"],
+                        "name": e["name"], "time": e["time"], "score_ms": e["score_ms"],
+                    })
+                rows += len(batch)
+                start = end + 1
+                _time.sleep(0.05)
+            stopped = self._lb_stop_event.is_set()
+            _emit_to("_nwLevelEvent", {
+                "type": "done", "total": rows, "stopped": stopped,
+                "message": (f"Stopped. {rows} entries." if stopped else f"Done. {rows} entries."),
+            })
+            self._lb_running = False
+
+        threading.Thread(target=worker, daemon=True).start()
+        return {"ok": True}
+
+    def run_player_lookup(self, steam_id: str, mode: str, target: str) -> dict:
+        import steam_api
+        if not steam_api.steam_ready:
+            return {"ok": False, "error": "Steam not connected. Connect in Settings first."}
+        if getattr(self, "_lb_running", False):
+            return {"ok": False, "error": "An operation is already running."}
+
+        sid_str = str(steam_id).strip()
+        if not sid_str.isdigit() or len(sid_str) != 17:
+            return {"ok": False, "error": "Steam ID must be a 17-digit number."}
+        sid = int(sid_str)
+
+        levels_to_search = []
+        if mode == "level":
+            match = LEVEL_LOOKUP.get(str(target).strip().lower())
+            if not match:
+                return {"ok": False, "error": f"Level '{target}' not found."}
+            levels_to_search = [match]
+        elif mode == "chapter":
+            chap = str(target).strip()
+            if chap not in CHAPTERS:
+                return {"ok": False, "error": f"Chapter '{chap}' not found."}
+            for dn in CHAPTERS[chap]:
+                m = LEVEL_LOOKUP.get(dn.lower())
+                if m:
+                    levels_to_search.append(m)
+        elif mode == "game":
+            levels_to_search = list(WHOLE_GAME_LEVELS)
+        else:
+            return {"ok": False, "error": f"Unknown mode '{mode}'."}
+
+        self._lb_stop_event = threading.Event()
+        self._lb_running = True
+
+        def worker():
+            nb = steam_api.steam.SteamAPI_ISteamFriends_GetFriendPersonaName(
+                steam_api.friends, sid)
+            pname = nb.decode("utf-8", errors="replace") if nb else str(sid)
+            _emit_to("_nwPlayerEvent", {
+                "type": "status",
+                "message": f"Looking up {pname} across {len(levels_to_search)} levels...",
+                "player_name": pname,
+            })
+            found = 0
+            for display, internal in levels_to_search:
+                if self._lb_stop_event.is_set():
+                    break
+                lb = steam_api.find_leaderboard(internal)
+                if not lb:
+                    continue
+                total_lb = steam_api.steam.SteamAPI_ISteamUserStats_GetLeaderboardEntryCount(
+                    steam_api.user_stats, lb)
+                entry = steam_api.get_player_entry(lb, sid)
+                if entry:
+                    time_str = f"{entry.score / 1000:.3f}"
+                    _emit_to("_nwPlayerEvent", {
+                        "type": "row", "level": display,
+                        "rank": entry.global_rank, "time": time_str,
+                        "score_ms": entry.score, "total": total_lb,
+                    })
+                    found += 1
+            stopped = self._lb_stop_event.is_set()
+            _emit_to("_nwPlayerEvent", {
+                "type": "done", "found": found,
+                "total_levels": len(levels_to_search), "stopped": stopped,
+                "message": (f"Stopped. {found} entries so far." if stopped
+                            else f"Done. Found {found}/{len(levels_to_search)} entries."),
+            })
+            self._lb_running = False
+
+        threading.Thread(target=worker, daemon=True).start()
+        return {"ok": True}
+
+    def stop_leaderboard(self) -> dict:
+        if hasattr(self, "_lb_stop_event"):
+            self._lb_stop_event.set()
+        self._lb_running = False
+        return {"ok": True}
 
     # ── Standardize Splits ────────────────────────────────────────────────────
 
