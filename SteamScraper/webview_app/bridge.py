@@ -22,19 +22,34 @@ from seed_search import _seed_search_worker, _expected_match_count
 
 APP_VERSION = "2.0.0-dev"
 
-# Community medal data — fetched once at module init in a background thread.
+# Community medal data — fetched once at module init in background threads.
+# communitymedals.json: {code: [emerald_us, amethyst_us, sapphire_us]}
+# topaz2.json:          {code: [topaz_us]}
+# bd2.json:             {code: [bd_us]}
 _COMMUNITY_MEDAL_DATA: dict = {}
+_TOPAZ_MEDAL_DATA: dict = {}
+_BD_MEDAL_DATA: dict = {}
+
 _COMMUNITY_MEDALS_URL = "https://raw.githubusercontent.com/Faustas156/NeonLite/main/Resources/communitymedals.json"
+_TOPAZ_MEDALS_URL     = "https://raw.githubusercontent.com/DerelictJade/NeonLite/main/Resources/topaz2.json"
+_BD_MEDALS_URL        = "https://raw.githubusercontent.com/DerelictJade/NeonLite/main/Resources/bd2.json"
 
-def _fetch_community_medals_bg():
-    global _COMMUNITY_MEDAL_DATA
-    try:
-        with urlopen(_COMMUNITY_MEDALS_URL, timeout=8) as resp:
-            _COMMUNITY_MEDAL_DATA = json.loads(resp.read().decode("utf-8"))
-    except Exception:
-        pass
+def _fetch_medal_data_bg():
+    global _COMMUNITY_MEDAL_DATA, _TOPAZ_MEDAL_DATA, _BD_MEDAL_DATA
+    for url, target in (
+        (_COMMUNITY_MEDALS_URL, "_COMMUNITY_MEDAL_DATA"),
+        (_TOPAZ_MEDALS_URL,     "_TOPAZ_MEDAL_DATA"),
+        (_BD_MEDALS_URL,        "_BD_MEDAL_DATA"),
+    ):
+        try:
+            with urlopen(url, timeout=8) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                data.pop("_metadata", None)
+                globals()[target] = data
+        except Exception:
+            pass
 
-threading.Thread(target=_fetch_community_medals_bg, daemon=True).start()
+threading.Thread(target=_fetch_medal_data_bg, daemon=True).start()
 
 _RUSH_KEY = {
     "White / Mikey": "96",
@@ -91,11 +106,13 @@ def _get_medal(level_name: str, secs: float, rush_key: str) -> str:
     if not code:
         return ""
     us = int(secs * 1_000_000)
-    # Community medals represent times faster than DEV — check them first.
+    # Community medals are faster than DEV — check hardest first.
+    bd = _BD_MEDAL_DATA.get(code)
+    if bd and us <= bd[0]: return "BLOOD DIAMOND"
+    topaz = _TOPAZ_MEDAL_DATA.get(code)
+    if topaz and us <= topaz[0]: return "TOPAZ"
     comm = _COMMUNITY_MEDAL_DATA.get(code)
     if comm and len(comm) >= 3:
-        if len(comm) >= 5 and us <= comm[4]: return "BLOOD DIAMOND"
-        if len(comm) >= 5 and us <= comm[3]: return "TOPAZ"
         if us <= comm[2]: return "SAPPHIRE"
         if us <= comm[1]: return "AMETHYST"
         if us <= comm[0]: return "EMERALD"
