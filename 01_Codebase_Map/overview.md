@@ -17,6 +17,13 @@
 
 ## How to run
 
+**New UI (pywebview — M1+ active development):**
+```
+cd frontend && npm run build
+python -m SteamScraper.webview_app.main
+```
+
+**Legacy tkinter app (kept alive through M3):**
 ```
 python SteamScraper/neonwhite_app.py
 ```
@@ -29,7 +36,22 @@ Requires `steam_api64.dll` (from the Neon White game install) at the path set in
 
 Neon White speedrunners and competitive players who want to analyze leaderboard standings, plan randomizer runs, or push data to community spreadsheets.
 
-## Module layout
+## New UI layer (M1 wired — 2026-05-06)
+
+| Path | Responsibility |
+|---|---|
+| `SteamScraper/webview_app/` | pywebview bridge package — see `01_Codebase_Map/webview_app.md` |
+| `SteamScraper/webview_app/bridge.py` | `JsApi` — `ping`, `get_rushes`, `parse_seed`, `reorder_splits`, `standardize_splits` |
+| `SteamScraper/webview_app/hell_rush.py` | Hell Rush spacing scorer (`score_hell_rush`) |
+| `SteamScraper/webview_app/models/` | Pydantic request/response types for all endpoints |
+| `frontend/src/` | JSX source — `shared.jsx`, `api.js`, `pages/` |
+| `frontend/dist/` | esbuild output (gitignored) — `bundle.js`, `bundle.css`, `index.html` |
+| `data/healthpacks.json` | Authoritative 11-level HP list for Hell Rush mode |
+| `tests/test_bridge.py` | Bridge smoke tests (no webview required) |
+
+M1 pages live: Seed Parser, Splits Updater, Standardize Splits. M2 next: Seed Finder + Run Timer.
+
+## Legacy tkinter module layout
 
 `neonwhite_app.py` is the entry point and `NeonWhiteApp` class. UI is split into per-tab mixin modules, all combined into the MRO at class definition. Method bodies live in mixins; shared helpers (`_log`, `_clear_log`, `_clear_table`, `_add_row`, `_build_results_area`, `_section_header`, `_build_radio_group`, `_get_medal`, `_resolve_level_code`, theme/widget defaults, Steam connect, push-to-sheet) stay in core.
 
