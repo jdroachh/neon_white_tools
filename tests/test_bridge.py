@@ -101,3 +101,96 @@ def test_settings_roundtrip():
     s = Settings(**data)
     assert s.theme == "light"
     assert s.dll_path is not None
+
+
+# ── M2: Seed Finder bridge ────────────────────────────────────────────────────
+
+def test_start_finder_bad_levels():
+    api = JsApi()
+    res = api.start_finder("White / Mikey", "NonexistentLevelXYZ", "10", "first", "1")
+    assert res["ok"] is False
+    assert "Unknown level" in res["error"]
+
+
+def test_start_finder_bad_depth():
+    api = JsApi()
+    res = api.start_finder("White / Mikey", "Movement", "abc", "first", "1")
+    assert res["ok"] is False
+
+
+def test_start_finder_valid_starts():
+    """Valid request should start a search (returns ok=True, then we immediately stop it)."""
+    api = JsApi()
+    res = api.start_finder("White / Mikey", "Movement, Pummel", "5", "first", "1")
+    assert res["ok"] is True
+    assert "expected" in res
+    # stop immediately so the background thread doesn't run long
+    api.stop_finder()
+
+
+def test_stop_finder_when_idle():
+    api = JsApi()
+    res = api.stop_finder()
+    assert res["ok"] is True
+
+
+# ── M2: Run Timer bridge ──────────────────────────────────────────────────────
+
+def test_load_timer_seed_invalid():
+    api = JsApi()
+    res = api.load_timer_seed("White / Mikey", "notanumber")
+    assert res["ok"] is False
+
+
+def test_load_timer_seed_valid():
+    api = JsApi()
+    res = api.load_timer_seed("White / Mikey", "12345")
+    assert res["ok"] is True
+    assert len(res["lines"]) == 96
+
+
+def test_calculate_timer_empty():
+    api = JsApi()
+    res = api.calculate_timer("White / Mikey", "", "")
+    assert res["ok"] is False
+
+
+def test_calculate_timer_basic():
+    api = JsApi()
+    # Three bare cumulative times
+    splits = "17.442\n38.284\n62.100"
+    res = api.calculate_timer("White / Mikey", "", splits)
+    assert res["ok"] is True
+    assert len(res["rows"]) == 3
+    # segments: 17.442, 20.842, 23.816
+    assert abs(res["rows"][0]["segment"] - 17.442) < 0.001
+    assert abs(res["rows"][1]["segment"] - 20.842) < 0.001
+
+
+def test_calculate_timer_named_format():
+    """Name-then-time format (the bug that was pre-existing in tkinter)."""
+    api = JsApi()
+    splits = "Movement 17.442\nPummel 38.284\nGunner 1:02.100"
+    res = api.calculate_timer("White / Mikey", "", splits)
+    assert res["ok"] is True
+    assert res["rows"][0]["name"] == "Movement"
+    assert res["rows"][2]["name"] == "Gunner"
+    assert abs(res["rows"][2]["segment"] - (62.1 - 38.284)) < 0.001
+
+
+def test_calculate_timer_colon_format():
+    """Legacy 'Name: time' format."""
+    api = JsApi()
+    splits = "Movement: 17.442\nPummel: 38.284"
+    res = api.calculate_timer("White / Mikey", "", splits)
+    assert res["ok"] is True
+    assert res["rows"][0]["name"] == "Movement"
+
+
+def test_calculate_timer_medal_grade():
+    api = JsApi()
+    # Movement gold is 31s (31000000 us). 17.442s should be ACE.
+    splits = "Movement 17.442"
+    res = api.calculate_timer("White / Mikey", "", splits)
+    assert res["ok"] is True
+    assert res["rows"][0]["medal"] in ("DEV", "ACE", "GOLD", "SILVER", "BRONZE", "")

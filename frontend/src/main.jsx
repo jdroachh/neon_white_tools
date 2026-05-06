@@ -6,6 +6,8 @@ import { Titlebar, Sidebar } from "./shared.jsx";
 import SeedParser    from "./pages/SeedParser.jsx";
 import SplitsUpdater from "./pages/SplitsUpdater.jsx";
 import Standardize   from "./pages/Standardize.jsx";
+import SeedFinder    from "./pages/SeedFinder.jsx";
+import RunTimer      from "./pages/RunTimer.jsx";
 
 const PAGE_TITLES = {
   parse:       "Seed Parser",
@@ -24,6 +26,8 @@ const WIRED_PAGES = [
   { key: "parse",  Component: SeedParser    },
   { key: "splits", Component: SplitsUpdater },
   { key: "std",    Component: Standardize   },
+  { key: "find",   Component: SeedFinder    },
+  { key: "timer",  Component: RunTimer      },
 ];
 const WIRED_KEYS = new Set(WIRED_PAGES.map(p => p.key));
 

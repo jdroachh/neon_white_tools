@@ -49,7 +49,7 @@ Neon White speedrunners and competitive players who want to analyze leaderboard 
 | `data/healthpacks.json` | Authoritative 11-level HP list for Hell Rush mode |
 | `tests/test_bridge.py` | Bridge smoke tests (no webview required) |
 
-M1 pages live: Seed Parser, Splits Updater, Standardize Splits. M2 next: Seed Finder + Run Timer.
+M1 pages live: Seed Parser, Splits Updater, Standardize Splits. M2 pages live: Seed Finder + Run Timer. M3 next: Leaderboard tools (Global Export, Level Search, Player Lookup) + Steam runtime.
 
 ## Legacy tkinter module layout
 

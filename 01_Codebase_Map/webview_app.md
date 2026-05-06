@@ -2,7 +2,7 @@
 
 Location: `SteamScraper/webview_app/`
 
-Added in M1 (2026-05-06). M1 wiring complete (2026-05-06): Seed Parser, Splits Updater, Standardize Splits all live and wired to `shuffle_lib` + `rush_data`. Hosts the pywebview window and exposes the Python API surface to the JSX frontend.
+Added in M1 (2026-05-06). M2 wiring complete (2026-05-06): Seed Finder + Run Timer added. Hosts the pywebview window and exposes the Python API surface to the JSX frontend.
 
 ## Why it lives under SteamScraper/
 
@@ -23,7 +23,7 @@ Creates an Edge WebView2 window loading `frontend/dist/index.html` and wires `Js
 | `__init__.py` | Package marker |
 | `main.py` | pywebview bootstrap — creates window, passes `JsApi`, calls `webview.start()` |
 | `bridge.py` | `JsApi` class — every public method is callable from JS as `window.pywebview.api.<method>` |
-| `progress.py` | (M2 stub) `evaluate_js` helper for server→client event streaming (Seed Finder progress, Global Export log lines) |
+| `progress.py` | (M3 stub) `evaluate_js` helper for server→client event streaming (Global Export log lines) — Seed Finder uses `_emit()` in `bridge.py` directly |
 | `steam_runtime.py` | (M3 stub) Daemon thread for `SteamAPI_RunCallbacks` polling — replaces tkinter `root.after(100, ...)` |
 | `models/` | Pydantic request/response types for every API endpoint |
 
@@ -38,10 +38,10 @@ const result = await window.pywebview.api.ping();
 Long-running ops (Seed Finder, Global Export) return immediately and push progress events back via `evaluate_js`:
 
 ```python
-window.evaluate_js(f"window.__nwEvent({json.dumps(payload)})")
+webview.windows[0].evaluate_js(f"window._nwFinderEvent && window._nwFinderEvent({json.dumps(payload)})")
 ```
 
-The frontend registers `window.__nwEvent` on mount to receive these.
+The frontend registers `window._nwFinderEvent` on mount to receive these. Event types: `"progress"`, `"result"`, `"done"`, `"error"`.
 
 ## Models
 
@@ -59,7 +59,7 @@ One file per domain:
 
 `tests/test_bridge.py` instantiates `JsApi` directly and exercises all model round-trips. No webview or GUI required — safe to run in CI.
 
-## JsApi methods (M1 wired)
+## JsApi methods (M2 wired)
 
 | Method | Args | Returns |
 |---|---|---|
@@ -68,14 +68,9 @@ One file per domain:
 | `parse_seed(rush_name, seed)` | strings | `{ok, rush_name, seed, level_count, level_order}` |
 | `reorder_splits(rush_name, seed, gold, segments)` | strings; splits newline-delimited | `{ok, level_order, gold, segments}` |
 | `standardize_splits(rush_name, seed, gold, segments)` | strings; splits newline-delimited | `{ok, gold, segments}` |
+| `start_finder(rush_name, levels_str, depth, mode, max_seeds)` | all strings | `{ok, expected}` — starts background search; pushes events to `window._nwFinderEvent` |
+| `stop_finder()` | — | `{ok}` |
+| `load_timer_seed(rush_name, seed)` | strings | `{ok, lines: [str]}` |
+| `calculate_timer(rush_name, seed, splits_text)` | strings | `{ok, rows: [{name, cumulative, segment, segment_fmt, medal}]}` |
 
 All methods return `{ok: false, error: str}` on validation failure.
-
-## All 6 M1 open questions resolved
-
-Q1 ✓ HP list: 11 levels in `data/healthpacks.json`; scorer in `hell_rush.py`  
-Q2 ✓ Standard order = `RUSH_LEVELS` in `rush_data.py`  
-Q3 ✓ Strip `sampleSeedsOverride` on M2 wire-up  
-Q4 ✓ Stay with `neonwhite_config.json` through M3  
-Q5 ✓ Hell Rush scoring formula implemented + verified (seed 712788 → 77)  
-Q6 ✓ Pure CSS, persist `theme` string in Settings

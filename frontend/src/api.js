@@ -41,3 +41,23 @@ export async function standardizeSplits(rushName, seed, gold, segments) {
   const api = await waitForApi();
   return api.standardize_splits(rushName, String(seed), gold, segments);
 }
+
+export async function startFinder(rushName, levelsStr, depth, mode, maxSeeds) {
+  const api = await waitForApi();
+  return api.start_finder(rushName, levelsStr, String(depth), mode, String(maxSeeds));
+}
+
+export async function stopFinder() {
+  const api = await waitForApi();
+  return api.stop_finder();
+}
+
+export async function loadTimerSeed(rushName, seed) {
+  const api = await waitForApi();
+  return api.load_timer_seed(rushName, String(seed));
+}
+
+export async function calculateTimer(rushName, seed, splitsText) {
+  const api = await waitForApi();
+  return api.calculate_timer(rushName, String(seed), splitsText);
+}
