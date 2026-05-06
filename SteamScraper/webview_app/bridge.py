@@ -299,6 +299,7 @@ class JsApi:
         expected = _expected_match_count(count, len(target_indices), depth_int, MAX_SEED)
 
         self._finder_stop_event = threading.Event()
+        self._finder_user_stopped = False
         self._finder_running = True
 
         num_cores = max(1, (__import__("os").cpu_count() or 1) - 1)
@@ -360,7 +361,7 @@ class JsApi:
                     self._finder_stop_event.set()
                     break
 
-            user_stopped = self._finder_stop_event.is_set()
+            user_stopped = getattr(self, "_finder_user_stopped", False)
             self._finder_stop_event.set()
             for w in workers:
                 w.join(timeout=2)
@@ -375,9 +376,10 @@ class JsApi:
         return {"ok": True, "expected": round(expected, 2)}
 
     def stop_finder(self) -> dict:
+        self._finder_user_stopped = True
+        self._finder_running = False  # reset immediately so start_finder can be called again
         if hasattr(self, "_finder_stop_event"):
             self._finder_stop_event.set()
-        self._finder_running = False
         return {"ok": True}
 
     # ── Run Timer ─────────────────────────────────────────────────────────────
