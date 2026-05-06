@@ -2,7 +2,7 @@
 
 Location: `SteamScraper/webview_app/`
 
-Added in M1 (2026-05-06). Hosts the pywebview window and exposes the Python API surface to the JSX frontend.
+Added in M1 (2026-05-06). M1 wiring complete (2026-05-06): Seed Parser, Splits Updater, Standardize Splits all live and wired to `shuffle_lib` + `rush_data`. Hosts the pywebview window and exposes the Python API surface to the JSX frontend.
 
 ## Why it lives under SteamScraper/
 
@@ -59,11 +59,23 @@ One file per domain:
 
 `tests/test_bridge.py` instantiates `JsApi` directly and exercises all model round-trips. No webview or GUI required — safe to run in CI.
 
-## Open questions (M1 blockers for wiring, not for scaffolding)
+## JsApi methods (M1 wired)
 
-See plan §6. Referenced in code as `TODO(M1-Q<n>):`.
+| Method | Args | Returns |
+|---|---|---|
+| `ping()` | — | `{ok, version}` |
+| `get_rushes()` | — | `[{name, count}]` |
+| `parse_seed(rush_name, seed)` | strings | `{ok, rush_name, seed, level_count, level_order}` |
+| `reorder_splits(rush_name, seed, gold, segments)` | strings; splits newline-delimited | `{ok, level_order, gold, segments}` |
+| `standardize_splits(rush_name, seed, gold, segments)` | strings; splits newline-delimited | `{ok, gold, segments}` |
 
-- Q2: Standardize canonical orders — does `rush_data.py` have these?
-- Q4: Settings file location — stay with `neonwhite_config.json` or `platformdirs`?
-- Q5: Hell Rush spacing score formula (0-100)
-- Q6: Theme switching — pure-CSS or backend-aware?
+All methods return `{ok: false, error: str}` on validation failure.
+
+## All 6 M1 open questions resolved
+
+Q1 ✓ HP list: 11 levels in `data/healthpacks.json`; scorer in `hell_rush.py`  
+Q2 ✓ Standard order = `RUSH_LEVELS` in `rush_data.py`  
+Q3 ✓ Strip `sampleSeedsOverride` on M2 wire-up  
+Q4 ✓ Stay with `neonwhite_config.json` through M3  
+Q5 ✓ Hell Rush scoring formula implemented + verified (seed 712788 → 77)  
+Q6 ✓ Pure CSS, persist `theme` string in Settings
