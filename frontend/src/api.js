@@ -42,6 +42,11 @@ export async function standardizeSplits(rushName, seed, gold, segments) {
   return api.standardize_splits(rushName, String(seed), gold, segments);
 }
 
+export async function getStandardOrder(rushName) {
+  const api = await waitForApi();
+  return api.get_standard_order(rushName);
+}
+
 export async function startFinder(rushName, levelsStr, depth, mode, maxSeeds) {
   const api = await waitForApi();
   return api.start_finder(rushName, levelsStr, String(depth), mode, String(maxSeeds));

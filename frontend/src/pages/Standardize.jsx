@@ -1,13 +1,46 @@
 import React, { useState } from "react";
 import { standardizeSplits } from "../api.js";
-import { PageHead, Field, Btn, RushSelect, OutputPanel, ErrorBanner, Icon, RUSHES } from "../shared.jsx";
+import { PageHead, Field, Btn, RushSelect, OutputPanel, ErrorBanner, MedalBadge, MedalToggle, Icon, RUSHES } from "../shared.jsx";
 
-export default function Standardize() {
+function SplitsOutputPanel({ title, times, medals, showMedals, onCopy }) {
+  if (!times || times.length === 0) return null;
+  return (
+    <div style={{ display: "flex", flexDirection: "column" }}>
+      <div style={{
+        display: "flex", alignItems: "center", padding: "7px 12px",
+        background: "var(--surface)", border: "1px solid var(--border)",
+        borderBottom: "none", borderRadius: "2px 2px 0 0",
+      }}>
+        <span style={{ fontSize: 10, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: 0.8, flex: 1 }}>
+          {title}
+        </span>
+        <Btn kind="ghost" size="sm" icn="copy" onClick={onCopy}>Copy</Btn>
+      </div>
+      <div style={{ border: "1px solid var(--border)", borderRadius: "0 0 2px 2px" }}>
+        {times.map((t, i) => (
+          <div key={i} style={{
+            display: "flex", alignItems: "center", gap: 8,
+            padding: "5px 12px",
+            background: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.025)",
+          }}>
+            <span style={{ fontSize: 10, color: "var(--text-3)", width: 20 }}>
+              {String(i + 1).padStart(2, "0")}
+            </span>
+            <span className="data" style={{ fontSize: 12, flex: 1 }}>{t}</span>
+            {showMedals && <MedalBadge medal={medals?.[i]} />}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default function Standardize({ showMedals, setShowMedals }) {
   const [rushName, setRushName] = useState(RUSHES[0].name);
   const [seed, setSeed]         = useState("");
   const [gold, setGold]         = useState("");
   const [segments, setSegments] = useState("");
-  const [result, setResult]     = useState(null);   // {gold, segments}
+  const [result, setResult]     = useState(null);
   const [error, setError]       = useState(null);
   const [loading, setLoading]   = useState(false);
 
@@ -16,12 +49,8 @@ export default function Standardize() {
     setLoading(true);
     try {
       const res = await standardizeSplits(rushName, seed, gold, segments);
-      if (res.ok) {
-        setResult(res);
-      } else {
-        setError(res.error);
-        setResult(null);
-      }
+      if (res.ok) setResult(res);
+      else { setError(res.error); setResult(null); }
     } catch (e) {
       setError(String(e));
     } finally {
@@ -39,6 +68,7 @@ export default function Standardize() {
         crumb="Rush Tools › Standardize Splits"
         title="STANDARDIZE"
         accentWord="SPLITS"
+        actions={result && <MedalToggle value={showMedals} onChange={setShowMedals} />}
       />
       <div className="body">
         <div className="panel-left">
@@ -47,30 +77,13 @@ export default function Standardize() {
               <RushSelect value={rushName} onChange={setRushName} />
             </Field>
             <Field label="Seed number" hint="The seed the run was played on">
-              <input
-                className="input"
-                value={seed}
-                onChange={e => setSeed(e.target.value)}
-                placeholder="e.g. 1834729104"
-              />
+              <input className="input" value={seed} onChange={e => setSeed(e.target.value)} placeholder="e.g. 1834729104" />
             </Field>
             <Field label="Gold splits" hint="Times in the order the seed played levels">
-              <textarea
-                className="input"
-                rows={6}
-                value={gold}
-                onChange={e => setGold(e.target.value)}
-                placeholder={"0:42.13\n0:55.47\n1:08.91\n…"}
-              />
+              <textarea className="input" rows={6} value={gold} onChange={e => setGold(e.target.value)} placeholder={"0:42.13\n0:55.47\n1:08.91\n…"} />
             </Field>
             <Field label="Segment splits" hint="Times in the order the seed played levels">
-              <textarea
-                className="input"
-                rows={6}
-                value={segments}
-                onChange={e => setSegments(e.target.value)}
-                placeholder={"0:42.13\n1:37.60\n2:46.51\n…"}
-              />
+              <textarea className="input" rows={6} value={segments} onChange={e => setSegments(e.target.value)} placeholder={"0:42.13\n1:37.60\n2:46.51\n…"} />
             </Field>
             <ErrorBanner message={error} />
             <Btn kind="primary" size="lg" icn="play" onClick={handleStandardize} disabled={loading}>
@@ -97,20 +110,20 @@ export default function Standardize() {
 
           {result ? (
             <>
-              {result.gold.length > 0 && (
-                <OutputPanel
-                  title="Gold splits — standard order"
-                  body={result.gold.join("\n")}
-                  onCopy={() => copy(result.gold)}
-                />
-              )}
-              {result.segments.length > 0 && (
-                <OutputPanel
-                  title="Segment splits — standard order"
-                  body={result.segments.join("\n")}
-                  onCopy={() => copy(result.segments)}
-                />
-              )}
+              <SplitsOutputPanel
+                title="Gold splits — standard order"
+                times={result.gold}
+                medals={result.gold_medals}
+                showMedals={showMedals}
+                onCopy={() => copy(result.gold)}
+              />
+              <SplitsOutputPanel
+                title="Segment splits — standard order"
+                times={result.segments}
+                medals={result.segment_medals}
+                showMedals={showMedals}
+                onCopy={() => copy(result.segments)}
+              />
             </>
           ) : (
             <div className="muted" style={{ padding: 32, fontSize: 12, textAlign: "center" }}>

@@ -99,7 +99,9 @@ export default function SeedFinder() {
         setResults(prev => [...prev, data]);
         setStatus(prev => `Found ${data.seed} — still searching…`);
       } else if (data.type === "done") {
-        if (!data.stopped) {
+        if (data.stopped) {
+          setStatus("Search stopped.");
+        } else {
           setPct(100);
           setStatus(data.message);
         }

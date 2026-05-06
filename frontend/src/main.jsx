@@ -44,7 +44,8 @@ function Placeholder({ pageName }) {
 }
 
 function App() {
-  const [page, setPage] = useState("parse");
+  const [page, setPage]           = useState("parse");
+  const [showMedals, setShowMedals] = useState(true);
 
   return (
     <div className="hifi dark"
@@ -61,7 +62,7 @@ function App() {
               height:        "100%",
               overflow:      "hidden",
             }}>
-              <Component />
+              <Component showMedals={showMedals} setShowMedals={setShowMedals} />
             </div>
           ))}
           {/* Placeholder for pages not yet implemented */}

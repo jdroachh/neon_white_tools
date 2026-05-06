@@ -176,6 +176,63 @@ export const OutputPanel = ({ title, body, onCopy }) => (
   </div>
 );
 
+/* === Medal badge === */
+const MEDAL_COLORS = {
+  "BLOOD DIAMOND": "#ff55fc",
+  "TOPAZ":         "#f95700",
+  "SAPPHIRE":      "#6ab0ff",
+  "AMETHYST":      "#c77dff",
+  "EMERALD":       "#3ddc84",
+  "DEV":           "#ff4e88",
+  "ACE":           "#00e09a",
+  "GOLD":          "#ffd700",
+  "SILVER":        "#c0c0c0",
+  "BRONZE":        "#cd7f32",
+};
+
+export const MedalBadge = ({ medal }) => {
+  if (!medal) return null;
+  const color = MEDAL_COLORS[medal] || "var(--text-3)";
+  return (
+    <span style={{
+      fontSize: 9, fontWeight: 700, letterSpacing: 0.5,
+      padding: "2px 5px", borderRadius: 1,
+      background: color + "22",
+      color,
+      border: `1px solid ${color}55`,
+      whiteSpace: "nowrap",
+    }}>
+      {medal}
+    </span>
+  );
+};
+
+/* === Medal toggle === */
+export const MedalToggle = ({ value, onChange }) => (
+  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+    <span style={{ fontSize: 11, color: "var(--text-2)" }}>Medals</span>
+    <div
+      role="switch"
+      aria-checked={value}
+      onClick={() => onChange(!value)}
+      style={{
+        width: 34, height: 18, borderRadius: 9, cursor: "pointer",
+        background: value ? "var(--accent)" : "var(--surface-2)",
+        border: `1px solid ${value ? "var(--accent)" : "var(--border)"}`,
+        position: "relative", transition: "background 0.15s, border-color 0.15s",
+        flexShrink: 0,
+      }}
+    >
+      <div style={{
+        position: "absolute", top: 2, left: value ? 16 : 2,
+        width: 12, height: 12, borderRadius: "50%",
+        background: value ? "var(--bg)" : "var(--text-3)",
+        transition: "left 0.15s",
+      }} />
+    </div>
+  </div>
+);
+
 /* === Error / status banner === */
 export const ErrorBanner = ({ message }) =>
   message ? (

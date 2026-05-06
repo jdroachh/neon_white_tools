@@ -145,6 +145,14 @@ def _format_secs(secs: float) -> str:
     return f"{mins}:{s:06.3f}"
 
 
+def _compute_medals(level_names: list[str], time_strs: list[str], rush_key: str) -> list[str]:
+    medals = []
+    for name, s in zip(level_names, time_strs):
+        t = _parse_time_to_secs(s)
+        medals.append(_get_medal(name, t, rush_key) if t is not None else "")
+    return medals
+
+
 def _parse_level_names(raw: str, rush_key: str) -> tuple[list[int], str | None]:
     """Parse comma-separated level names/numbers. Returns (indices, error_or_None)."""
     names = RUSH_LEVELS[rush_key]
@@ -260,11 +268,20 @@ class JsApi:
         seg_out     = [seg_lines[i]  for i in order] if seg_lines  else []
 
         return {
-            "ok":          True,
-            "level_order": level_order,
-            "gold":        gold_out,
-            "segments":    seg_out,
+            "ok":              True,
+            "level_order":     level_order,
+            "gold":            gold_out,
+            "gold_medals":     _compute_medals(level_order, gold_out, key) if gold_out else [],
+            "segments":        seg_out,
+            "segment_medals":  _compute_medals(level_order, seg_out, key) if seg_out else [],
         }
+
+    # ── Rush metadata ── (extended) ──────────────────────────────────────────
+
+    def get_standard_order(self, rush_name: str) -> dict:
+        """Return the standard (non-shuffled) level name list for a rush."""
+        _, _, names = _resolve_rush(rush_name)
+        return {"ok": True, "lines": list(names)}
 
     # ── Seed Finder ───────────────────────────────────────────────────────────
 
@@ -493,9 +510,12 @@ class JsApi:
 
         gold_out = [gold_lines[seed_position[i]] for i in range(count)] if gold_lines else []
         seg_out  = [seg_lines[seed_position[i]]  for i in range(count)] if seg_lines  else []
+        std_names = list(names)  # standard index order for medal lookup
 
         return {
-            "ok":       True,
-            "gold":     gold_out,
-            "segments": seg_out,
+            "ok":             True,
+            "gold":           gold_out,
+            "gold_medals":    _compute_medals(std_names, gold_out, key) if gold_out else [],
+            "segments":       seg_out,
+            "segment_medals": _compute_medals(std_names, seg_out, key) if seg_out else [],
         }
