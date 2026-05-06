@@ -252,7 +252,7 @@ class JsApi:
         except ValueError:
             return {"ok": False, "error": "Seed must be an integer between 1 and 2,147,483,647."}
 
-        _, count, names = _resolve_rush(rush_name)
+        key, count, names = _resolve_rush(rush_name)
         order = full_shuffle(count, s)
 
         gold_lines = [l for l in str(gold).splitlines() if l.strip()]
@@ -492,7 +492,7 @@ class JsApi:
         except ValueError:
             return {"ok": False, "error": "Seed must be an integer between 1 and 2,147,483,647."}
 
-        _, count, names = _resolve_rush(rush_name)
+        key, count, names = _resolve_rush(rush_name)
         order = full_shuffle(count, s)
 
         # Build inverse: standard_index -> seed_position

@@ -65,7 +65,14 @@ export default function RunTimer({ showMedals, setShowMedals }) {
     }
   }
 
-  function copySegments() {
+  function copyTimes() {
+    if (!result) return;
+    navigator.clipboard.writeText(
+      result.rows.map(r => r.segment_fmt).join("\n")
+    ).catch(() => {});
+  }
+
+  function copySplits() {
     if (!result) return;
     navigator.clipboard.writeText(
       result.rows.map(r => `${r.name}: ${r.segment_fmt}`).join("\n")
@@ -216,7 +223,8 @@ export default function RunTimer({ showMedals, setShowMedals }) {
                     Segment Times
                   </span>
                   <div style={{ display: "flex", gap: 6 }}>
-                    <Btn kind="ghost" size="sm" icn="copy" onClick={copySegments}>Segments</Btn>
+                    <Btn kind="ghost" size="sm" icn="copy" onClick={copyTimes}>Times</Btn>
+                    <Btn kind="ghost" size="sm" icn="copy" onClick={copySplits}>Splits</Btn>
                     <Btn kind="ghost" size="sm" icn="copy" onClick={copyMedals}>Medals</Btn>
                   </div>
                 </div>
