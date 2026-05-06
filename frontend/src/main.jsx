@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import "./styles.css";
 
 import { Titlebar, Sidebar } from "./shared.jsx";
-import { getSteamStatus } from "./api.js";
+import { getSteamStatus, getConfig } from "./api.js";
 import SeedParser    from "./pages/SeedParser.jsx";
 import SplitsUpdater from "./pages/SplitsUpdater.jsx";
 import Standardize   from "./pages/Standardize.jsx";
@@ -59,11 +59,13 @@ function App() {
   const [page, setPage]               = useState("parse");
   const [showMedals, setShowMedals]   = useState(true);
   const [steamStatus, setSteamStatus] = useState({ ready: false, playerName: "", steamId: 0 });
+  const [outputFolder, setOutputFolder] = useState("");
 
   useEffect(() => {
     getSteamStatus().then(s => {
       if (s.ready) setSteamStatus({ ready: true, playerName: s.player_name, steamId: s.steam_id });
     }).catch(() => {});
+    getConfig().then(cfg => setOutputFolder(cfg.output_folder || "")).catch(() => {});
   }, []);
 
   return (
@@ -82,15 +84,16 @@ function App() {
               height:        "100%",
               overflow:      "hidden",
             }}>
-              <Component showMedals={showMedals} setShowMedals={setShowMedals} />
+              <Component showMedals={showMedals} setShowMedals={setShowMedals}
+                         outputFolder={outputFolder} />
             </div>
           ))}
-          {/* Settings — mounted separately so it can update steamStatus */}
+          {/* Settings — mounted separately so it can update steamStatus and outputFolder */}
           <div style={{
             display: page === "settings" ? "flex" : "none",
             flexDirection: "column", height: "100%", overflow: "hidden",
           }}>
-            <Settings onSteamConnected={setSteamStatus} />
+            <Settings onSteamConnected={setSteamStatus} onFolderChange={setOutputFolder} />
           </div>
           {/* Placeholder for pages not yet implemented */}
           {!WIRED_KEYS.has(page) && page !== "settings" && (

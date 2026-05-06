@@ -1,17 +1,26 @@
 import React, { useState, useEffect } from "react";
-import { PageHead, Field, Btn, ErrorBanner } from "../shared.jsx";
-import { runGlobalExport, stopLeaderboard } from "../api.js";
+import { PageHead, Field, Seg, Btn, ErrorBanner } from "../shared.jsx";
+import { runGlobalExport, stopLeaderboard, pickFolder } from "../api.js";
 
 const TH = { padding: "4px 8px", fontWeight: 600, fontSize: 10, borderBottom: "1px solid var(--border)", textAlign: "left" };
 const TD = { padding: "3px 8px", fontSize: 11 };
 
-export default function GlobalExport() {
-  const [count, setCount]       = useState("100");
-  const [running, setRunning]   = useState(false);
-  const [status, setStatus]     = useState("");
-  const [error, setError]       = useState("");
-  const [rows, setRows]         = useState([]);
-  const [progress, setProgress] = useState(null);
+export default function GlobalExport({ outputFolder: defaultFolder = "" }) {
+  const [count, setCount]         = useState("100");
+  const [outMode, setOutMode]     = useState("display");
+  const [folder, setFolder]       = useState(defaultFolder);
+  const [running, setRunning]     = useState(false);
+  const [status, setStatus]       = useState("");
+  const [error, setError]         = useState("");
+  const [rows, setRows]           = useState([]);
+  const [progress, setProgress]   = useState(null);
+
+  // Sync folder when the app-level default changes (e.g. updated in Settings),
+  // but only if the user hasn't manually overridden it this session.
+  const [folderTouched, setFolderTouched] = useState(false);
+  useEffect(() => {
+    if (!folderTouched) setFolder(defaultFolder);
+  }, [defaultFolder]);
 
   useEffect(() => {
     window._nwGlobalEvent = (ev) => {
@@ -21,7 +30,7 @@ export default function GlobalExport() {
       } else if (ev.type === "row") {
         setRows(prev => [...prev, ev]);
       } else if (ev.type === "done") {
-        setStatus(ev.message);
+        setStatus(ev.csv_path ? `${ev.message} → ${ev.csv_path}` : ev.message);
         setRunning(false);
         setProgress(null);
       } else if (ev.type === "error") {
@@ -33,9 +42,14 @@ export default function GlobalExport() {
     return () => { window._nwGlobalEvent = null; };
   }, []);
 
+  async function handlePickFolder() {
+    const r = await pickFolder();
+    if (r.ok && r.path) { setFolder(r.path); setFolderTouched(true); }
+  }
+
   async function handleRun() {
     setError(""); setStatus("Starting..."); setRows([]); setProgress(null);
-    const r = await runGlobalExport(count);
+    const r = await runGlobalExport(count, outMode, folder);
     if (!r.ok) { setError(r.error); return; }
     setRunning(true);
   }
@@ -50,11 +64,13 @@ export default function GlobalExport() {
     navigator.clipboard.writeText(text).catch(() => {});
   }
 
+  const showFolder = outMode === "csv" || outMode === "both";
+
   return (
     <>
       <PageHead crumb="Leaderboard Tools" title="GLOBAL" accentWord="EXPORT"
         actions={<>
-          {rows.length > 0 && !running &&
+          {rows.length > 0 && !running && outMode !== "csv" &&
             <Btn kind="ghost" size="sm" icn="copy" onClick={handleCopy}>Copy</Btn>}
           {running
             ? <Btn kind="danger" onClick={handleStop}>Stop</Btn>
@@ -69,6 +85,19 @@ export default function GlobalExport() {
                      onChange={e => setCount(e.target.value)} disabled={running}
                      style={{ width: 100 }} />
             </Field>
+            <Field label="Output">
+              <Seg options={["display", "csv", "both"]} value={outMode} onChange={setOutMode} />
+            </Field>
+            {showFolder && (
+              <Field label="Output folder" hint={`Saved as neon_white_top_${count || "N"}_entries.csv`}>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input className="input" style={{ flex: 1, fontSize: 10 }} value={folder}
+                         onChange={e => { setFolder(e.target.value); setFolderTouched(true); }} disabled={running}
+                         placeholder="Select a folder..." />
+                  <Btn kind="ghost" size="sm" onClick={handlePickFolder} disabled={running}>Browse</Btn>
+                </div>
+              </Field>
+            )}
             <ErrorBanner message={error} />
             {progress && (
               <div>
@@ -93,7 +122,11 @@ export default function GlobalExport() {
           </div>
         </div>
         <div className="panel-right" style={{ overflow: "auto" }}>
-          {rows.length > 0 ? (
+          {outMode === "csv" ? (
+            <div className="muted" style={{ padding: 32, fontSize: 12, textAlign: "center" }}>
+              {running ? "Writing CSV..." : rows.length > 0 ? `${rows.length.toLocaleString()} rows written to CSV.` : "Results will be saved to CSV only."}
+            </div>
+          ) : rows.length > 0 ? (
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead style={{ position: "sticky", top: 0, background: "var(--bg-2)" }}>
                 <tr>

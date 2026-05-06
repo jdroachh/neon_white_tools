@@ -2,6 +2,9 @@ import React, { useState, useEffect } from "react";
 import { getStandardOrder, loadTimerSeed, calculateTimer } from "../api.js";
 import { PageHead, Field, Seg, Btn, RushSelect, ErrorBanner, MedalBadge, MedalToggle, RUSHES } from "../shared.jsx";
 
+const GRID_SIZES = { S: 160, M: 320, L: 500, XL: 720, XXL: 900 };
+const LS_SIZE_KEY = "runtimer_grid_size";
+
 export default function RunTimer({ showMedals, setShowMedals }) {
   const [rushName, setRushName]     = useState(RUSHES[0].name);
   const [mode, setMode]             = useState("standard"); // standard | seed | manual
@@ -11,6 +14,14 @@ export default function RunTimer({ showMedals, setShowMedals }) {
   const [error, setError]           = useState(null);
   const [loading, setLoading]       = useState(false);
   const [loadingNames, setLoadingNames] = useState(false);
+  const [gridSize, setGridSize]     = useState(
+    () => localStorage.getItem(LS_SIZE_KEY) || "M"
+  );
+
+  function handleSizeChange(size) {
+    setGridSize(size);
+    localStorage.setItem(LS_SIZE_KEY, size);
+  }
 
   // Reload level names when rush or mode changes.
   useEffect(() => {
@@ -150,9 +161,26 @@ export default function RunTimer({ showMedals, setShowMedals }) {
               </Field>
             )}
 
-            <Field label="Cumulative split times">
+            <Field label="Cumulative split times" hint={
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+                <span style={{ fontSize: 10, color: "var(--text-3)" }}>Input window size</span>
+                {Object.keys(GRID_SIZES).map(s => (
+                  <span key={s}
+                    onClick={() => handleSizeChange(s)}
+                    style={{
+                      padding: "1px 7px", fontSize: 10, borderRadius: 2, cursor: "pointer",
+                      border: "1px solid var(--border)",
+                      background: gridSize === s ? "var(--accent)" : "var(--surface)",
+                      color: gridSize === s ? "#042b1f" : "var(--text-2)",
+                      fontWeight: gridSize === s ? 600 : 400,
+                    }}>
+                    {s}
+                  </span>
+                ))}
+              </div>
+            }>
               <div style={{
-                maxHeight: 320, overflowY: "auto",
+                maxHeight: GRID_SIZES[gridSize], overflowY: "auto",
                 border: "1px solid var(--border)", borderRadius: 2,
                 background: "var(--bg)",
               }}>

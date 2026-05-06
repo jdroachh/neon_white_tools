@@ -96,6 +96,11 @@ export async function pickDllFile() {
   return api.pick_dll_file();
 }
 
+export async function pickFolder() {
+  const api = await waitForApi();
+  return api.pick_folder();
+}
+
 // ── Leaderboard metadata ─────────────────────────────────────────────────────
 
 export async function getLevels() {
@@ -110,19 +115,19 @@ export async function getChapters() {
 
 // ── Leaderboard operations ───────────────────────────────────────────────────
 
-export async function runGlobalExport(count) {
+export async function runGlobalExport(count, outMode = "display", folder = "") {
   const api = await waitForApi();
-  return api.run_global_export(String(count));
+  return api.run_global_export(String(count), outMode, folder);
 }
 
-export async function runLevelSearch(levelName, count) {
+export async function runLevelSearch(levelName, count, outMode = "display", folder = "") {
   const api = await waitForApi();
-  return api.run_level_search(levelName, String(count));
+  return api.run_level_search(levelName, String(count), outMode, folder);
 }
 
-export async function runPlayerLookup(steamId, mode, target) {
+export async function runPlayerLookup(steamId, mode, target, outMode = "display", folder = "") {
   const api = await waitForApi();
-  return api.run_player_lookup(String(steamId), mode, String(target));
+  return api.run_player_lookup(String(steamId), mode, String(target), outMode, folder);
 }
 
 export async function stopLeaderboard() {

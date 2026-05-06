@@ -580,6 +580,17 @@ class JsApi:
             pass
         return {"ok": False, "path": ""}
 
+    def pick_folder(self) -> dict:
+        try:
+            import webview
+            if webview.windows:
+                result = webview.windows[0].create_file_dialog(webview.FOLDER_DIALOG)
+                if result:
+                    return {"ok": True, "path": result[0]}
+        except Exception:
+            pass
+        return {"ok": False, "path": ""}
+
     # ── Level / chapter metadata ──────────────────────────────────────────────
 
     def get_levels(self) -> list:
@@ -590,8 +601,8 @@ class JsApi:
 
     # ── Leaderboard operations ────────────────────────────────────────────────
 
-    def run_global_export(self, count: str) -> dict:
-        import steam_api, time as _time
+    def run_global_export(self, count: str, out_mode: str = "display", folder: str = "") -> dict:
+        import steam_api, time as _time, csv as _csv
         if not steam_api.steam_ready:
             return {"ok": False, "error": "Steam not connected. Connect in Settings first."}
         if getattr(self, "_lb_running", False):
@@ -600,11 +611,23 @@ class JsApi:
             count_int = max(1, int(str(count).strip()))
         except ValueError:
             return {"ok": False, "error": "Entry count must be a number."}
+        if out_mode in ("csv", "both") and not str(folder).strip():
+            return {"ok": False, "error": "Select an output folder."}
 
         self._lb_stop_event = threading.Event()
         self._lb_running = True
 
         def worker():
+            csv_path = None
+            csv_file = None
+            writer = None
+            if out_mode in ("csv", "both"):
+                csv_path = os.path.join(folder.strip(), f"neon_white_top_{count_int}_entries.csv")
+                csv_file = open(csv_path, "w", newline="", encoding="utf-8")
+                writer = _csv.DictWriter(
+                    csv_file, fieldnames=["rank", "level", "name", "score_ms", "time"])
+                writer.writeheader()
+
             total_levels = len(LEVELS)
             all_rows = 0
             for idx, (display, internal) in enumerate(LEVELS, 1):
@@ -627,16 +650,27 @@ class JsApi:
                     if not batch:
                         break
                     for e in batch:
-                        _emit_to("_nwGlobalEvent", {
-                            "type": "row", "rank": e["rank"],
-                            "level": display, "name": e["name"], "time": e["time"],
-                        })
+                        if out_mode in ("display", "both"):
+                            _emit_to("_nwGlobalEvent", {
+                                "type": "row", "rank": e["rank"],
+                                "level": display, "name": e["name"], "time": e["time"],
+                            })
+                        if writer:
+                            writer.writerow({"rank": e["rank"], "level": display,
+                                             "name": e["name"], "score_ms": e["score_ms"],
+                                             "time": e["time"]})
                     all_rows += len(batch)
                     start = end + 1
                     _time.sleep(0.05)
+                if csv_file:
+                    csv_file.flush()
+
+            if csv_file:
+                csv_file.close()
             stopped = self._lb_stop_event.is_set()
             _emit_to("_nwGlobalEvent", {
                 "type": "done", "total_rows": all_rows, "stopped": stopped,
+                "csv_path": csv_path or "",
                 "message": (f"Stopped. {all_rows} entries fetched." if stopped
                             else f"Done. {all_rows} entries fetched."),
             })
@@ -645,8 +679,9 @@ class JsApi:
         threading.Thread(target=worker, daemon=True).start()
         return {"ok": True}
 
-    def run_level_search(self, level_name: str, count: str) -> dict:
-        import steam_api, time as _time
+    def run_level_search(self, level_name: str, count: str,
+                         out_mode: str = "display", folder: str = "") -> dict:
+        import steam_api, time as _time, csv as _csv
         if not steam_api.steam_ready:
             return {"ok": False, "error": "Steam not connected. Connect in Settings first."}
         if getattr(self, "_lb_running", False):
@@ -661,6 +696,8 @@ class JsApi:
             count_int = max(1, int(str(count).strip()))
         except ValueError:
             return {"ok": False, "error": "Entry count must be a number."}
+        if out_mode in ("csv", "both") and not str(folder).strip():
+            return {"ok": False, "error": "Select an output folder."}
 
         self._lb_stop_event = threading.Event()
         self._lb_running = True
@@ -679,7 +716,7 @@ class JsApi:
                 "type": "status",
                 "message": f"Total: {total_lb:,}  |  Fetching top {fetch:,}...",
             })
-            rows = 0
+            all_entries = []
             start = 1
             while start <= fetch and not self._lb_stop_event.is_set():
                 end = min(start + steam_api.BATCH_SIZE - 1, fetch)
@@ -687,25 +724,42 @@ class JsApi:
                 if not batch:
                     break
                 for e in batch:
-                    _emit_to("_nwLevelEvent", {
-                        "type": "row", "rank": e["rank"],
-                        "name": e["name"], "time": e["time"], "score_ms": e["score_ms"],
-                    })
-                rows += len(batch)
+                    if out_mode in ("display", "both"):
+                        _emit_to("_nwLevelEvent", {
+                            "type": "row", "rank": e["rank"],
+                            "name": e["name"], "time": e["time"], "score_ms": e["score_ms"],
+                        })
+                    if out_mode in ("csv", "both"):
+                        all_entries.append(e)
                 start = end + 1
                 _time.sleep(0.05)
+
+            csv_path = None
+            if out_mode in ("csv", "both") and all_entries:
+                safe = display.replace(" ", "_").replace("'", "")
+                csv_path = os.path.join(folder.strip(), f"{safe}_top{len(all_entries)}.csv")
+                with open(csv_path, "w", newline="", encoding="utf-8") as f:
+                    writer = _csv.DictWriter(f, fieldnames=["rank", "name", "score_ms", "time"])
+                    writer.writeheader()
+                    for e in all_entries:
+                        writer.writerow({"rank": e["rank"], "name": e["name"],
+                                         "score_ms": e["score_ms"], "time": e["time"]})
+
             stopped = self._lb_stop_event.is_set()
+            total = len(all_entries) if out_mode in ("csv", "both") else (start - 1)
             _emit_to("_nwLevelEvent", {
-                "type": "done", "total": rows, "stopped": stopped,
-                "message": (f"Stopped. {rows} entries." if stopped else f"Done. {rows} entries."),
+                "type": "done", "total": total, "stopped": stopped,
+                "csv_path": csv_path or "",
+                "message": (f"Stopped. {total} entries." if stopped else f"Done. {total} entries."),
             })
             self._lb_running = False
 
         threading.Thread(target=worker, daemon=True).start()
         return {"ok": True}
 
-    def run_player_lookup(self, steam_id: str, mode: str, target: str) -> dict:
-        import steam_api
+    def run_player_lookup(self, steam_id: str, mode: str, target: str,
+                          out_mode: str = "display", folder: str = "") -> dict:
+        import steam_api, csv as _csv
         if not steam_api.steam_ready:
             return {"ok": False, "error": "Steam not connected. Connect in Settings first."}
         if getattr(self, "_lb_running", False):
@@ -717,11 +771,13 @@ class JsApi:
         sid = int(sid_str)
 
         levels_to_search = []
+        context = ""
         if mode == "level":
             match = LEVEL_LOOKUP.get(str(target).strip().lower())
             if not match:
                 return {"ok": False, "error": f"Level '{target}' not found."}
             levels_to_search = [match]
+            context = match[0]
         elif mode == "chapter":
             chap = str(target).strip()
             if chap not in CHAPTERS:
@@ -730,10 +786,15 @@ class JsApi:
                 m = LEVEL_LOOKUP.get(dn.lower())
                 if m:
                     levels_to_search.append(m)
+            context = chap
         elif mode == "game":
             levels_to_search = list(WHOLE_GAME_LEVELS)
+            context = "Whole Game"
         else:
             return {"ok": False, "error": f"Unknown mode '{mode}'."}
+
+        if out_mode in ("csv", "both") and not str(folder).strip():
+            return {"ok": False, "error": "Select an output folder."}
 
         self._lb_stop_event = threading.Event()
         self._lb_running = True
@@ -748,6 +809,7 @@ class JsApi:
                 "player_name": pname,
             })
             found = 0
+            all_rows = []
             for display, internal in levels_to_search:
                 if self._lb_stop_event.is_set():
                     break
@@ -759,16 +821,33 @@ class JsApi:
                 entry = steam_api.get_player_entry(lb, sid)
                 if entry:
                     time_str = f"{entry.score / 1000:.3f}"
-                    _emit_to("_nwPlayerEvent", {
-                        "type": "row", "level": display,
-                        "rank": entry.global_rank, "time": time_str,
-                        "score_ms": entry.score, "total": total_lb,
-                    })
+                    if out_mode in ("display", "both"):
+                        _emit_to("_nwPlayerEvent", {
+                            "type": "row", "level": display,
+                            "rank": entry.global_rank, "time": time_str,
+                            "score_ms": entry.score, "total": total_lb,
+                        })
+                    if out_mode in ("csv", "both"):
+                        all_rows.append({"level": display, "rank": entry.global_rank,
+                                         "time": time_str, "score_ms": entry.score,
+                                         "total": total_lb})
                     found += 1
+
+            csv_path = None
+            if out_mode in ("csv", "both") and all_rows:
+                safe_ctx = context.replace(" ", "_").replace("/", "_").replace("-", "")
+                csv_path = os.path.join(folder.strip(), f"player_{safe_ctx}.csv")
+                with open(csv_path, "w", newline="", encoding="utf-8") as f:
+                    writer = _csv.DictWriter(
+                        f, fieldnames=["level", "rank", "time", "score_ms", "total"])
+                    writer.writeheader()
+                    writer.writerows(all_rows)
+
             stopped = self._lb_stop_event.is_set()
             _emit_to("_nwPlayerEvent", {
                 "type": "done", "found": found,
                 "total_levels": len(levels_to_search), "stopped": stopped,
+                "csv_path": csv_path or "",
                 "message": (f"Stopped. {found} entries so far." if stopped
                             else f"Done. Found {found}/{len(levels_to_search)} entries."),
             })

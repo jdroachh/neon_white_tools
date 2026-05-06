@@ -81,7 +81,7 @@ export default function SplitsUpdater({ showMedals, setShowMedals }) {
             <Field label="Rush name">
               <RushSelect value={rushName} onChange={setRushName} />
             </Field>
-            <Field label="Seed number">
+            <Field label="Seed number" hint="The seed you want to adjust your splits to">
               <input className="input" value={seed} onChange={e => setSeed(e.target.value)} placeholder="e.g. 1834729104" />
             </Field>
             <Field label="Gold splits" hint="Best individual times, one per line, standard order">

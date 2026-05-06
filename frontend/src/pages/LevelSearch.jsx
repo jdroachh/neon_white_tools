@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from "react";
-import { PageHead, Field, Btn, ErrorBanner } from "../shared.jsx";
-import { getLevels, runLevelSearch, stopLeaderboard } from "../api.js";
+import { PageHead, Field, Seg, Btn, ErrorBanner } from "../shared.jsx";
+import { getLevels, runLevelSearch, stopLeaderboard, pickFolder } from "../api.js";
 
 const TH = { padding: "4px 8px", fontWeight: 600, fontSize: 10, borderBottom: "1px solid var(--border)", textAlign: "left" };
 const TD = { padding: "3px 8px", fontSize: 11 };
 
-export default function LevelSearch() {
+export default function LevelSearch({ outputFolder: defaultFolder = "" }) {
   const [levels, setLevels]     = useState([]);
   const [levelName, setLevel]   = useState("");
   const [count, setCount]       = useState("100");
+  const [outMode, setOutMode]   = useState("display");
+  const [folder, setFolder]     = useState(defaultFolder);
+  const [folderTouched, setFolderTouched] = useState(false);
   const [running, setRunning]   = useState(false);
   const [status, setStatus]     = useState("");
   const [error, setError]       = useState("");
@@ -25,7 +28,7 @@ export default function LevelSearch() {
       } else if (ev.type === "row") {
         setRows(prev => [...prev, ev]);
       } else if (ev.type === "done") {
-        setStatus(ev.message);
+        setStatus(ev.csv_path ? `${ev.message} → ${ev.csv_path}` : ev.message);
         setRunning(false);
       } else if (ev.type === "error") {
         setError(ev.message);
@@ -35,9 +38,18 @@ export default function LevelSearch() {
     return () => { window._nwLevelEvent = null; };
   }, []);
 
+  useEffect(() => {
+    if (!folderTouched) setFolder(defaultFolder);
+  }, [defaultFolder]);
+
+  async function handlePickFolder() {
+    const r = await pickFolder();
+    if (r.ok && r.path) { setFolder(r.path); setFolderTouched(true); }
+  }
+
   async function handleRun() {
     setError(""); setStatus(""); setRows([]);
-    const r = await runLevelSearch(levelName, count);
+    const r = await runLevelSearch(levelName, count, outMode, folder);
     if (!r.ok) { setError(r.error); return; }
     setRunning(true);
   }
@@ -52,11 +64,13 @@ export default function LevelSearch() {
     navigator.clipboard.writeText(text).catch(() => {});
   }
 
+  const showFolder = outMode === "csv" || outMode === "both";
+
   return (
     <>
       <PageHead crumb="Leaderboard Tools" title="LEVEL" accentWord="SEARCH"
         actions={<>
-          {rows.length > 0 && !running &&
+          {rows.length > 0 && !running && outMode !== "csv" &&
             <Btn kind="ghost" size="sm" icn="copy" onClick={handleCopy}>Copy</Btn>}
           {running
             ? <Btn kind="danger" onClick={handleStop}>Stop</Btn>
@@ -79,12 +93,30 @@ export default function LevelSearch() {
                      onChange={e => setCount(e.target.value)} disabled={running}
                      style={{ width: 100 }} />
             </Field>
+            <Field label="Output">
+              <Seg options={["display", "csv", "both"]} value={outMode} onChange={setOutMode} />
+            </Field>
+            {showFolder && (
+              <Field label="Output folder"
+                     hint={`Saved as ${(levelName || "Level").replace(/ /g, "_").replace(/'/g, "")}_top{count}.csv`}>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input className="input" style={{ flex: 1, fontSize: 10 }} value={folder}
+                         onChange={e => { setFolder(e.target.value); setFolderTouched(true); }}
+                         disabled={running} placeholder="Select a folder..." />
+                  <Btn kind="ghost" size="sm" onClick={handlePickFolder} disabled={running}>Browse</Btn>
+                </div>
+              </Field>
+            )}
             <ErrorBanner message={error} />
             {status && <div className="muted" style={{ fontSize: 11 }}>{status}</div>}
           </div>
         </div>
         <div className="panel-right" style={{ overflow: "auto" }}>
-          {rows.length > 0 ? (
+          {outMode === "csv" ? (
+            <div className="muted" style={{ padding: 32, fontSize: 12, textAlign: "center" }}>
+              {running ? "Fetching and writing CSV..." : status || "Results will be saved to CSV only."}
+            </div>
+          ) : rows.length > 0 ? (
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead style={{ position: "sticky", top: 0, background: "var(--bg-2)" }}>
                 <tr>

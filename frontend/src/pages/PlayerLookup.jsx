@@ -1,22 +1,25 @@
 import React, { useState, useEffect } from "react";
 import { PageHead, Field, Seg, Btn, ErrorBanner } from "../shared.jsx";
-import { getLevels, getChapters, getSteamStatus, runPlayerLookup, stopLeaderboard } from "../api.js";
+import { getLevels, getChapters, getSteamStatus, runPlayerLookup, stopLeaderboard, pickFolder } from "../api.js";
 
 const TH = { padding: "4px 8px", fontWeight: 600, fontSize: 10, borderBottom: "1px solid var(--border)", textAlign: "left" };
 const TD = { padding: "3px 8px", fontSize: 11 };
 
-export default function PlayerLookup() {
-  const [steamId, setSteamId]       = useState("");
-  const [mode, setMode]             = useState("level");
-  const [levels, setLevels]         = useState([]);
-  const [chapters, setChapters]     = useState([]);
-  const [levelName, setLevelName]   = useState("");
+export default function PlayerLookup({ outputFolder: defaultFolder = "" }) {
+  const [steamId, setSteamId]         = useState("");
+  const [mode, setMode]               = useState("level");
+  const [levels, setLevels]           = useState([]);
+  const [chapters, setChapters]       = useState([]);
+  const [levelName, setLevelName]     = useState("");
   const [chapterName, setChapterName] = useState("");
-  const [running, setRunning]       = useState(false);
-  const [status, setStatus]         = useState("");
-  const [error, setError]           = useState("");
-  const [rows, setRows]             = useState([]);
-  const [playerName, setPlayerName] = useState("");
+  const [outMode, setOutMode]         = useState("display");
+  const [folder, setFolder]           = useState(defaultFolder);
+  const [folderTouched, setFolderTouched] = useState(false);
+  const [running, setRunning]         = useState(false);
+  const [status, setStatus]           = useState("");
+  const [error, setError]             = useState("");
+  const [rows, setRows]               = useState([]);
+  const [playerName, setPlayerName]   = useState("");
 
   useEffect(() => {
     getLevels().then(ls => { setLevels(ls); if (ls.length) setLevelName(ls[0].display); });
@@ -28,7 +31,7 @@ export default function PlayerLookup() {
       } else if (ev.type === "row") {
         setRows(prev => [...prev, ev]);
       } else if (ev.type === "done") {
-        setStatus(ev.message);
+        setStatus(ev.csv_path ? `${ev.message} → ${ev.csv_path}` : ev.message);
         setRunning(false);
       } else if (ev.type === "error") {
         setError(ev.message);
@@ -37,6 +40,15 @@ export default function PlayerLookup() {
     };
     return () => { window._nwPlayerEvent = null; };
   }, []);
+
+  useEffect(() => {
+    if (!folderTouched) setFolder(defaultFolder);
+  }, [defaultFolder]);
+
+  async function handlePickFolder() {
+    const r = await pickFolder();
+    if (r.ok && r.path) { setFolder(r.path); setFolderTouched(true); }
+  }
 
   async function handleUseMine() {
     const s = await getSteamStatus();
@@ -50,7 +62,7 @@ export default function PlayerLookup() {
   async function handleRun() {
     setError(""); setStatus(""); setRows([]); setPlayerName("");
     const target = mode === "level" ? levelName : mode === "chapter" ? chapterName : "";
-    const r = await runPlayerLookup(steamId, mode, target);
+    const r = await runPlayerLookup(steamId, mode, target, outMode, folder);
     if (!r.ok) { setError(r.error); return; }
     setRunning(true);
   }
@@ -66,11 +78,13 @@ export default function PlayerLookup() {
     navigator.clipboard.writeText(text).catch(() => {});
   }
 
+  const showFolder = outMode === "csv" || outMode === "both";
+
   return (
     <>
       <PageHead crumb="Leaderboard Tools" title="PLAYER" accentWord="LOOKUP"
         actions={<>
-          {rows.length > 0 && !running &&
+          {rows.length > 0 && !running && outMode !== "csv" &&
             <Btn kind="ghost" size="sm" icn="copy" onClick={handleCopy}>Copy</Btn>}
           {running
             ? <Btn kind="danger" onClick={handleStop}>Stop</Btn>
@@ -117,12 +131,29 @@ export default function PlayerLookup() {
                 All 121 levels will be searched.
               </div>
             )}
+            <Field label="Output">
+              <Seg options={["display", "csv", "both"]} value={outMode} onChange={setOutMode} />
+            </Field>
+            {showFolder && (
+              <Field label="Output folder" hint="Saved as player_{context}.csv">
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input className="input" style={{ flex: 1, fontSize: 10 }} value={folder}
+                         onChange={e => { setFolder(e.target.value); setFolderTouched(true); }}
+                         disabled={running} placeholder="Select a folder..." />
+                  <Btn kind="ghost" size="sm" onClick={handlePickFolder} disabled={running}>Browse</Btn>
+                </div>
+              </Field>
+            )}
             <ErrorBanner message={error} />
             {status && <div className="muted" style={{ fontSize: 11 }}>{status}</div>}
           </div>
         </div>
         <div className="panel-right" style={{ overflow: "auto" }}>
-          {rows.length > 0 ? (
+          {outMode === "csv" ? (
+            <div className="muted" style={{ padding: 32, fontSize: 12, textAlign: "center" }}>
+              {running ? "Looking up and writing CSV..." : status || "Results will be saved to CSV only."}
+            </div>
+          ) : rows.length > 0 ? (
             <>
               {playerName && (
                 <div style={{ padding: "12px 16px 0", fontSize: 12, fontWeight: 600 }}>

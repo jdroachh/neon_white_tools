@@ -315,6 +315,7 @@
 /* Segmented control */
 .hifi .seg {
   display: inline-flex;
+  align-self: flex-start;
   border: 1px solid var(--border);
   border-radius: 2px;
   background: var(--surface);
