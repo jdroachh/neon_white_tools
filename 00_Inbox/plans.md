@@ -4,6 +4,145 @@ Saved Claude-authored plans for the Neon White app. Newest at the top.
 
 ---
 
+## 2026-05-07 — Compare Players: CSV export
+
+**Context:** Compare Players v1 is display-only. This adds an optional CSV export — same `outMode` / folder-picker pattern as Player Lookup.
+
+### Changes
+
+**Bridge (`bridge.py`):** `run_compare_players` gains `out_mode: str = "display"` and `folder: str = ""`. When `out_mode in ("csv", "both")` and folder is empty → early error. Worker writes a CSV with columns `level, p1_rank, p1_time, p1_medal, delta_ms, p2_time, p2_rank, p2_medal` (medal columns only when data present; empty string when player has no entry). Filename: `{p1name}_vs_{p2name}_{context}.csv`. Row events still emitted when `out_mode in ("display", "both")`.
+
+**Frontend (`api.js`):** add `outMode` and `folder` trailing args to `runComparePlayers`.
+
+**Frontend (`ComparePlayers.jsx`):**
+- Add `outMode` state (default `"display"`) and `folder` / `folderTouched` state.
+- Add `Output` Field with `Seg` (`display / csv / both`) after the mode/level fields.
+- Add `Output folder` Field (conditional on `showFolder`) with Browse button — copy from PlayerLookup.
+- Hide Copy button when `outMode === "csv"` (nothing to copy from display).
+- Status line when csv-only: "Saved to {path}" from done event `csv_path`.
+
+**Verification:**
+1. `npm run build` clean.
+2. Mode=display → no folder prompt, results table as before.
+3. Mode=csv → folder required error if empty; on run, CSV appears at path, no results table.
+4. Mode=both → results table streams AND CSV written; done status shows path.
+5. Filename contains both player names and context (level/chapter/game).
+
+---
+
+## 2026-05-07 — Button standardization (Group A) + Compare Players page ✓ DONE
+
+### Context
+
+Two unrelated UX requests bundled together:
+
+1. **Button placement is inconsistent.** Rush Tools put their primary action button inline at the bottom of the parameters section. The three Leaderboard Tools pages (Global Export, Level Search, Player Lookup) put it in the top-right `PageHead` actions area. Goal: leaderboard pages match the rush pattern so the action sits next to the parameters that drive it.
+
+2. **New "Compare Players" page** under Leaderboard Tools. Takes two Steam IDs, shows their times side-by-side on a single level / chapter / whole game. Faster time gets highlighted; a Δ column shows the gap. Rows where one player has no entry render `—` for the missing side. Display-only for v1 (no CSV).
+
+Scope: pywebview frontend (`frontend/src/`) + bridge (`SteamScraper/webview_app/bridge.py`) only. Legacy tkinter app untouched.
+
+### Part 1 — Button standardization (small, mechanical)
+
+**Files:** `frontend/src/pages/GlobalExport.jsx`, `LevelSearch.jsx`, `PlayerLookup.jsx`.
+
+**Per-page change:**
+1. Remove the **Run / Stop** `<Btn>` pair from `PageHead`'s `actions` prop.
+2. **Keep** the Copy `<Btn>` in `actions` — it stays top-right (it's a post-results action).
+3. After `ErrorBanner` inside `.form`, insert:
+   ```jsx
+   <div style={{ display: "flex", gap: 8 }}>
+     {running
+       ? <Btn kind="danger" size="lg" onClick={handleStop}>Stop</Btn>
+       : <Btn kind="primary" size="lg" icn="<existing>" onClick={handleRun}>{label}</Btn>}
+   </div>
+   ```
+4. Bump to `size="lg"` to match Group B. Preserve each page's icon (`export`, `search`, `user`) and label (`Run Export`, `Search`, `Look Up`).
+
+No state changes, no new imports. ~5 line diff per page.
+
+**Reference:** target pattern at `frontend/src/pages/SeedFinder.jsx:369-376`. Shared `Btn` at `frontend/src/shared.jsx:168-175`.
+
+### Part 2 — Compare Players page
+
+**New files:** `frontend/src/pages/ComparePlayers.jsx`; bridge method `run_compare_players` in `bridge.py`.
+**Modified:** `frontend/src/api.js`, `frontend/src/shared.jsx` (NAV_ITEMS), route table.
+
+**Page state** (mirrors PlayerLookup, doubled where needed): `steamId1`, `steamId2`, `mode`, `levelName`, `chapterName`, `levels`, `chapters`, `running`, `status`, `error`, `rows`, `playerName1`, `playerName2`, `showMedals`, `largeText`.
+
+**Layout:**
+- Two `Field`s for Steam IDs, each with a "Mine" button (copy `handleUseMine` from `PlayerLookup.jsx:55`).
+- Mode `Seg` + level/chapter dropdowns (copy from PlayerLookup).
+- Run/Stop button at bottom of `.form` (matches Part 1).
+- Results table columns: `Level | P1 Rank | P1 Time | Δ | P2 Time | P2 Rank` (+ `P1 Medal | P2 Medal` when `showMedals` on).
+- **Highlight:** faster player's Time cell → `backgroundColor: "rgba(120, 220, 160, 0.12)"`. Tie → no highlight, Δ = `0.000`. Missing side → `—`, no highlight, Δ = `—`.
+- **Δ formatting:** signed seconds, 3 decimals (e.g. `+0.234`, `−1.087`); color matches the faster side's tint.
+- PageHead actions: just `Copy` (top-right).
+
+**Bridge:** `run_compare_players(self, steam_id_1, steam_id_2, mode, target)` (no `out_mode`/`folder` — display-only v1).
+- Validate both Steam IDs as 17 digits (mirror `bridge.py:839-842`).
+- Reuse `LEVEL_LOOKUP`, `CHAPTERS`, `WHOLE_GAME_LEVELS`, `_get_medal` (`bridge.py:136-158`), `_lb_stop_event` / `_lb_running` daemon thread pattern.
+- **Steam call optimization (mandatory):** call `find_leaderboard(internal)` once per level, query both players against the same handle. Cost = ~3N calls (not 6N). Whole game = ~363 not ~726.
+- Status event at start: `{ type: "status", message, player_name_1, player_name_2 }`.
+- Per-level row event:
+  ```python
+  {
+    "type": "row",
+    "level": display,
+    "p1": {"rank": ..., "time": "...", "score_ms": ..., "medal": "..."} or None,
+    "p2": {"rank": ..., "time": "...", "score_ms": ..., "medal": "..."} or None,
+    "delta_ms": int or None,           # p2.score_ms - p1.score_ms; None if either side missing
+    "faster": "p1" | "p2" | "tie" | None,
+    "total": total_lb,
+  }
+  ```
+- Done event: `{ type: "done", message, found_p1, found_p2, total_levels }`.
+- Emit via `self._emit_to("_nwCompareEvent", payload)`.
+
+**Nav:** add `{ key: "compare", label: "Compare Players", icn: "user" }` to `NAV_ITEMS.leaderboard` in `shared.jsx:57-74`. Wire route alongside PlayerLookup.
+
+### Verification
+
+**Part 1:** `npm run build` clean → launch app → on each of Global Export / Level Search / Player Lookup confirm Run button sits at bottom of parameters (size lg), Stop replaces it while running, Copy still appears top-right after results, no layout shift on Run↔Stop.
+
+**Part 2:**
+1. New test in `tests/test_bridge.py::test_run_compare_players_validates_both_steam_ids` (bad sid1, bad sid2). `pytest` clean.
+2. In-app smoke:
+   - Two valid Steam IDs, mode=level → two-row payload, Δ correct, faster cell highlighted.
+   - Mode=chapter → rows stream incrementally.
+   - Mode=game → ~121 rows over ~30–60s, no errors, Stop interrupts cleanly.
+   - One player missing on a level → `—` renders, Δ=`—`, no highlight.
+   - Toggle Medals → both medal columns appear/disappear together, layout stable.
+   - "Mine" on each field populates from Steam-connected user.
+   - Copy → clipboard has tab-separated rows + both player names in header.
+3. Code-read confirm: ~3N Steam calls per run (one `find_leaderboard` per level + two `get_player_entry` against the shared handle).
+
+### Sonnet handoff prompt
+
+> You are implementing two changes to the Neon White Leaderboard Tool's pywebview UI. Full plan above. Do **not** touch the legacy tkinter app (`SteamScraper/neonwhite_app.py`, `tab_*.py` mixins).
+>
+> **Read first:**
+> - `00_Inbox/plans.md` — top entry, full plan with file refs and line numbers.
+> - `frontend/src/pages/PlayerLookup.jsx` — closest analog for Compare Players; copy its patterns.
+> - `frontend/src/pages/SeedFinder.jsx:369-376` — bottom-of-form button pattern.
+> - `SteamScraper/webview_app/bridge.py` — `run_player_lookup` (lines 831–931), `_get_medal` (lines 136–158), `_emit_to` (lines 233–241).
+> - `frontend/src/shared.jsx` — `Btn`, `Field`, `Seg`, `MedalBadge`, `MedalToggle`, `NAV_ITEMS` (lines 57–74).
+> - `frontend/src/api.js` — `runPlayerLookup` / `stopLeaderboard` as the model for the new wrapper.
+>
+> Execute Part 1 and Part 2 per the plan above.
+>
+> **Do not:**
+> - Add CSV export to Compare Players. v1 is display-only.
+> - Reuse a single Steam ID input — must be two distinct fields, each with its own Mine button.
+> - Run two parallel `run_player_lookup` calls. The bridge method must share leaderboard handles between the two players to halve API cost.
+> - Modify the legacy tkinter app or refactor unrelated code.
+>
+> **Verify before reporting done:** run the verification steps in the plan above (Part 1 build + visual; Part 2 pytest + in-app smoke covering level/chapter/game modes, missing-entry case, Medals toggle, Mine buttons, Copy). Confirm Steam call count is ~3N not 6N by tracing the bridge code path.
+>
+> Estimated: ~250 lines new JSX + ~80 lines bridge Python + ~10 lines plumbing + ~5 line diff × 3 pages for Part 1.
+
+---
+
 ## 2026-05-07 — Player Lookup: Medals toggle + Text size toggle ✓ DONE
 
 **Files to change:** `SteamScraper/webview_app/bridge.py`, `frontend/src/shared.jsx`, `frontend/src/pages/PlayerLookup.jsx`, `SteamScraper/tests/test_bridge.py`

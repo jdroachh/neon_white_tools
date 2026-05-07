@@ -445,3 +445,20 @@ def test_player_lookup_rows_include_medal():
         assert row_event["medal"] == "ACE"
     finally:
         _bridge._emit = orig_emit
+
+
+# ── Compare Players: Steam ID validation ─────────────────────────────────────
+
+def test_run_compare_players_validates_both_steam_ids():
+    """Both Steam IDs must be 17-digit numbers; wrong sid1 and wrong sid2 each return errors."""
+    api = JsApi()
+
+    # Bad sid1 (too short), valid-format sid2
+    res1 = api.run_compare_players("12345", "76561198000000001", "level", "Movement")
+    assert res1["ok"] is False
+    assert "Player 1" in res1["error"]
+
+    # Valid-format sid1, bad sid2 (not digits)
+    res2 = api.run_compare_players("76561198000000001", "notanid", "level", "Movement")
+    assert res2["ok"] is False
+    assert "Player 2" in res2["error"]

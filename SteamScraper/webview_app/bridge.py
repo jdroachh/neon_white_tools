@@ -725,6 +725,7 @@ class JsApi:
                             _emit_to("_nwGlobalEvent", {
                                 "type": "row", "rank": e["rank"],
                                 "level": display, "name": e["name"], "time": e["time"],
+                                "medal": _get_medal(display, e["score_ms"] / 1000.0),
                             })
                         if writer:
                             writer.writerow({"rank": e["rank"], "level": display,
@@ -799,6 +800,7 @@ class JsApi:
                         _emit_to("_nwLevelEvent", {
                             "type": "row", "rank": e["rank"],
                             "name": e["name"], "time": e["time"], "score_ms": e["score_ms"],
+                            "medal": _get_medal(display, e["score_ms"] / 1000.0),
                         })
                     if out_mode in ("csv", "both"):
                         all_entries.append(e)
@@ -924,6 +926,122 @@ class JsApi:
                 "csv_path": csv_path or "",
                 "message": (f"Stopped. {found} entries so far." if stopped
                             else f"Done. Found {found}/{len(levels_to_search)} entries."),
+            })
+            self._lb_running = False
+
+        threading.Thread(target=worker, daemon=True).start()
+        return {"ok": True}
+
+    def run_compare_players(self, steam_id_1: str, steam_id_2: str,
+                            mode: str, target: str) -> dict:
+        sid1_str = str(steam_id_1).strip()
+        if not sid1_str.isdigit() or len(sid1_str) != 17:
+            return {"ok": False, "error": "Player 1 Steam ID must be a 17-digit number."}
+        sid2_str = str(steam_id_2).strip()
+        if not sid2_str.isdigit() or len(sid2_str) != 17:
+            return {"ok": False, "error": "Player 2 Steam ID must be a 17-digit number."}
+
+        import steam_api
+        if not steam_api.steam_ready:
+            return {"ok": False, "error": "Steam not connected. Connect in Settings first."}
+        if getattr(self, "_lb_running", False):
+            return {"ok": False, "error": "An operation is already running."}
+        sid1 = int(sid1_str)
+        sid2 = int(sid2_str)
+
+        levels_to_search = []
+        if mode == "level":
+            match = LEVEL_LOOKUP.get(str(target).strip().lower())
+            if not match:
+                return {"ok": False, "error": f"Level '{target}' not found."}
+            levels_to_search = [match]
+        elif mode == "chapter":
+            chap = str(target).strip()
+            if chap not in CHAPTERS:
+                return {"ok": False, "error": f"Chapter '{chap}' not found."}
+            for dn in CHAPTERS[chap]:
+                m = LEVEL_LOOKUP.get(dn.lower())
+                if m:
+                    levels_to_search.append(m)
+        elif mode == "game":
+            levels_to_search = list(WHOLE_GAME_LEVELS)
+        else:
+            return {"ok": False, "error": f"Unknown mode '{mode}'."}
+
+        self._lb_stop_event = threading.Event()
+        self._lb_running = True
+
+        def worker():
+            nb1 = steam_api.steam.SteamAPI_ISteamFriends_GetFriendPersonaName(
+                steam_api.friends, sid1)
+            pname1 = nb1.decode("utf-8", errors="replace") if nb1 else str(sid1)
+            nb2 = steam_api.steam.SteamAPI_ISteamFriends_GetFriendPersonaName(
+                steam_api.friends, sid2)
+            pname2 = nb2.decode("utf-8", errors="replace") if nb2 else str(sid2)
+            _emit_to("_nwCompareEvent", {
+                "type": "status",
+                "message": f"Comparing {pname1} vs {pname2} across {len(levels_to_search)} levels...",
+                "player_name_1": pname1,
+                "player_name_2": pname2,
+            })
+            found_p1 = 0
+            found_p2 = 0
+            for display, internal in levels_to_search:
+                if self._lb_stop_event.is_set():
+                    break
+                lb = steam_api.find_leaderboard(internal)
+                if not lb:
+                    continue
+                total_lb = steam_api.steam.SteamAPI_ISteamUserStats_GetLeaderboardEntryCount(
+                    steam_api.user_stats, lb)
+                entry1 = steam_api.get_player_entry(lb, sid1)
+                entry2 = steam_api.get_player_entry(lb, sid2)
+                p1_data = None
+                if entry1:
+                    p1_data = {
+                        "rank": entry1.global_rank,
+                        "time": f"{entry1.score / 1000:.3f}",
+                        "score_ms": entry1.score,
+                        "medal": _get_medal(display, entry1.score / 1000.0),
+                    }
+                    found_p1 += 1
+                p2_data = None
+                if entry2:
+                    p2_data = {
+                        "rank": entry2.global_rank,
+                        "time": f"{entry2.score / 1000:.3f}",
+                        "score_ms": entry2.score,
+                        "medal": _get_medal(display, entry2.score / 1000.0),
+                    }
+                    found_p2 += 1
+                delta_ms = None
+                faster = None
+                if p1_data and p2_data:
+                    delta_ms = p2_data["score_ms"] - p1_data["score_ms"]
+                    if delta_ms > 0:
+                        faster = "p1"
+                    elif delta_ms < 0:
+                        faster = "p2"
+                    else:
+                        faster = "tie"
+                _emit_to("_nwCompareEvent", {
+                    "type": "row",
+                    "level": display,
+                    "p1": p1_data,
+                    "p2": p2_data,
+                    "delta_ms": delta_ms,
+                    "faster": faster,
+                    "total": total_lb,
+                })
+            stopped = self._lb_stop_event.is_set()
+            _emit_to("_nwCompareEvent", {
+                "type": "done",
+                "message": (f"Stopped. {found_p1} P1 / {found_p2} P2 entries so far."
+                            if stopped
+                            else f"Done. {found_p1} P1 / {found_p2} P2 entries found."),
+                "found_p1": found_p1,
+                "found_p2": found_p2,
+                "total_levels": len(levels_to_search),
             })
             self._lb_running = False
 

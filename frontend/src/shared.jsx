@@ -56,9 +56,10 @@ export const Titlebar = ({ pageTitle = "Tools" }) => (
 
 const NAV_ITEMS = {
   leaderboard: [
-    { key: "global",      label: "Global Export",  icn: "export" },
-    { key: "levelsearch", label: "Level Search",   icn: "search" },
-    { key: "lookup",      label: "Player Lookup",  icn: "user"   },
+    { key: "global",      label: "Global Export",    icn: "export" },
+    { key: "levelsearch", label: "Level Search",     icn: "search" },
+    { key: "lookup",      label: "Player Lookup",    icn: "user"   },
+    { key: "compare",     label: "Compare Players",  icn: "user"   },
   ],
   rush: [
     { key: "find",   label: "Seed Finder",        icn: "seed"     },

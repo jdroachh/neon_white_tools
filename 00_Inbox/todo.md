@@ -5,6 +5,7 @@
 - Replace the bare `except Exception: pass` blocks with logging
 -->
 
+- ~~**Player Lookup: Medals toggle + Text size toggle**~~ ✓ DONE — also extended to Level Search and Global Export.
 - May have to archive NeonWhite App versions
 - Run insights
 - Start config for sub-agent work

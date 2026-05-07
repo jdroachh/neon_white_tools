@@ -133,6 +133,11 @@ export async function runPlayerLookup(steamId, mode, target, outMode = "display"
   return api.run_player_lookup(String(steamId), mode, String(target), outMode, folder);
 }
 
+export async function runComparePlayers(steamId1, steamId2, mode, target) {
+  const api = await waitForApi();
+  return api.run_compare_players(String(steamId1), String(steamId2), mode, String(target));
+}
+
 export async function stopLeaderboard() {
   const api = await waitForApi();
   return api.stop_leaderboard();

@@ -11,7 +11,8 @@ import SeedFinder    from "./pages/SeedFinder.jsx";
 import RunTimer      from "./pages/RunTimer.jsx";
 import GlobalExport  from "./pages/GlobalExport.jsx";
 import LevelSearch   from "./pages/LevelSearch.jsx";
-import PlayerLookup  from "./pages/PlayerLookup.jsx";
+import PlayerLookup   from "./pages/PlayerLookup.jsx";
+import ComparePlayers from "./pages/ComparePlayers.jsx";
 import Ghosts        from "./pages/Ghosts.jsx";
 import RouteVideos   from "./pages/RouteVideos.jsx";
 import Settings      from "./pages/Settings.jsx";
@@ -25,6 +26,7 @@ const PAGE_TITLES = {
   global:      "Global Export",
   levelsearch: "Level Search",
   lookup:      "Player Lookup",
+  compare:     "Compare Players",
   ghosts:      "Ghosts",
   videos:      "Route Videos",
   settings:    "Settings",
@@ -40,9 +42,10 @@ const RUSH_PAGES = [
   { key: "timer",  Component: RunTimer      },
 ];
 const LB_PAGES = [
-  { key: "global",      Component: GlobalExport },
-  { key: "levelsearch", Component: LevelSearch  },
-  { key: "lookup",      Component: PlayerLookup },
+  { key: "global",      Component: GlobalExport   },
+  { key: "levelsearch", Component: LevelSearch    },
+  { key: "lookup",      Component: PlayerLookup   },
+  { key: "compare",     Component: ComparePlayers },
 ];
 const RES_PAGES = [
   { key: "ghosts", Component: Ghosts      },

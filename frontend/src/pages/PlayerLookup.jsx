@@ -88,9 +88,6 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "" }) {
         actions={<>
           {rows.length > 0 && !running && outMode !== "csv" &&
             <Btn kind="ghost" size="sm" icn="copy" onClick={handleCopy}>Copy</Btn>}
-          {running
-            ? <Btn kind="danger" onClick={handleStop}>Stop</Btn>
-            : <Btn kind="primary" icn="user" onClick={handleRun}>Look Up</Btn>}
         </>}
       />
       <div className="body">
@@ -147,6 +144,11 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "" }) {
               </Field>
             )}
             <ErrorBanner message={error} />
+            <div style={{ display: "flex", gap: 8 }}>
+              {running
+                ? <Btn kind="danger" size="lg" onClick={handleStop}>Stop</Btn>
+                : <Btn kind="primary" size="lg" icn="user" onClick={handleRun}>Look Up</Btn>}
+            </div>
             {status && <div className="muted" style={{ fontSize: 11 }}>{status}</div>}
           </div>
         </div>
