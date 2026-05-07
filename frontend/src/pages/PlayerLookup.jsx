@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { PageHead, Field, Seg, Btn, ErrorBanner } from "../shared.jsx";
+import { PageHead, Field, Seg, Btn, ErrorBanner, MedalBadge, MedalToggle } from "../shared.jsx";
 import { getLevels, getChapters, getSteamStatus, runPlayerLookup, stopLeaderboard, pickFolder } from "../api.js";
 
-const TH = { padding: "4px 8px", fontWeight: 600, fontSize: 10, borderBottom: "1px solid var(--border)", textAlign: "left" };
-const TD = { padding: "3px 8px", fontSize: 11 };
+const TH = { padding: "4px 8px", fontWeight: 600, fontSize: "0.91em", borderBottom: "1px solid var(--border)", textAlign: "left" };
+const TD = { padding: "3px 8px", fontSize: "1em" };
 
 export default function PlayerLookup({ outputFolder: defaultFolder = "" }) {
   const [steamId, setSteamId]         = useState("");
@@ -20,6 +20,8 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "" }) {
   const [error, setError]             = useState("");
   const [rows, setRows]               = useState([]);
   const [playerName, setPlayerName]   = useState("");
+  const [showMedals, setShowMedals]   = useState(false);
+  const [largeText, setLargeText]     = useState(false);
 
   useEffect(() => {
     getLevels().then(ls => { setLevels(ls); if (ls.length) setLevelName(ls[0].display); });
@@ -148,40 +150,49 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "" }) {
             {status && <div className="muted" style={{ fontSize: 11 }}>{status}</div>}
           </div>
         </div>
-        <div className="panel-right" style={{ overflow: "auto" }}>
+        <div className="panel-right" style={{ overflow: "auto", display: "flex", flexDirection: "column" }}>
           {outMode === "csv" ? (
             <div className="muted" style={{ padding: 32, fontSize: 12, textAlign: "center" }}>
               {running ? "Looking up and writing CSV..." : status || "Results will be saved to CSV only."}
             </div>
           ) : rows.length > 0 ? (
             <>
-              {playerName && (
-                <div style={{ padding: "12px 16px 0", fontSize: 12, fontWeight: 600 }}>
-                  {playerName}
+              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px 6px", flexShrink: 0 }}>
+                {playerName && (
+                  <span style={{ fontSize: 12, fontWeight: 600, flex: 1 }}>{playerName}</span>
+                )}
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginLeft: "auto" }}>
+                  <MedalToggle value={showMedals} onChange={setShowMedals} />
+                  <Seg value={largeText ? "Large" : "Normal"} onChange={(v) => setLargeText(v === "Large")}
+                       options={["Normal", "Large"]} />
                 </div>
-              )}
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead style={{ position: "sticky", top: 0, background: "var(--bg-2)" }}>
-                  <tr>
-                    <th style={TH}>Level</th>
-                    <th style={TH}>Rank</th>
-                    <th style={TH}>Time</th>
-                    <th style={TH}>/ Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((r, i) => (
-                    <tr key={i} style={{ borderBottom: "1px solid var(--border)" }}>
-                      <td style={TD}>{r.level}</td>
-                      <td style={TD}>#{r.rank}</td>
-                      <td style={TD}>{r.time}</td>
-                      <td style={{ ...TD, color: "var(--text-3)" }}>
-                        {r.total ? `/ ${r.total.toLocaleString()}` : ""}
-                      </td>
+              </div>
+              <div style={{ fontSize: largeText ? 14 : 11, overflow: "auto", flex: 1 }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead style={{ position: "sticky", top: 0, background: "var(--bg-2)" }}>
+                    <tr>
+                      <th style={TH}>Level</th>
+                      <th style={TH}>Rank</th>
+                      <th style={TH}>Time</th>
+                      {showMedals && <th style={TH}>Medal</th>}
+                      <th style={TH}>/ Total</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {rows.map((r, i) => (
+                      <tr key={i} style={{ borderBottom: "1px solid var(--border)" }}>
+                        <td style={TD}>{r.level}</td>
+                        <td style={TD}>#{r.rank}</td>
+                        <td style={TD}>{r.time}</td>
+                        {showMedals && <td style={TD}><MedalBadge medal={r.medal} plain /></td>}
+                        <td style={{ ...TD, color: "var(--text-3)" }}>
+                          {r.total ? `/ ${r.total.toLocaleString()}` : ""}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </>
           ) : (
             <div className="muted" style={{ padding: 32, fontSize: 12, textAlign: "center" }}>

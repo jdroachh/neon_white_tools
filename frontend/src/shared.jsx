@@ -197,21 +197,77 @@ export const OutputPanel = ({ title, body, onCopy }) => (
 
 /* === Medal badge === */
 const MEDAL_COLORS = {
-  "BLOOD DIAMOND": "#ff55fc",
-  "TOPAZ":         "#f95700",
+  "BLOOD DIAMOND": "#ff003d",
+  "TOPAZ":         "#ffd700",
   "SAPPHIRE":      "#6ab0ff",
   "AMETHYST":      "#c77dff",
   "EMERALD":       "#3ddc84",
-  "DEV":           "#ff4e88",
-  "ACE":           "#00e09a",
+  "DEV":           "#ff4444",
+  "ACE":           "#8de4e0",
   "GOLD":          "#ffd700",
   "SILVER":        "#c0c0c0",
   "BRONZE":        "#cd7f32",
 };
 
-export const MedalBadge = ({ medal }) => {
+const MEDAL_GRADIENTS = {
+  "BLOOD DIAMOND": "linear-gradient(to right, #660000, #FF003D)",
+  "TOPAZ":         "linear-gradient(to right, #ff4500, #ffd700)",
+};
+
+export const MedalBadge = ({ medal, plain = false }) => {
   if (!medal) return null;
+  const gradient = MEDAL_GRADIENTS[medal];
   const color = MEDAL_COLORS[medal] || "var(--text-3)";
+
+  if (plain) {
+    if (gradient) {
+      return (
+        <span style={{
+          display: "inline-block",
+          fontSize: "0.82em", fontWeight: 700, letterSpacing: 0.5,
+          background: gradient,
+          WebkitBackgroundClip: "text",
+          WebkitTextFillColor: "transparent",
+          backgroundClip: "text",
+          whiteSpace: "nowrap",
+        }}>
+          {medal}
+        </span>
+      );
+    }
+    return (
+      <span style={{
+        fontSize: "0.82em", fontWeight: 700, letterSpacing: 0.5,
+        color, whiteSpace: "nowrap",
+      }}>
+        {medal}
+      </span>
+    );
+  }
+
+  // Pill mode
+  if (gradient) {
+    return (
+      <span style={{
+        display: "inline-block",
+        fontSize: 9, fontWeight: 700, letterSpacing: 0.5,
+        padding: "2px 5px", borderRadius: 1,
+        background: "rgba(255,255,255,0.07)",
+        border: "1px solid rgba(255,255,255,0.18)",
+        whiteSpace: "nowrap",
+      }}>
+        <span style={{
+          background: gradient,
+          WebkitBackgroundClip: "text",
+          WebkitTextFillColor: "transparent",
+          backgroundClip: "text",
+        }}>
+          {medal}
+        </span>
+      </span>
+    );
+  }
+
   return (
     <span style={{
       fontSize: 9, fontWeight: 700, letterSpacing: 0.5,

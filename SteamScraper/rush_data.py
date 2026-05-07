@@ -130,14 +130,10 @@ LEVELS = [
     ("Arena",                  "SIDEQUEST_ARENASIXNINE"),
     ("Attitude Adjustment",    "SIDEQUEST_ATTITUDE_ADJUSTMENT"),
     ("Rocket",                 "SIDEQUEST_ROCKETGODZ"),
-    ("??? (Memory 1)",         "SIDEQUEST_GREEN_MEMORY"),
-    ("??? (Memory 2)",         "SIDEQUEST_GREEN_MEMORY_2"),
-    ("??? (Memory 3)",         "SIDEQUEST_GREEN_MEMORY_3"),
-    ("??? (Memory 4)",         "SIDEQUEST_GREEN_MEMORY_4"),
 ]
 
 LEVEL_LOOKUP = {d.lower(): (d, i) for d, i in LEVELS}
-WHOLE_GAME_LEVELS = [(d, i) for d, i in LEVELS if not d.startswith("???")]
+WHOLE_GAME_LEVELS = LEVELS
 
 # ── Chapter groupings — for whole-game / chapter-restricted lookups ───────
 CHAPTERS = {

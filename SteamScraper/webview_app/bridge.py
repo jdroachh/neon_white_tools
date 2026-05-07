@@ -120,7 +120,7 @@ def _resolve_rush(rush_name: str) -> tuple[str, int, list[str]]:
 # Build a display-name → code lookup from LEVELS once.
 _DISPLAY_TO_CODE = {disp.lower(): code.upper() for disp, code in LEVELS}
 
-def _resolve_level_code(level_name: str, rush_key: str) -> str | None:
+def _resolve_level_code(level_name: str) -> str | None:
     """Map a display name to its internal Steam stat code for medal lookup."""
     nl = level_name.lower().strip()
     code = _DISPLAY_TO_CODE.get(nl)
@@ -133,8 +133,8 @@ def _resolve_level_code(level_name: str, rush_key: str) -> str | None:
     return None
 
 
-def _get_medal(level_name: str, secs: float, rush_key: str) -> str:
-    code = _resolve_level_code(level_name, rush_key)
+def _get_medal(level_name: str, secs: float) -> str:
+    code = _resolve_level_code(level_name)
     if not code:
         return ""
     us = int(secs * 1_000_000)
@@ -575,7 +575,7 @@ class JsApi:
                                        for i in range(1, len(cumulative))]
         rows = []
         for i, (seg, cum, name) in enumerate(zip(segments, cumulative, level_names)):
-            medal = _get_medal(name, seg, key)
+            medal = _get_medal(name, seg)
             rows.append({
                 "name":         name,
                 "cumulative":   _format_secs(cum),
@@ -892,11 +892,13 @@ class JsApi:
                 entry = steam_api.get_player_entry(lb, sid)
                 if entry:
                     time_str = f"{entry.score / 1000:.3f}"
+                    medal = _get_medal(display, entry.score / 1000.0)
                     if out_mode in ("display", "both"):
                         _emit_to("_nwPlayerEvent", {
                             "type": "row", "level": display,
                             "rank": entry.global_rank, "time": time_str,
                             "score_ms": entry.score, "total": total_lb,
+                            "medal": medal,
                         })
                     if out_mode in ("csv", "both"):
                         all_rows.append({"level": display, "rank": entry.global_rank,

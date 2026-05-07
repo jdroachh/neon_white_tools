@@ -4,6 +4,122 @@ Saved Claude-authored plans for the Neon White app. Newest at the top.
 
 ---
 
+## 2026-05-07 — Player Lookup: Medals toggle + Text size toggle ✓ DONE
+
+**Files to change:** `SteamScraper/webview_app/bridge.py`, `frontend/src/shared.jsx`, `frontend/src/pages/PlayerLookup.jsx`, `SteamScraper/tests/test_bridge.py`
+
+### Context
+
+Two enhancements to the **Player Lookup results page** (pywebview/React frontend; legacy tkinter out of scope):
+
+1. **Medals toggle** — when ON, color-coded medal label appears next to each time. `_get_medal` already returns one label that mixes standard (DEV/ACE/GOLD/SILVER/BRONZE) and community (BLOOD DIAMOND/TOPAZ/SAPPHIRE/AMETHYST/EMERALD) tiers — community checked first, so the highest applicable tier wins. Example: 24.000s on Movement → `ACE`; 6.124s on Pummel → `SAPPHIRE`.
+2. **Text size toggle** — Normal / Large segmented switch, scoped to the Player Lookup results table only. (Same pattern will land on Level Search and Global Export in a follow-up.)
+
+Existing infrastructure: `_get_medal` at `bridge.py:136-158`; `MedalBadge` + `MedalToggle` at `frontend/src/shared.jsx:212-253` (used by Run Timer).
+
+### Decisions
+
+- **Badge style:** plain colored text (no pill). Add a `plain` prop to existing `MedalBadge` — default keeps the current pill so Run Timer is unchanged.
+- **`rush_key` parameter on medal helpers — dropped.** `_resolve_level_code` never reads it; medal tables are keyed by globally-unique level codes. Refactor it out so Player Lookup's new call site doesn't pass a placeholder.
+- **Medal computation site:** bridge — emit precomputed `medal` field on each `row` event (mirrors Run Timer's pattern; no frontend medal logic).
+- **Text-size implementation:** wrap the results table in `<div style={{ fontSize: largeText ? 14 : 11 }}>` and convert hardcoded inline `fontSize` values inside that subtree to `em` (relative). No CSS-variable refactor.
+- **State persistence:** local `useState` on the page. No global store, no Settings entry — toggles reset on navigation.
+
+### Implementation
+
+- **Bridge step 0 (refactor):** drop `rush_key` from `_resolve_level_code` and `_get_medal`. Update the one caller in `calculate_timer` (~`bridge.py:578`).
+- **Bridge step 1:** in `run_player_lookup` row emit (~`bridge.py:896`), add `medal = _get_medal(display, entry.score / 1000.0)` to the payload.
+- **shared.jsx:** extend `MedalBadge` with a `plain` prop. When true: `fontSize: "0.82em"`, `fontWeight: 700`, `letterSpacing: 0.5`, `MEDAL_COLORS[medal]` color, `whiteSpace: "nowrap"`, no background/border.
+- **PlayerLookup.jsx:** `useState(false)` for `showMedals` and `largeText`. Place `<MedalToggle>` and a 2-option `<Seg>` (Normal/Large) in the results-pane header. Add a 5th "Medal" `<th>`+`<td>` rendered only when `showMedals`. Wrap the table in the font-size scaler; convert internal `fontSize: 10/11/12` to `em`.
+- **Tests (`test_bridge.py`):** assert `run_player_lookup` rows include `medal: str`; minimal `_get_medal` integration test (Movement @ 24.0s → `"ACE"`).
+
+### Verification
+
+- `cd frontend && npm run build` — clean.
+- `pytest SteamScraper/tests/` — all pass + new test.
+- Launch and run a Player Lookup: toggle Medals OFF→ON (5th column appears with correct colors), Normal→Large (table scales, no clipping), Run Timer Medal column unchanged (regression).
+- See full handoff prompt for Sonnet in `~/.claude/plans/3-valiant-meerkat.md`.
+
+---
+
+## 2026-05-07 — Order Matters? toggle (Seed Finder, Violet/Red/Yellow)
+
+**Files to change:** `SteamScraper/webview_app/bridge.py`, `SteamScraper/webview_app/models/`, `frontend/src/api.js`, `frontend/src/pages/SeedFinder.jsx`, `SteamScraper/tests/test_bridge.py`
+
+### Context
+
+Final website-parity feature. Web Seed Finder offers an "Order Matters?" option for the small (8-level) rushes; the desktop app needs it too. Toggle is visible only for **Violet, Red, Yellow** (White/Mikey already has Force First Level for the related need).
+
+### Decisions
+
+- Two settings: **"No - Any Order"** (default, current behavior) and **"Yes - Exact Order"**. Labels are user-specified verbatim — do not abbreviate.
+- **Anchored semantics:** when "Yes", returned seeds must have target levels at positions 1..N where N = len(targets). Positions N+1..depth are unconstrained.
+- Implementation is a **manager-loop post-filter**, alongside `forced_idx` / `excluded_set` at `bridge.py:450-453`. No C-kernel changes — Violet/Red/Yellow have only 8 levels, so post-filter cost is trivial.
+- `_expected_match_count` not modified; it overcounts by N! when Order=Yes, banner stays conservative.
+
+### Implementation
+
+- **Bridge** (`bridge.py`): `start_finder` gets a trailing `order_matters: bool = False`. Reject when `order_matters=True` and rush is not Violet/Red/Yellow. In manager loop, after the `excluded_set` check (line ~452), add `if order_matters and any(order[i] != target_indices[i] for i in range(len(target_indices))): continue`. Verify `_parse_level_names` preserves user-input order.
+- **Pydantic model** (`webview_app/models/`): add `order_matters: bool = False` to `start_finder` request model.
+- **API** (`api.js`): trailing `orderMatters` arg threaded through to bridge.
+- **UI** (`SeedFinder.jsx`): `useState(false)`. `<Field label="Order Matters?">` with `<Seg options={["No - Any Order", "Yes - Exact Order"]}>`, gated on `!isWhiteMikey`. Place after Result Mode block, before White/Mikey-gated Hell Rush / Force First / Excluded sections. In `handleRushChange`, reset to `false` when switching into White/Mikey only — let it persist between Violet/Red/Yellow.
+- **Tests** (`test_bridge.py`): 4 new — White/Mikey rejection, Violet acceptance, end-to-end ordering correctness, default-off baseline.
+
+### Verification
+
+- `npm run build` clean; `pytest SteamScraper/tests/` — 31 + 4 = 35 passing.
+- Manual: Violet, "Doghouse, Choker", depth=2, Order=Yes → Doghouse @01, Choker @02. Same with depth=4 → still anchored. Order=No → either ordering. Switch to White/Mikey → toggle disappears. Repeat with Red and Yellow.
+
+### Handoff prompt for Sonnet
+
+> You are implementing the **"Order Matters?"** toggle in the Neon White Leaderboard Tool's Seed Finder. This is the final piece of website-parity work — the web version of this tool offers this option for the small 8-level rushes (Violet, Red, Yellow), and the desktop app needs it too.
+>
+> **Read first:**
+> - `01_Codebase_Map/overview.md` — current architecture; pywebview bridge layer is the live UI.
+> - `03_Sessions/2026-05-07.md` — most recent shipped features (Hell Rush, Force First Level, Excluded Levels). Mirror the patterns described there.
+> - `SteamScraper/webview_app/bridge.py` — specifically `start_finder` (lines ~331-497) and the manager-loop post-filter trio (`forced_idx`, `excluded_set`, hell-rush score) at lines 450-462. Your new filter slots in alongside these.
+> - `frontend/src/pages/SeedFinder.jsx` — note how `excludedOn`/`forceFirst` are gated on rush type and how state resets on rush change in `handleRushChange`.
+> - `SteamScraper/webview_app/models/` — find the `start_finder` request model and mirror the field-naming convention used by `hell_rush` / `excluded_levels`.
+>
+> **Deliver these changes:**
+>
+> 1. **Bridge.** Extend `start_finder` with a trailing `order_matters: bool = False` parameter. Reject the request with a clear error message when `order_matters=True` and the rush is not Violet, Red, or Yellow. In the manager loop, immediately after the existing `excluded_set` check (line ~452), insert: `if order_matters and any(order[i] != target_indices[i] for i in range(len(target_indices))): continue`. Verify that `_parse_level_names` preserves user-input order — it must, because Force First and Excluded Levels rely on the same function. If it doesn't, fix it there rather than reordering at the call site.
+>
+> 2. **Pydantic model.** Add `order_matters: bool = False` to the `start_finder` request model in `SteamScraper/webview_app/models/`.
+>
+> 3. **Frontend API.** In `frontend/src/api.js`, add `orderMatters` as the trailing argument to the `startFinder` wrapper and pass it through to `window.pywebview.api.start_finder`.
+>
+> 4. **Frontend UI** in `frontend/src/pages/SeedFinder.jsx`:
+>    - Add `const [orderMatters, setOrderMatters] = useState(false);`.
+>    - Render a `<Field label="Order Matters?">` containing a `<Seg>` with options `["No - Any Order", "Yes - Exact Order"]`, gated on `!isWhiteMikey`. Place it logically — after Result Mode / Max Seeds, before the White-Mikey-gated section (Hell Rush, Force First, Excluded Levels). The labels are user-specified verbatim — do not abbreviate to "Yes"/"No".
+>    - Disable the toggle while `running` is true (mirror the other Seg blocks).
+>    - In `handleRushChange`, when switching *into* White/Mikey, set `orderMatters` to `false` (consistent with how `hellRush`/`forceFirst`/`excludedOn` are reset). Do NOT reset when switching between Violet/Red/Yellow — let the value persist.
+>    - In `handleStart`, append `orderMatters` to the `startFinder(...)` call.
+>
+> 5. **Tests.** Add 4 tests to `SteamScraper/tests/test_bridge.py` mirroring the Excluded Levels test pattern: rejection on White/Mikey, acceptance on Violet, end-to-end correctness check (every returned seed has targets at the typed positions), default-off baseline.
+>
+> **Do not:**
+> - Modify the C kernel (`shuffle.dll` / `compile_shuffle.py`) or `seed_search.py`. The post-filter at the manager-loop layer is intentional — Violet/Red/Yellow have 8 levels and the surviving-seed rate is high enough that filtering in Python is free.
+> - Modify `_expected_match_count`. It will overcount by a factor of N! when order=Yes, but the warning banner stays conservative-or-accurate, which is fine.
+> - Show the toggle for White/Mikey under any condition. The user explicitly excluded that rush from this feature.
+> - Default the toggle to "Yes". Default is "No - Any Order" for backward compatibility.
+> - Abbreviate the option labels — they must read exactly "No - Any Order" and "Yes - Exact Order".
+>
+> **Verify before reporting done:**
+> 1. `npm run build` produces `frontend/dist/` cleanly.
+> 2. `pytest SteamScraper/tests/` — all prior 31 tests pass plus your 4 new tests.
+> 3. Launch the app (`python -m SteamScraper.webview_app.main` after building the frontend) and exercise the Seed Finder:
+>    - Violet, "Doghouse, Choker", depth=2, mode=first, order=Yes → expanded card shows Doghouse at position 01 and Choker at position 02.
+>    - Same query with depth=4, order=Yes → Doghouse @01, Choker @02 still anchored.
+>    - Same query with order=No → either ordering may appear.
+>    - Switch rush to White/Mikey mid-session → toggle disappears, no error.
+>    - Repeat with Red and Yellow.
+> 4. Append a session log entry to `03_Sessions/2026-05-07.md` (or create the next-day file if the date has rolled) describing what shipped.
+>
+> Keep the patch tight: ~30 lines of Python in `bridge.py`, ~15 lines in the model, ~25 lines of JSX, ~50 lines of tests. No unrelated refactors.
+
+---
+
 ## 2026-05-07 — Excluded Levels (Seed Finder) ✓ DONE
 
 **Files changed:** `SteamScraper/webview_app/bridge.py`, `frontend/src/api.js`, `frontend/src/pages/SeedFinder.jsx`, `tests/test_bridge.py`
