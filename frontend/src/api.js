@@ -47,11 +47,12 @@ export async function getStandardOrder(rushName) {
   return api.get_standard_order(rushName);
 }
 
-export async function startFinder(rushName, levelsStr, depth, mode, maxSeeds, hellRush, hellRushMin, forceFirst, excludedLevels, excludedWindow) {
+export async function startFinder(rushName, levelsStr, depth, mode, maxSeeds, hellRush, hellRushMin, forceFirst, excludedLevels, excludedWindow, orderMatters) {
   const api = await waitForApi();
   return api.start_finder(rushName, levelsStr, String(depth), mode, String(maxSeeds),
                           !!hellRush, String(hellRushMin ?? "70"), String(forceFirst ?? ""),
-                          String(excludedLevels ?? ""), String(excludedWindow ?? ""));
+                          String(excludedLevels ?? ""), String(excludedWindow ?? ""),
+                          !!orderMatters);
 }
 
 export async function stopFinder() {

@@ -332,7 +332,8 @@ class JsApi:
                      mode: str, max_seeds: str,
                      hell_rush: bool = False, hell_rush_min: str = "70",
                      force_first: str = "",
-                     excluded_levels: str = "", excluded_window: str = "") -> dict:
+                     excluded_levels: str = "", excluded_window: str = "",
+                     order_matters: bool = False) -> dict:
         """
         Begin a seed search. Returns {ok} immediately; progress events are
         pushed to window._nwFinderEvent({type, ...}) in the JS layer.
@@ -342,6 +343,9 @@ class JsApi:
             return {"ok": False, "error": "Search already running."}
 
         key, count, names = _resolve_rush(rush_name)
+
+        if order_matters and key == "96":
+            return {"ok": False, "error": "Order Matters is only supported for Violet, Red, and Yellow."}
 
         if hell_rush and key != "96":
             return {"ok": False, "error": "Hell Rush Mode requires the White / Mikey rush."}
@@ -450,6 +454,8 @@ class JsApi:
                 if forced_idx is not None and order[0] != forced_idx:
                     continue
                 if excluded_set and any(order[pos] in excluded_set for pos in range(excluded_window_int)):
+                    continue
+                if order_matters and any(order[i] != target_indices[i] for i in range(len(target_indices))):
                     continue
                 target_set = set(target_indices)
                 positions = {idx: pos + 1 for pos, idx in enumerate(order) if idx in target_set}

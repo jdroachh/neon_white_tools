@@ -18,7 +18,7 @@ class SeedFindRequest(BaseModel):
     depth: int
     mode: Literal["First Match", "Find Multiple"]
     match_count: int = 5
-    order_matters: Literal["Any Order", "Exact Order"] = "Any Order"
+    order_matters: bool = False
     desired_levels: list[str]
     force_first: str | None = None
     exclude: ExcludeSpec | None = None

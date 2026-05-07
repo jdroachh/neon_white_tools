@@ -105,6 +105,7 @@ export default function SeedFinder() {
   const [depth, setDepth]           = useState("10");
   const [mode, setMode]             = useState("first");
   const [maxSeeds, setMaxSeeds]     = useState("5");
+  const [orderMatters, setOrderMatters] = useState(false);
   const [hellRush, setHellRush]     = useState(false);
   const [hellRushMin, setHellRushMin] = useState("70");
   const [forceFirst, setForceFirst] = useState(false);
@@ -157,6 +158,8 @@ export default function SeedFinder() {
     setRushName(name);
     if (name !== "White / Mikey") {
       setDepth("8");
+    } else {
+      setOrderMatters(false);
       setHellRush(false);
       setForceFirst(false);
       setExcludedOn(false);
@@ -199,6 +202,7 @@ export default function SeedFinder() {
       forceFirst ? forceFirstStr : "",
       excludedOn ? excludedLevels : "",
       excludedOn ? excludedWindow : "",
+      orderMatters,
     );
     if (!res.ok) {
       setError(res.error);
@@ -266,6 +270,15 @@ export default function SeedFinder() {
                   onChange={e => setMaxSeeds(e.target.value)}
                   style={{ width: 80 }}
                   disabled={running}
+                />
+              </Field>
+            )}
+            {!isWhiteMikey && (
+              <Field label="Order Matters?">
+                <Seg
+                  options={["No - Any Order", "Yes - Exact Order"]}
+                  value={orderMatters ? "Yes - Exact Order" : "No - Any Order"}
+                  onChange={v => { if (!running) setOrderMatters(v === "Yes - Exact Order"); }}
                 />
               </Field>
             )}

@@ -352,3 +352,59 @@ def test_calculate_timer_medal_grade():
     res = api.calculate_timer("White / Mikey", "", splits)
     assert res["ok"] is True
     assert res["rows"][0]["medal"] in ALL_MEDALS
+
+
+# ── Order Matters: Seed Finder ────────────────────────────────────────────────
+
+def test_order_matters_white_rejected():
+    """order_matters=True on White / Mikey should return a validation error."""
+    api = JsApi()
+    res = api.start_finder("White / Mikey", "Movement", "5", "first", "1",
+                           order_matters=True)
+    assert res["ok"] is False
+    assert "Violet" in res["error"] or "Order Matters" in res["error"]
+
+
+def test_order_matters_violet_starts():
+    """order_matters=True on Violet should be accepted and start a search."""
+    api = JsApi()
+    res = api.start_finder("Violet", "Doghouse", "3", "first", "1",
+                           order_matters=True)
+    assert res["ok"] is True
+    api.stop_finder()
+
+
+def test_order_matters_exact_positions():
+    """Every result seed must have targets at the exact typed positions (0-indexed)."""
+    import time
+    api = JsApi()
+    events = []
+    import webview_app.bridge as _bridge
+    orig_emit = _bridge._emit
+    _bridge._emit = lambda d: events.append(d)
+    try:
+        res = api.start_finder("Violet", "Doghouse, Choker", "2", "multi", "5",
+                               order_matters=True)
+        assert res["ok"] is True
+        deadline = time.time() + 15
+        while time.time() < deadline:
+            if any(e.get("type") == "done" for e in events):
+                break
+            time.sleep(0.1)
+        api.stop_finder()
+        result_events = [e for e in events if e.get("type") == "result"]
+        for e in result_events:
+            order = e["level_order"]
+            # Position 01 must be Doghouse, position 02 must be Choker
+            assert order[0]["name"].lower() == "doghouse"
+            assert order[1]["name"].lower() == "choker"
+    finally:
+        _bridge._emit = orig_emit
+
+
+def test_order_matters_default_off():
+    """Default (no order_matters arg) should accept any seed order — baseline regression."""
+    api = JsApi()
+    res = api.start_finder("Violet", "Doghouse", "3", "first", "1")
+    assert res["ok"] is True
+    api.stop_finder()
