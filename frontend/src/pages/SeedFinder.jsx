@@ -35,6 +35,17 @@ function SeedCard({ result, targetNames }) {
         <span className="accent" style={{ fontFamily: "var(--display-font)", fontSize: 20, minWidth: 100 }}>
           {result.seed}
         </span>
+        {result.score != null && (
+          <span className="accent" style={{
+            fontSize: 11, fontWeight: 700,
+            padding: "2px 6px",
+            background: "rgba(180,255,100,0.10)",
+            border: "1px solid var(--accent)",
+            borderRadius: 2,
+          }}>
+            score {result.score}
+          </span>
+        )}
         <span className="muted" style={{ fontSize: 11, flex: 1 }}>{result.summary}</span>
         <span className="muted" style={{ fontSize: 10 }}>{open ? "▲" : "▼"}</span>
       </div>
@@ -63,6 +74,9 @@ function SeedCard({ result, targetNames }) {
               }}>
                 {lvl.name}
               </span>
+              {lvl.is_healthpack && (
+                <span style={{ fontSize: 9, color: "#c06080", opacity: 0.75 }}>♥</span>
+              )}
               {lvl.is_target && (
                 <span style={{ fontSize: 9, color: "var(--accent)", fontWeight: 700 }}>◀</span>
               )}
@@ -80,12 +94,17 @@ export default function SeedFinder() {
   const [depth, setDepth]           = useState("10");
   const [mode, setMode]             = useState("first");
   const [maxSeeds, setMaxSeeds]     = useState("5");
+  const [hellRush, setHellRush]     = useState(false);
+  const [hellRushMin, setHellRushMin] = useState("70");
   const [running, setRunning]       = useState(false);
   const [status, setStatus]         = useState("");
   const [pct, setPct]               = useState(0);
   const [results, setResults]       = useState([]);
   const [error, setError]           = useState(null);
   const [expected, setExpected]     = useState(null);
+
+  const hellRushRef = useRef(hellRush);
+  useEffect(() => { hellRushRef.current = hellRush; }, [hellRush]);
 
   // Register the global event handler once.
   useEffect(() => {
@@ -105,6 +124,9 @@ export default function SeedFinder() {
           setPct(100);
           setStatus(data.message);
         }
+        if (hellRushRef.current) {
+          setResults(prev => [...prev].sort((a, b) => (b.score ?? 0) - (a.score ?? 0)));
+        }
         setRunning(false);
       } else if (data.type === "error") {
         setError(data.message);
@@ -117,7 +139,10 @@ export default function SeedFinder() {
   // Auto-set depth when rush changes (non-White: cap at 8)
   function handleRushChange(name) {
     setRushName(name);
-    if (name !== "White / Mikey") setDepth("8");
+    if (name !== "White / Mikey") {
+      setDepth("8");
+      setHellRush(false);
+    }
   }
 
   // Auto-increase depth as levels are typed
@@ -138,7 +163,7 @@ export default function SeedFinder() {
     setStatus("Starting…");
     setExpected(null);
 
-    const res = await startFinder(rushName, levelsStr, depth, mode, maxSeeds);
+    const res = await startFinder(rushName, levelsStr, depth, mode, maxSeeds, hellRush, hellRushMin);
     if (!res.ok) {
       setError(res.error);
       setStatus("");
@@ -157,6 +182,7 @@ export default function SeedFinder() {
   }
 
   const rushCount = RUSHES.find(r => r.name === rushName)?.count ?? 96;
+  const isWhiteMikey = rushName === "White / Mikey";
 
   return (
     <>
@@ -202,6 +228,26 @@ export default function SeedFinder() {
                   className="input"
                   value={maxSeeds}
                   onChange={e => setMaxSeeds(e.target.value)}
+                  style={{ width: 80 }}
+                  disabled={running}
+                />
+              </Field>
+            )}
+            {isWhiteMikey && (
+              <Field label="Hell Rush Mode">
+                <Seg
+                  options={["off", "on"]}
+                  value={hellRush ? "on" : "off"}
+                  onChange={v => { if (!running) setHellRush(v === "on"); }}
+                />
+              </Field>
+            )}
+            {isWhiteMikey && hellRush && (
+              <Field label="Min spacing score (0–100)">
+                <input
+                  className="input"
+                  value={hellRushMin}
+                  onChange={e => setHellRushMin(e.target.value)}
                   style={{ width: 80 }}
                   disabled={running}
                 />

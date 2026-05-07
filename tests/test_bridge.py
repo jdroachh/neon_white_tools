@@ -187,6 +187,127 @@ def test_calculate_timer_colon_format():
     assert res["rows"][0]["name"] == "Movement"
 
 
+# ── Hell Rush Mode: Seed Finder ───────────────────────────────────────────────
+
+def test_hell_rush_non_white_rejected():
+    """HR on for a non-White rush should return a validation error."""
+    api = JsApi()
+    res = api.start_finder("Violet", "Movement", "5", "first", "1",
+                           hell_rush=True, hell_rush_min="70")
+    assert res["ok"] is False
+    assert "White / Mikey" in res["error"]
+
+
+def test_hell_rush_bad_threshold():
+    api = JsApi()
+    res = api.start_finder("White / Mikey", "Movement", "5", "first", "1",
+                           hell_rush=True, hell_rush_min="notanumber")
+    assert res["ok"] is False
+    assert "threshold" in res["error"].lower()
+
+
+def test_hell_rush_threshold_enforced():
+    """Results emitted with HR on must all have score >= hell_rush_min."""
+    import time
+    api = JsApi()
+    events = []
+    import webview_app.bridge as _bridge
+    orig_emit = _bridge._emit
+    _bridge._emit = lambda d: events.append(d)
+    try:
+        res = api.start_finder("White / Mikey", "Movement", "5", "multi", "10",
+                               hell_rush=True, hell_rush_min="0")
+        assert res["ok"] is True
+        time.sleep(2)
+        api.stop_finder()
+        time.sleep(0.5)
+        result_events = [e for e in events if e.get("type") == "result"]
+        for e in result_events:
+            assert e.get("score") is not None
+            assert e["score"] >= 0
+    finally:
+        _bridge._emit = orig_emit
+
+
+def test_hell_rush_off_regression():
+    """HR off should work identically to before — score is None in result payload."""
+    import time
+    api = JsApi()
+    events = []
+    import webview_app.bridge as _bridge
+    orig_emit = _bridge._emit
+    _bridge._emit = lambda d: events.append(d)
+    try:
+        res = api.start_finder("White / Mikey", "Movement", "3", "first", "1")
+        assert res["ok"] is True
+        deadline = time.time() + 10
+        while time.time() < deadline:
+            if any(e.get("type") == "done" for e in events):
+                break
+            time.sleep(0.1)
+        result_events = [e for e in events if e.get("type") == "result"]
+        if result_events:
+            assert result_events[0].get("score") is None
+    finally:
+        _bridge._emit = orig_emit
+
+
+def test_hell_rush_score_present_and_is_healthpack():
+    """HR on: result has score field; White/Mikey cells have is_healthpack set correctly."""
+    import time
+    api = JsApi()
+    events = []
+    import webview_app.bridge as _bridge
+    orig_emit = _bridge._emit
+    _bridge._emit = lambda d: events.append(d)
+    try:
+        res = api.start_finder("White / Mikey", "Movement", "5", "first", "1",
+                               hell_rush=True, hell_rush_min="0")
+        assert res["ok"] is True
+        deadline = time.time() + 15
+        while time.time() < deadline:
+            if any(e.get("type") == "result" for e in events):
+                break
+            time.sleep(0.1)
+        api.stop_finder()
+        result_events = [e for e in events if e.get("type") == "result"]
+        assert result_events, "Expected at least one result with threshold 0"
+        r = result_events[0]
+        assert r.get("score") is not None
+        from webview_app.hell_rush import HEALTHPACK_LEVELS
+        hp_set = set(HEALTHPACK_LEVELS)
+        for cell in r["level_order"]:
+            expected_hp = cell["name"] in hp_set
+            assert cell["is_healthpack"] == expected_hp
+    finally:
+        _bridge._emit = orig_emit
+
+
+def test_is_healthpack_false_for_non_white():
+    """Non-White rush cells should have is_healthpack=False."""
+    import time
+    api = JsApi()
+    events = []
+    import webview_app.bridge as _bridge
+    orig_emit = _bridge._emit
+    _bridge._emit = lambda d: events.append(d)
+    try:
+        res = api.start_finder("Violet", "Doghouse", "3", "first", "1")
+        assert res["ok"] is True
+        deadline = time.time() + 10
+        while time.time() < deadline:
+            if any(e.get("type") == "result" for e in events):
+                break
+            time.sleep(0.1)
+        api.stop_finder()
+        result_events = [e for e in events if e.get("type") == "result"]
+        if result_events:
+            for cell in result_events[0]["level_order"]:
+                assert cell["is_healthpack"] is False
+    finally:
+        _bridge._emit = orig_emit
+
+
 def test_calculate_timer_medal_grade():
     api = JsApi()
     # Movement at 17.442s is faster than DEV (18.93s) and within community medal range.

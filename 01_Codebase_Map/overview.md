@@ -36,17 +36,20 @@ Requires `steam_api64.dll` (from the Neon White game install) at the path set in
 
 Neon White speedrunners and competitive players who want to analyze leaderboard standings, plan randomizer runs, or push data to community spreadsheets.
 
-## New UI layer (M3 complete — 2026-05-06)
+## New UI layer (M4 complete — 2026-05-06)
 
 | Path | Responsibility |
 |---|---|
 | `SteamScraper/webview_app/` | pywebview bridge package |
-| `SteamScraper/webview_app/bridge.py` | `JsApi` — all bridge methods (Rush tools + Leaderboard + Steam + Config) |
+| `SteamScraper/webview_app/bridge.py` | `JsApi` — all bridge methods (Rush + Leaderboard + Steam + Config + Resources) |
 | `SteamScraper/webview_app/hell_rush.py` | Hell Rush spacing scorer (`score_hell_rush`) |
+| `SteamScraper/webview_app/resources.py` | Ghosts + Route Videos — fetches two published Google Sheets via GViz CSV (no auth, no API key); caches in-memory once at startup |
 | `SteamScraper/webview_app/models/` | Pydantic request/response types for all endpoints |
 | `frontend/src/` | JSX source — `shared.jsx`, `api.js`, `pages/` |
 | `frontend/dist/` | esbuild output (gitignored) — `bundle.js`, `bundle.css`, `index.html` |
 | `data/healthpacks.json` | Authoritative 11-level HP list for Hell Rush mode |
+
+**`start_finder` params:** `rush_name, levels_str, depth, mode, max_seeds, hell_rush=False, hell_rush_min="70"`. When `hell_rush=True` (White/Mikey only), each surviving seed is scored via `score_hell_rush`; seeds below `hell_rush_min` are dropped. `result` events include `score: int|null` and each level cell includes `is_healthpack: bool` (True for White/Mikey rushes when the cell's level is one of the 11 HP levels; False otherwise).
 
 **Bridge methods by group:**
 - Rush tools: `ping`, `get_rushes`, `parse_seed`, `reorder_splits`, `standardize_splits`, `get_standard_order`, `start_finder`, `stop_finder`, `load_timer_seed`, `calculate_timer`
@@ -54,10 +57,11 @@ Neon White speedrunners and competitive players who want to analyze leaderboard 
 - Steam: `init_steam`, `get_steam_status`, `pick_dll_file`
 - Leaderboard metadata: `get_levels`, `get_chapters`
 - Leaderboard ops (streaming via `_nw<Page>Event`): `run_global_export`, `run_level_search`, `run_player_lookup`, `stop_leaderboard`
+- Resources: `get_resources_status`, `get_ghosts`, `get_videos`, `open_external_url` (allow-listed to drive.google.com / docs.google.com / youtube.com / youtu.be)
 
 **Event handlers (JS side):** `window._nwFinderEvent` (Seed Finder), `window._nwGlobalEvent` (Global Export), `window._nwLevelEvent` (Level Search), `window._nwPlayerEvent` (Player Lookup)
 
-All 9 pages live: Seed Parser, Splits Updater, Standardize, Seed Finder, Run Timer, Global Export, Level Search, Player Lookup, Settings.
+All 11 pages live: Seed Parser, Splits Updater, Standardize, Seed Finder, Run Timer, Global Export, Level Search, Player Lookup, Ghosts, Route Videos, Settings.
 
 ## Legacy tkinter module layout
 

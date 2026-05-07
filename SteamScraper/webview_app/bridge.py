@@ -17,6 +17,7 @@ from urllib.request import urlopen
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from shuffle_lib import _load_c_shuffle, full_shuffle
+from .hell_rush import score_hell_rush, HEALTHPACK_LEVELS
 from rush_data import (LEVELS, LEVEL_LOOKUP, RUSH_LEVELS, RUSH_ALIASES, STANDARD_MEDAL_DATA,
                        CHAPTERS, WHOLE_GAME_LEVELS)
 from seed_search import _seed_search_worker, _expected_match_count
@@ -328,7 +329,8 @@ class JsApi:
     # ── Seed Finder ───────────────────────────────────────────────────────────
 
     def start_finder(self, rush_name: str, levels_str: str, depth: str,
-                     mode: str, max_seeds: str) -> dict:
+                     mode: str, max_seeds: str,
+                     hell_rush: bool = False, hell_rush_min: str = "70") -> dict:
         """
         Begin a seed search. Returns {ok} immediately; progress events are
         pushed to window._nwFinderEvent({type, ...}) in the JS layer.
@@ -338,6 +340,13 @@ class JsApi:
             return {"ok": False, "error": "Search already running."}
 
         key, count, names = _resolve_rush(rush_name)
+
+        if hell_rush and key != "96":
+            return {"ok": False, "error": "Hell Rush Mode requires the White / Mikey rush."}
+        try:
+            hell_rush_min_int = max(0, min(100, int(str(hell_rush_min).strip())))
+        except ValueError:
+            return {"ok": False, "error": "Hell Rush threshold must be 0–100."}
 
         target_indices, err = _parse_level_names(levels_str.strip(), key)
         if err:
@@ -403,18 +412,32 @@ class JsApi:
                     continue
 
                 seed = item
-                found.append(seed)
+                if self._finder_stop_event.is_set():
+                    break
                 order = full_shuffle(count, seed)
                 target_set = set(target_indices)
                 positions = {idx: pos + 1 for pos, idx in enumerate(order) if idx in target_set}
+                is_white_mikey = key == "96"
+
+                if hell_rush:
+                    name_order = [names[idx] for idx in order]
+                    score = score_hell_rush(name_order)
+                    if score < hell_rush_min_int:
+                        continue
+                else:
+                    score = None
+
+                found.append(seed)
                 level_order = [
                     {"name": names[idx], "is_target": idx in target_set,
-                     "position": positions.get(idx)}
+                     "position": positions.get(idx),
+                     "is_healthpack": (names[idx] in HEALTHPACK_LEVELS) if is_white_mikey else False}
                     for pos, idx in enumerate(order)
                 ]
                 pos_strs = ", ".join(f"{names[idx]} @{positions[idx]}" for idx in target_indices)
-                _emit({"type": "result", "seed": seed, "summary": pos_strs,
-                       "level_order": level_order})
+                summary = pos_strs + (f" · score {score}" if score is not None else "")
+                _emit({"type": "result", "seed": seed, "summary": summary,
+                       "score": score, "level_order": level_order})
 
                 if len(found) >= max_seeds_int:
                     self._finder_stop_event.set()

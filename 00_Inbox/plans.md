@@ -4,6 +4,155 @@ Saved Claude-authored plans for the Neon White app. Newest at the top.
 
 ---
 
+## 2026-05-07 — Hell Rush Mode on Seed Finder
+
+### Context
+
+Hell Rush is a White/Mikey 96-level run where 11 specific stages drop healthpacks. A "good" Hell Rush seed has those HPs evenly spaced, not clustered, not all-front-loaded, and not all-back-loaded. The scoring formula and `score_hell_rush()` already exist in `SteamScraper/webview_app/hell_rush.py` (decision: `02_Decisions/2026-05-06-hell-rush-scoring.md`). What's missing is exposing it on the Seed Finder page so users can require a minimum spacing score in addition to their starting-level query.
+
+This plan adds a Hell Rush toggle + threshold input to Seed Finder. When enabled, candidate seeds that already match the level-target query are additionally scored, dropped if below threshold, and the surviving seeds are re-sorted best-first when the search completes. White/Mikey only.
+
+### Decisions (confirmed with user)
+
+- **Rush scope:** White/Mikey only. Toggle is hidden/disabled for other rushes.
+- **Threshold UI:** number field, default `70`. Range 0–100.
+- **Result display:** score badge on each `SeedCard`; stream as found, sort best-first when search ends.
+- **Empty levels:** still required. Hell Rush is an *additional* filter on top of level matching.
+
+### Backend changes
+
+**File: `SteamScraper/webview_app/bridge.py`**
+
+1. Import: add `from hell_rush import score_hell_rush` near the existing `from shuffle_lib import …` line (~19).
+2. `start_finder` signature (line 330): add two params `hell_rush: bool = False, hell_rush_min: str = "70"`.
+3. Validation block right after `_resolve_rush`:
+   - If `hell_rush` truthy and `key != "white"` (verify in `_resolve_rush`): return `{"ok": False, "error": "Hell Rush Mode requires the White / Mikey rush."}`.
+   - Parse `hell_rush_min` as int, clamp 0–100; on `ValueError`, return `{"ok": False, "error": "Hell Rush threshold must be 0–100."}`.
+4. Manager loop (line 405–417 — the block that handles a `seed` result):
+   - After computing `order` and `level_order`, if `hell_rush` is on, build `name_order = [names[idx] for idx in order]`, call `score = score_hell_rush(name_order)`, and `continue` (do NOT count toward `found`, do NOT emit) if `score < hell_rush_min`.
+   - When emitting, include `"score": score` (or `None` when HR off) in the `result` event payload.
+   - **Always** (regardless of HR toggle) tag each cell in `level_order`: add `is_healthpack: names[idx] in HEALTHPACK_LEVELS` for White/Mikey rushes; `False` otherwise. Import `HEALTHPACK_LEVELS` alongside `score_hell_rush`.
+   - Update the existing `summary` to append `· score N` when score present.
+5. `done` event: when HR on, no change to backend ordering — frontend resorts.
+
+**File: `SteamScraper/seed_search.py`** — no changes. The C-level `find_seeds_batch` still pre-filters by level-position bitmask; HR filter sits on the small set of bitmask survivors.
+
+### Frontend changes
+
+**File: `frontend/src/api.js`** (line 50)
+- `startFinder` signature: add `hellRush, hellRushMin` params, pass through to `pywebview.api.start_finder(...)`.
+
+**File: `frontend/src/pages/SeedFinder.jsx`**
+
+1. New state: `hellRush` (bool, default false), `hellRushMin` (string, default `"70"`).
+2. New form fields, rendered only when `rushName === "White / Mikey"`:
+   - A `Seg` toggle "Hell Rush Mode" (`["off","on"]`).
+   - When on: a `Field label="Min spacing score (0–100)"` with a numeric `input` (width 80, like Search Depth at lines 184–191).
+3. `handleRushChange`: if user switches away from White/Mikey while HR is on, set `hellRush=false`.
+4. `handleStart`: pass `hellRush, hellRushMin` to `startFinder`.
+5. Event handler (lines 91–115):
+   - `result` event: keep streaming as today. Score is on `data.score`.
+   - `done` event: if `hellRush`, `setResults(prev => [...prev].sort((a,b) => (b.score ?? 0) - (a.score ?? 0)))`.
+6. `SeedCard` (lines 21–75): when `result.score != null`, render a small score pill next to the seed number — reuse the accent-colored span style at line 35; format as `score 77`.
+7. **HP indicator in expanded grid (White/Mikey only, always on):** in each level cell render a small `♥` glyph next to the name when `lvl.is_healthpack` is true. Muted color so it doesn't fight the accent-green target styling; survives the "target AND HP" overlap case.
+
+### Tests
+
+**File: `tests/test_bridge.py`** — extend existing finder tests:
+- HR on with non-White rush → returns validation error, finder does not start.
+- HR on, threshold above achievable → search completes with 0 results.
+- HR off behaves identically to before (regression).
+- `result` payload includes `score` when HR on, `None`/absent when off.
+
+### Verification (manual)
+
+1. HR toggle hidden for non-White/Mikey rushes.
+2. White/Mikey → toggle appears, default 70.
+3. Run levels = `Absolution, The Third Temple`, threshold 70 → results stream in, sorted desc on completion, score badges visible.
+4. Threshold 95 → very few/zero results, no crash.
+5. Switch to a stage rush with HR on → toggle hides, state resets.
+6. Seed 712788 → score 77 in card.
+
+### Files touched
+
+- `SteamScraper/webview_app/bridge.py`
+- `frontend/src/api.js`
+- `frontend/src/pages/SeedFinder.jsx`
+- `tests/test_bridge.py`
+- `01_Codebase_Map/overview.md`
+- `03_Sessions/2026-05-07.md`
+
+### Out of scope
+
+- Pushing HR scoring into the C `find_seeds_batch` path.
+- HR-only searches (no level targets).
+
+---
+
+## 2026-05-06 — M4: Resources section (Ghosts + Route Videos), credential-free
+
+### Context
+
+The webview migration through M3 has every legacy feature ported except the Sheets *push* (Player Lookup → user's Google Sheet). Push is **deferred to v1.0+**; M4 adds a new **Resources** section instead, with two pages — **Ghosts** and **Route Videos** — fed by Google Sheets the user owns and publishes-to-web. This avoids:
+
+- `credentials.json` shipped in the EXE (concern #1 from `ideas.md`)
+- GCP-project quota tied to a single OAuth client (concern #4)
+- OAuth consent screen for end users
+- Google API key entirely — published Sheets URLs serve cached CSV anonymously
+
+**Ghosts:** browse `.phant` ghost replay files in a public Drive folder, indexed stage × medal-tier (Emerald/Amethyst/Sapphire) × player. User picks stage → medal → row → "Open in browser" → Drive preview/download page. Drive root: `https://drive.google.com/drive/folders/1JiN4Y-Qj-W84va0joZh6NzeYsOq3EVc1`.
+
+**Route Videos:** stage × medal → list of YouTube links (one or more videos per medal). Click → opens YouTube URL.
+
+### Architecture
+
+The published Sheet — not the Drive API — is the index. App never crawls Drive. User manually fills two sheets that link to those Drive resources. Feature collapses to "fetch CSV at startup, render 3-level picker."
+
+Both sheets are published via `File → Share → Publish to web` and read via the GViz CSV endpoint:
+```
+https://docs.google.com/spreadsheets/d/<SHEET_ID>/gviz/tq?tqx=out:csv&sheet=<TAB>
+```
+Anonymous, edge-cached, no API key.
+
+### Schemas
+
+**Ghosts:** `level_code, level_name, medal, player, time, drive_url`
+**Route Videos:** `level_code, medal, title, youtube_url`
+
+Sheet IDs + tab names hard-coded in the new bridge module.
+
+### Files
+
+**Backend:**
+- New `SteamScraper/webview_app/resources.py` (~80 lines) — constants, cache dicts, `_fetch_csv`, `_fetch_resources_bg` daemon thread, `get_ghosts_for/get_videos_for/get_resources_status`. Mirrors error posture of `bridge.py:_fetch_medal_data_bg`.
+- New `SteamScraper/webview_app/models/resources.py` — `GhostRow`, `VideoRow`, `ResourcesStatus`. Re-export from `models/__init__.py`.
+- Modify `SteamScraper/webview_app/bridge.py` — methods `get_resources_status`, `get_ghosts`, `get_videos`, `open_external_url` (allow-listed to drive.google.com / youtube.com / youtu.be via `webbrowser.open`).
+
+**Frontend:**
+- New `frontend/src/pages/Ghosts.jsx` — stage picker (reuse `getLevels()` from `LevelSearch.jsx:8-23`) → medal `Seg` → result table (Player, Time, Open in browser).
+- New `frontend/src/pages/RouteVideos.jsx` — stage → medal → table (Title, Watch).
+- Modify `frontend/src/api.js` — `getResourcesStatus`, `getGhosts`, `getVideos`, `openExternalUrl`.
+- Modify `frontend/src/shared.jsx` — new "Resources" sidebar section between Leaderboard and Rush Tools; `NAV_ITEMS.resources = [{key:"ghosts"...},{key:"videos"...}]`.
+- Modify `frontend/src/main.jsx` — register two new routes.
+
+**Docs:**
+- Update `01_Codebase_Map/overview.md` (9 pages → 11; add Resources methods).
+- Append `03_Sessions/2026-05-06-M4.md`.
+
+**Cleanup:** remove `credentials.json` / `token.json` from `neonwhite.spec` bundling (push deferred to v1.0). `sheets.py` stays on disk, not imported by webview.
+
+### Verification
+
+1. Network down → logged failures, no crash, "Could not reach resource sheet" shown.
+2. Sheets populated → drill-down opens Drive / YouTube link in default browser.
+3. Empty stage+medal → "No ghosts indexed" message.
+4. Malformed row → dropped, others load, one logged warning.
+5. `open_external_url("file:///etc/passwd")` → rejected + logged.
+6. Background fetch must not block UI mount.
+7. `npm run build` clean; 5/5 Python tests pass.
+
+---
+
 ## 2026-05-06 — Wire the Hi-Fi mockup to a Python backend
 
 ### Context
