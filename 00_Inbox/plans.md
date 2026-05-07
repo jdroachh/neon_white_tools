@@ -4,7 +4,7 @@ Saved Claude-authored plans for the Neon White app. Newest at the top.
 
 ---
 
-## 2026-05-07 — Compare Players: CSV export
+## 2026-05-07 — Compare Players: CSV export ✓ DONE
 
 **Context:** Compare Players v1 is display-only. This adds an optional CSV export — same `outMode` / folder-picker pattern as Player Lookup.
 

@@ -933,13 +933,17 @@ class JsApi:
         return {"ok": True}
 
     def run_compare_players(self, steam_id_1: str, steam_id_2: str,
-                            mode: str, target: str) -> dict:
+                            mode: str, target: str,
+                            out_mode: str = "display", folder: str = "") -> dict:
+        import csv as _csv
         sid1_str = str(steam_id_1).strip()
         if not sid1_str.isdigit() or len(sid1_str) != 17:
             return {"ok": False, "error": "Player 1 Steam ID must be a 17-digit number."}
         sid2_str = str(steam_id_2).strip()
         if not sid2_str.isdigit() or len(sid2_str) != 17:
             return {"ok": False, "error": "Player 2 Steam ID must be a 17-digit number."}
+        if out_mode in ("csv", "both") and not str(folder).strip():
+            return {"ok": False, "error": "Select an output folder."}
 
         import steam_api
         if not steam_api.steam_ready:
@@ -950,11 +954,13 @@ class JsApi:
         sid2 = int(sid2_str)
 
         levels_to_search = []
+        context = ""
         if mode == "level":
             match = LEVEL_LOOKUP.get(str(target).strip().lower())
             if not match:
                 return {"ok": False, "error": f"Level '{target}' not found."}
             levels_to_search = [match]
+            context = match[0]
         elif mode == "chapter":
             chap = str(target).strip()
             if chap not in CHAPTERS:
@@ -963,8 +969,10 @@ class JsApi:
                 m = LEVEL_LOOKUP.get(dn.lower())
                 if m:
                     levels_to_search.append(m)
+            context = chap
         elif mode == "game":
             levels_to_search = list(WHOLE_GAME_LEVELS)
+            context = "Whole Game"
         else:
             return {"ok": False, "error": f"Unknown mode '{mode}'."}
 
@@ -984,8 +992,13 @@ class JsApi:
                 "player_name_1": pname1,
                 "player_name_2": pname2,
             })
+
+            def safe(s):
+                return "".join(c if c.isalnum() or c in " _-" else "" for c in s).strip().replace(" ", "_")
+
             found_p1 = 0
             found_p2 = 0
+            all_rows = []
             for display, internal in levels_to_search:
                 if self._lb_stop_event.is_set():
                     break
@@ -1024,24 +1037,51 @@ class JsApi:
                         faster = "p2"
                     else:
                         faster = "tie"
-                _emit_to("_nwCompareEvent", {
-                    "type": "row",
-                    "level": display,
-                    "p1": p1_data,
-                    "p2": p2_data,
-                    "delta_ms": delta_ms,
-                    "faster": faster,
-                    "total": total_lb,
-                })
+                if out_mode in ("display", "both"):
+                    _emit_to("_nwCompareEvent", {
+                        "type": "row",
+                        "level": display,
+                        "p1": p1_data,
+                        "p2": p2_data,
+                        "delta_ms": delta_ms,
+                        "faster": faster,
+                        "total": total_lb,
+                    })
+                if out_mode in ("csv", "both"):
+                    all_rows.append({
+                        "level": display,
+                        "p1_rank": p1_data["rank"] if p1_data else "",
+                        "p1_time": p1_data["time"] if p1_data else "",
+                        "p1_medal": p1_data["medal"] if p1_data else "",
+                        "delta_ms": delta_ms if delta_ms is not None else "",
+                        "p2_rank": p2_data["rank"] if p2_data else "",
+                        "p2_time": p2_data["time"] if p2_data else "",
+                        "p2_medal": p2_data["medal"] if p2_data else "",
+                    })
+
+            csv_path = None
+            if out_mode in ("csv", "both") and all_rows:
+                safe_ctx = context.replace(" ", "_").replace("/", "_").replace("-", "")
+                fname = f"{safe(pname1)}_vs_{safe(pname2)}_{safe_ctx}.csv"
+                csv_path = os.path.join(folder.strip(), fname)
+                with open(csv_path, "w", newline="", encoding="utf-8") as f:
+                    writer = _csv.DictWriter(f, fieldnames=[
+                        "level", "p1_rank", "p1_time", "p1_medal",
+                        "delta_ms", "p2_rank", "p2_time", "p2_medal"])
+                    writer.writeheader()
+                    writer.writerows(all_rows)
+
             stopped = self._lb_stop_event.is_set()
+            base_msg = (f"Stopped. {found_p1} P1 / {found_p2} P2 entries so far."
+                        if stopped
+                        else f"Done. {found_p1} P1 / {found_p2} P2 entries found.")
             _emit_to("_nwCompareEvent", {
                 "type": "done",
-                "message": (f"Stopped. {found_p1} P1 / {found_p2} P2 entries so far."
-                            if stopped
-                            else f"Done. {found_p1} P1 / {found_p2} P2 entries found."),
+                "message": f"{base_msg} → {csv_path}" if csv_path else base_msg,
                 "found_p1": found_p1,
                 "found_p2": found_p2,
                 "total_levels": len(levels_to_search),
+                "csv_path": csv_path or "",
             })
             self._lb_running = False
 

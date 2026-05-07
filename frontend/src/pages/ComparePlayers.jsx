@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { PageHead, Field, Seg, Btn, ErrorBanner, MedalBadge, MedalToggle } from "../shared.jsx";
-import { getLevels, getChapters, getSteamStatus, runComparePlayers, stopLeaderboard } from "../api.js";
+import { getLevels, getChapters, getSteamStatus, runComparePlayers, stopLeaderboard, pickFolder } from "../api.js";
 
 const TH = { padding: "4px 8px", fontWeight: 600, fontSize: "0.91em", borderBottom: "1px solid var(--border)", textAlign: "left" };
 const TD = { padding: "3px 8px", fontSize: "1em" };
@@ -14,22 +14,25 @@ function formatDelta(delta_ms) {
   return `${sign}${Math.abs(secs).toFixed(3)}`;
 }
 
-export default function ComparePlayers() {
-  const [steamId1, setSteamId1]       = useState("");
-  const [steamId2, setSteamId2]       = useState("");
-  const [mode, setMode]               = useState("level");
-  const [levels, setLevels]           = useState([]);
-  const [chapters, setChapters]       = useState([]);
-  const [levelName, setLevelName]     = useState("");
-  const [chapterName, setChapterName] = useState("");
-  const [running, setRunning]         = useState(false);
-  const [status, setStatus]           = useState("");
-  const [error, setError]             = useState("");
-  const [rows, setRows]               = useState([]);
-  const [playerName1, setPlayerName1] = useState("");
-  const [playerName2, setPlayerName2] = useState("");
-  const [showMedals, setShowMedals]   = useState(false);
-  const [largeText, setLargeText]     = useState(false);
+export default function ComparePlayers({ outputFolder: defaultFolder = "" }) {
+  const [steamId1, setSteamId1]           = useState("");
+  const [steamId2, setSteamId2]           = useState("");
+  const [mode, setMode]                   = useState("level");
+  const [levels, setLevels]               = useState([]);
+  const [chapters, setChapters]           = useState([]);
+  const [levelName, setLevelName]         = useState("");
+  const [chapterName, setChapterName]     = useState("");
+  const [outMode, setOutMode]             = useState("display");
+  const [folder, setFolder]               = useState(defaultFolder);
+  const [folderTouched, setFolderTouched] = useState(false);
+  const [running, setRunning]             = useState(false);
+  const [status, setStatus]               = useState("");
+  const [error, setError]                 = useState("");
+  const [rows, setRows]                   = useState([]);
+  const [playerName1, setPlayerName1]     = useState("");
+  const [playerName2, setPlayerName2]     = useState("");
+  const [showMedals, setShowMedals]       = useState(false);
+  const [largeText, setLargeText]         = useState(false);
 
   useEffect(() => {
     getLevels().then(ls => { setLevels(ls); if (ls.length) setLevelName(ls[0].display); });
@@ -52,6 +55,10 @@ export default function ComparePlayers() {
     return () => { window._nwCompareEvent = null; };
   }, []);
 
+  useEffect(() => {
+    if (!folderTouched) setFolder(defaultFolder);
+  }, [defaultFolder]);
+
   async function handleUseMine1() {
     const s = await getSteamStatus();
     if (s.ready && s.steam_id) {
@@ -70,10 +77,15 @@ export default function ComparePlayers() {
     }
   }
 
+  async function handlePickFolder() {
+    const r = await pickFolder();
+    if (r.ok && r.path) { setFolder(r.path); setFolderTouched(true); }
+  }
+
   async function handleRun() {
     setError(""); setStatus(""); setRows([]); setPlayerName1(""); setPlayerName2("");
     const target = mode === "level" ? levelName : mode === "chapter" ? chapterName : "";
-    const r = await runComparePlayers(steamId1, steamId2, mode, target);
+    const r = await runComparePlayers(steamId1, steamId2, mode, target, outMode, folder);
     if (!r.ok) { setError(r.error); return; }
     setRunning(true);
   }
@@ -102,7 +114,7 @@ export default function ComparePlayers() {
     <>
       <PageHead crumb="Leaderboard Tools" title="COMPARE" accentWord="PLAYERS"
         actions={<>
-          {rows.length > 0 && !running &&
+          {rows.length > 0 && !running && outMode !== "csv" &&
             <Btn kind="ghost" size="sm" icn="copy" onClick={handleCopy}>Copy</Btn>}
         </>}
       />
@@ -154,6 +166,19 @@ export default function ComparePlayers() {
                 All 121 levels will be searched.
               </div>
             )}
+            <Field label="Output">
+              <Seg options={["display", "csv", "both"]} value={outMode} onChange={setOutMode} />
+            </Field>
+            {(outMode === "csv" || outMode === "both") && (
+              <Field label="Output folder" hint="Saved as P1_vs_P2_context.csv">
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input className="input" style={{ flex: 1, fontSize: 10 }} value={folder}
+                         onChange={e => { setFolder(e.target.value); setFolderTouched(true); }}
+                         disabled={running} placeholder="Select a folder..." />
+                  <Btn kind="ghost" size="sm" onClick={handlePickFolder} disabled={running}>Browse</Btn>
+                </div>
+              </Field>
+            )}
             <ErrorBanner message={error} />
             <div style={{ display: "flex", gap: 8 }}>
               {running
@@ -164,7 +189,11 @@ export default function ComparePlayers() {
           </div>
         </div>
         <div className="panel-right" style={{ overflow: "auto", display: "flex", flexDirection: "column" }}>
-          {rows.length > 0 ? (
+          {outMode === "csv" ? (
+            <div className="muted" style={{ padding: 32, fontSize: 12, textAlign: "center" }}>
+              {running ? "Comparing and writing CSV..." : status || "Results will be saved to CSV only."}
+            </div>
+          ) : rows.length > 0 ? (
             <>
               <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px 6px", flexShrink: 0 }}>
                 <span style={{ fontSize: 12, fontWeight: 600, flex: 1 }}>
@@ -218,6 +247,7 @@ export default function ComparePlayers() {
               {running ? "Comparing players..." : "Enter two Steam IDs and press Compare."}
             </div>
           )}
+
         </div>
       </div>
     </>
