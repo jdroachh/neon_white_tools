@@ -330,7 +330,8 @@ class JsApi:
 
     def start_finder(self, rush_name: str, levels_str: str, depth: str,
                      mode: str, max_seeds: str,
-                     hell_rush: bool = False, hell_rush_min: str = "70") -> dict:
+                     hell_rush: bool = False, hell_rush_min: str = "70",
+                     force_first: str = "") -> dict:
         """
         Begin a seed search. Returns {ok} immediately; progress events are
         pushed to window._nwFinderEvent({type, ...}) in the JS layer.
@@ -363,6 +364,17 @@ class JsApi:
             max_seeds_int = 1 if mode == "first" else max(1, int(str(max_seeds).strip() or "5"))
         except ValueError:
             max_seeds_int = 5
+
+        # Force First Level — White / Mikey only
+        forced_idx = None
+        force_first_str = str(force_first or "").strip()
+        if force_first_str:
+            if key != "96":
+                return {"ok": False, "error": "Force First Level is only supported for White / Mikey."}
+            fi, ferr = _parse_level_names(force_first_str, key)
+            if ferr or len(fi) != 1:
+                return {"ok": False, "error": f"Force First Level: '{force_first_str}' is not a valid level."}
+            forced_idx = fi[0]
 
         expected = _expected_match_count(count, len(target_indices), depth_int, MAX_SEED)
 
@@ -415,6 +427,8 @@ class JsApi:
                 if self._finder_stop_event.is_set():
                     break
                 order = full_shuffle(count, seed)
+                if forced_idx is not None and order[0] != forced_idx:
+                    continue
                 target_set = set(target_indices)
                 positions = {idx: pos + 1 for pos, idx in enumerate(order) if idx in target_set}
                 is_white_mikey = key == "96"
@@ -430,12 +444,14 @@ class JsApi:
                 found.append(seed)
                 level_order = [
                     {"name": names[idx], "is_target": idx in target_set,
+                     "is_forced": idx == forced_idx,
                      "position": positions.get(idx),
                      "is_healthpack": (names[idx] in HEALTHPACK_LEVELS) if is_white_mikey else False}
                     for pos, idx in enumerate(order)
                 ]
                 pos_strs = ", ".join(f"{names[idx]} @{positions[idx]}" for idx in target_indices)
-                summary = pos_strs + (f" · score {score}" if score is not None else "")
+                forced_prefix = (f"[{names[forced_idx]} @1] " if forced_idx is not None and forced_idx not in target_set else "")
+                summary = forced_prefix + pos_strs + (f" · score {score}" if score is not None else "")
                 _emit({"type": "result", "seed": seed, "summary": summary,
                        "score": score, "level_order": level_order})
 

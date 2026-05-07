@@ -4,6 +4,122 @@ Saved Claude-authored plans for the Neon White app. Newest at the top.
 
 ---
 
+## 2026-05-07 — Force First Level (Seed Finder) ✓ DONE
+
+**Actual files changed:** `SteamScraper/webview_app/bridge.py`, `frontend/src/api.js`, `frontend/src/pages/SeedFinder.jsx`
+*(Plan was written for tkinter; implementation correctly targeted the webview app.)*
+
+### Context
+
+The Seed Finder currently searches for seeds whose first `depth` shuffled levels contain a user-specified set of "desired starting levels" (set membership, position-agnostic). Speedrunners frequently want a stronger constraint: the *first* level of the seed must be a specific level. This plan adds a "Force First Level" toggle (White / Mikey only) with a level-name textbox that filters search results to only seeds where `shuffled[0] == forced_level_index`, while still honoring the existing desired-starts query.
+
+Decisions from clarification:
+- Forced level may be **any level in the White/Mikey pool**, independent of the desired-starts list.
+- If toggle is on but textbox is empty / unparseable → **block search with an error** in `finder_status_var`.
+- Implementation = **Python post-filter** on each candidate seed returned by `find_seeds_batch` (no DLL changes).
+
+### Files to modify
+
+1. `SteamScraper/tab_rush_finder.py` — UI + parse + post-filter
+2. *(no changes)* `seed_search.py`, `shuffle_lib.py`, `compile_shuffle.py`, `rush_data.py`
+
+### Changes
+
+**1. UI (tab_rush_finder.py, ~lines 59–73, in `_build_rush_finder`)**
+
+Insert after the "Desired Starting Levels" entry, before the "Result Mode" label:
+
+- `self.finder_force_first_var = tk.BooleanVar(value=False)`
+- `ttk.Checkbutton(... text="Force First Level", variable=self.finder_force_first_var, command=self._on_force_first_toggle)`
+- `self.finder_force_first_entry = ttk.Entry(...)` initially `state="disabled"`
+- Visibility rule: enabled only when rush is **White / Mikey** AND toggle is on. The rush combobox already has a change handler — extend it to also disable the toggle/entry when rush != "White / Mikey" and uncheck the toggle.
+
+`_on_force_first_toggle` flips entry state between `"normal"` and `"disabled"`.
+
+**2. Parse + validate (in `_run_finder`, ~lines 208–223)**
+
+Before kicking off workers:
+
+```python
+forced_idx = None
+if self.finder_force_first_var.get():
+    if rush_key != "96":
+        return self.finder_status_var.set("Force First Level only supported for White / Mikey.")
+    raw = self.finder_force_first_entry.get().strip()
+    if not raw:
+        return self.finder_status_var.set("Force First Level is enabled but empty.")
+    parsed = self._parse_level_names(raw, rush_key)
+    if not parsed or len(parsed) != 1:
+        return self.finder_status_var.set(f"Force First Level: '{raw}' is not a valid level.")
+    forced_idx = parsed[0]
+```
+
+Reuse existing `_parse_level_names` (lines 306–341) — already handles aliases, partial match, numeric index.
+
+**3. Post-filter on candidate seeds (~lines 252–275)**
+
+The display loop already calls `order = full_shuffle(num_levels, seed)` per match. Add inline:
+
+```python
+order = full_shuffle(num_levels, seed)
+if forced_idx is not None and order[0] != forced_idx:
+    continue
+```
+
+Pure post-filter — no worker / queue / IPC changes.
+
+**4. Stop-condition / "Search Depth" interaction**
+
+No change. Forced-first and desired-starts are orthogonal; both must hold.
+
+### Verification
+
+1. White / Mikey selected → toggle enables/disables textbox. Switching to Violet auto-clears.
+2. Toggle on + empty textbox → status `"Force First Level is enabled but empty."`; no worker spawn.
+3. Toggle on + `"asdfgh"` → status `"Force First Level: 'asdfgh' is not a valid level."`
+4. Toggle on + valid level X + desired-starts Y + depth 5 → all results show X at position 1 AND Y in positions 1–5.
+5. Toggle off, same query → results no longer require X at position 1.
+6. Non-White rush modes unchanged.
+
+### Handoff prompt for Sonnet
+
+> You are implementing **"Force First Level"** for the Seed Finder in the Neon White Leaderboard Tool. Repo root: `E:\Claude-Neon-White-App`. Live entry point: `SteamScraper/neonwhite_app.py`. **All edits are confined to `SteamScraper/tab_rush_finder.py`** — no DLL, worker, or other module changes.
+>
+> **Read first:**
+> - `SteamScraper/tab_rush_finder.py` end-to-end — especially `_build_rush_finder` (the UI builder, ~lines 40–120), `_run_finder` / search-button handler (~lines 200–280), the per-match display loop that already calls `full_shuffle(num_levels, seed)` (~lines 252–275), and `_parse_level_names` (lines 306–341).
+> - `SteamScraper/rush_data.py` for `RUSH_LEVELS` (level pools per character) and `RUSH_ALIASES`.
+> - `SteamScraper/neonwhite_app.py` for `_rush_key_from_display` / `_rush_key_to_num` (rush-key mapping; White/Mikey key = `"96"`).
+>
+> **Feature spec:**
+> 1. Add a **"Force First Level" checkbox** + adjacent **textbox** to the Seed Finder UI, inserted between the "Desired Starting Levels" entry and the "Result Mode" label.
+> 2. The toggle and textbox are only meaningful for **White / Mikey** (`rush_key == "96"`). When the user switches to Violet/Red/Yellow, force the toggle off and disable both widgets. Hook into the existing rush-combobox change handler.
+> 3. The textbox is `state="disabled"` whenever the toggle is off; `"normal"` when on.
+> 4. **On search start (toggle on):**
+>    - If textbox is empty/whitespace → set `finder_status_var` to `"Force First Level is enabled but empty."` and return without spawning workers.
+>    - Else parse via the existing `_parse_level_names(raw, rush_key)`. If it returns a list of length != 1, set status to `"Force First Level: '{raw}' is not a valid level."` and return.
+>    - Else capture the resulting `forced_idx: int`.
+>    - The forced level may be **any level in the White/Mikey pool**, independent of the Desired Starts query.
+> 5. **Post-filter:** in the existing per-match display loop where `order = full_shuffle(num_levels, seed)` is already computed, add `if forced_idx is not None and order[0] != forced_idx: continue` immediately after the shuffle call. Do not modify `seed_search.py`, `shuffle_lib.py`, or `compile_shuffle.py`.
+>
+> **Do not:**
+> - Modify the C `find_seeds_batch` or recompile `shuffle.dll`.
+> - Change the worker / multiprocessing protocol.
+> - Add the forced level into the desired-starts target mask — the constraints are orthogonal.
+> - Restructure unrelated parts of `tab_rush_finder.py`.
+>
+> **Verify before reporting done:**
+> 1. Launch app → Seed Finder → White / Mikey. Toggling enables/disables the textbox.
+> 2. Switching rush to Violet auto-clears the toggle and disables both widgets.
+> 3. Toggle on + empty textbox + Find Seed → exact status message above; no worker spawn.
+> 4. Toggle on + invalid name (`"asdfgh"`) → exact status message above.
+> 5. Toggle on + valid level X + Desired Starts including a different level Y + depth 5 → all displayed results show level X at position 1 AND level Y somewhere in positions 1–5.
+> 6. Toggle off, same query → results no longer require X at position 1.
+> 7. Non-White rush modes behave exactly as before (toggle disabled).
+>
+> Patch should be ~40–60 lines in one file. Keep it tight; no surrounding cleanup.
+
+---
+
 ## 2026-05-07 — Hell Rush Mode on Seed Finder
 
 ### Context

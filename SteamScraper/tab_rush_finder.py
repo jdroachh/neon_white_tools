@@ -64,6 +64,22 @@ class RushFinderTabMixin:
         tk.Label(body, text="Comma-separated level names. Case insensitive.",
                  font=gohu(12), bg=t["bg"], fg=t["fg2"]).pack(anchor="w", pady=(0, 8))
 
+        # Force First Level — White / Mikey only
+        force_row = tk.Frame(body, bg=t["bg"])
+        force_row.pack(anchor="w", pady=(0, 8))
+        self.finder_force_var = tk.BooleanVar(value=False)
+        self.finder_force_chk = tk.Checkbutton(
+            force_row, text="Force First Level:", variable=self.finder_force_var,
+            font=gohu(12), bg=t["bg"], fg=t["fg"], activebackground=t["bg"],
+            selectcolor=t["input_bg"], command=self._finder_on_force_toggle
+        )
+        self.finder_force_chk.pack(side=tk.LEFT)
+        self.finder_force_entry = tk.Entry(
+            force_row, width=28, font=gohu(12),
+            bg=t["input_bg"], fg=t["input_fg"], relief="flat", state="disabled"
+        )
+        self.finder_force_entry.pack(side=tk.LEFT, padx=(8, 0))
+
         # Result mode
         self._rush_field_label(body, "Result Mode")
         mode_frame = tk.Frame(body, bg=t["bg"])
@@ -125,13 +141,20 @@ class RushFinderTabMixin:
         self.finder_tree.tag_configure("no_match",foreground=t["fg2"])
 
     def _finder_on_rush_change(self):
-        """Auto-set search depth to 8 for non-White/Mikey rushes."""
+        """Auto-set search depth to 8 for non-White/Mikey rushes; disable force widgets."""
         rush = self.finder_rush_var.get()
         if rush != "White / Mikey":
             self.finder_depth_var.set("8")
+            self.finder_force_var.set(False)
+            self.finder_force_chk.configure(state="disabled")
+            self.finder_force_entry.configure(state="disabled")
         else:
-            # Restore depth based on current level count
+            self.finder_force_chk.configure(state="normal")
             self._finder_update_depth()
+
+    def _finder_on_force_toggle(self):
+        state = "normal" if self.finder_force_var.get() else "disabled"
+        self.finder_force_entry.configure(state=state)
 
     def _finder_update_depth(self):
         """Dynamically update search depth to match number of entered levels."""
@@ -195,6 +218,19 @@ class RushFinderTabMixin:
                 self._rush_show(self.finder_result, "Search cancelled.")
                 return
 
+        # Force First Level validation (White / Mikey only)
+        forced_idx = None
+        if self.finder_force_var.get():
+            raw_force = self.finder_force_entry.get().strip()
+            if not raw_force:
+                self.finder_status_var.set("Force First Level is enabled but empty.")
+                return
+            force_indices, ferr = self._parse_level_names(raw_force, rush_key)
+            if ferr or len(force_indices) != 1:
+                self.finder_status_var.set(f"Force First Level: '{raw_force}' is not a valid level.")
+                return
+            forced_idx = force_indices[0]
+
         self._finder_running   = True
         self._finder_stop_event = threading.Event()
         self.finder_run_btn.configure(state=tk.DISABLED)
@@ -250,8 +286,10 @@ class RushFinderTabMixin:
                     continue
 
                 seed  = item
-                found.append(seed)
                 order = full_shuffle(num_levels, seed)
+                if forced_idx is not None and order[0] != forced_idx:
+                    continue
+                found.append(seed)
                 names = RUSH_LEVELS[rush_key]
 
                 def add_to_tree(s=seed, o=order, ns=names, ti=target_indices):

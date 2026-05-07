@@ -61,8 +61,8 @@ function SeedCard({ result, targetNames }) {
             <div key={i} style={{
               display: "flex", alignItems: "center", gap: 8,
               padding: "5px 8px",
-              background: lvl.is_target ? "rgba(180,255,100,0.08)" : "transparent",
-              border: `1px solid ${lvl.is_target ? "var(--accent)" : "var(--border)"}`,
+              background: lvl.is_target ? "rgba(180,255,100,0.08)" : lvl.is_forced ? "rgba(100,200,255,0.07)" : "transparent",
+              border: `1px solid ${lvl.is_target ? "var(--accent)" : lvl.is_forced ? "rgba(100,200,255,0.4)" : "var(--border)"}`,
               borderRadius: 2,
             }}>
               <span className="data muted" style={{ fontSize: 10, width: 20 }}>
@@ -70,7 +70,7 @@ function SeedCard({ result, targetNames }) {
               </span>
               <span className="data" style={{
                 fontSize: 11, flex: 1,
-                color: lvl.is_target ? "var(--accent)" : "var(--fg)",
+                color: lvl.is_target ? "var(--accent)" : lvl.is_forced ? "rgb(100,200,255)" : "var(--fg)",
                 display: "flex", alignItems: "center", gap: 5,
               }}>
                 {lvl.name}
@@ -80,6 +80,9 @@ function SeedCard({ result, targetNames }) {
               </span>
               {lvl.is_target && (
                 <span style={{ fontSize: 9, color: "var(--accent)", fontWeight: 700 }}>◀</span>
+              )}
+              {lvl.is_forced && !lvl.is_target && (
+                <span style={{ fontSize: 9, color: "rgb(100,200,255)", fontWeight: 700 }}>★</span>
               )}
             </div>
           ))}
@@ -97,6 +100,8 @@ export default function SeedFinder() {
   const [maxSeeds, setMaxSeeds]     = useState("5");
   const [hellRush, setHellRush]     = useState(false);
   const [hellRushMin, setHellRushMin] = useState("70");
+  const [forceFirst, setForceFirst] = useState(false);
+  const [forceFirstStr, setForceFirstStr] = useState("");
   const [running, setRunning]       = useState(false);
   const [status, setStatus]         = useState("");
   const [pct, setPct]               = useState(0);
@@ -143,6 +148,7 @@ export default function SeedFinder() {
     if (name !== "White / Mikey") {
       setDepth("8");
       setHellRush(false);
+      setForceFirst(false);
     }
   }
 
@@ -164,7 +170,13 @@ export default function SeedFinder() {
     setStatus("Starting…");
     setExpected(null);
 
-    const res = await startFinder(rushName, levelsStr, depth, mode, maxSeeds, hellRush, hellRushMin);
+    if (forceFirst && !forceFirstStr.trim()) {
+      setError("Force First Level is enabled but query is empty.");
+      setStatus("");
+      return;
+    }
+
+    const res = await startFinder(rushName, levelsStr, depth, mode, maxSeeds, hellRush, hellRushMin, forceFirst ? forceFirstStr : "");
     if (!res.ok) {
       setError(res.error);
       setStatus("");
@@ -250,6 +262,26 @@ export default function SeedFinder() {
                   value={hellRushMin}
                   onChange={e => setHellRushMin(e.target.value)}
                   style={{ width: 80 }}
+                  disabled={running}
+                />
+              </Field>
+            )}
+            {isWhiteMikey && (
+              <Field label="Force first level">
+                <Seg
+                  options={["off", "on"]}
+                  value={forceFirst ? "on" : "off"}
+                  onChange={v => { if (!running) setForceFirst(v === "on"); }}
+                />
+              </Field>
+            )}
+            {isWhiteMikey && forceFirst && (
+              <Field label="Level name" hint="Must be exactly one level">
+                <input
+                  className="input"
+                  value={forceFirstStr}
+                  onChange={e => setForceFirstStr(e.target.value)}
+                  placeholder="e.g. Movement"
                   disabled={running}
                 />
               </Field>
