@@ -53,9 +53,9 @@ function SeedCard({ result, targetNames }) {
         <div style={{
           borderTop: "1px solid var(--border)",
           padding: "10px 14px",
-          display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
-          gap: "4px 8px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 4,
         }}>
           {result.level_order.map((lvl, i) => (
             <div key={i} style={{
@@ -71,12 +71,13 @@ function SeedCard({ result, targetNames }) {
               <span className="data" style={{
                 fontSize: 11, flex: 1,
                 color: lvl.is_target ? "var(--accent)" : "var(--fg)",
+                display: "flex", alignItems: "center", gap: 5,
               }}>
                 {lvl.name}
+                {lvl.is_healthpack && (
+                  <span style={{ fontSize: 12, color: "#e05070", lineHeight: 1 }}>♥</span>
+                )}
               </span>
-              {lvl.is_healthpack && (
-                <span style={{ fontSize: 9, color: "#c06080", opacity: 0.75 }}>♥</span>
-              )}
               {lvl.is_target && (
                 <span style={{ fontSize: 9, color: "var(--accent)", fontWeight: 700 }}>◀</span>
               )}
