@@ -134,3 +134,30 @@ export async function stopLeaderboard() {
   const api = await waitForApi();
   return api.stop_leaderboard();
 }
+
+export async function getMedalTimes(level) {
+  const api = await waitForApi();
+  return api.get_medal_times(level);
+}
+
+// ── Resources (Ghosts + Route Videos) ────────────────────────────────────────
+
+export async function getResourcesStatus() {
+  const api = await waitForApi();
+  return api.get_resources_status();
+}
+
+export async function getGhosts(level, medal) {
+  const api = await waitForApi();
+  return api.get_ghosts(level, medal);
+}
+
+export async function getVideos(level, medal) {
+  const api = await waitForApi();
+  return api.get_videos(level, medal);
+}
+
+export async function openExternalUrl(url) {
+  const api = await waitForApi();
+  return api.open_external_url(url);
+}

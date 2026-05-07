@@ -36,6 +36,8 @@ export const Icon = ({ name, size = 14 }) => {
     case "sw":       return <svg viewBox="0 0 16 16" style={s}><g {...sp}><path d="M2 8l3-3M2 8l3 3M14 8l-3-3M14 8l-3 3"/></g></svg>;
     case "check":    return <svg viewBox="0 0 16 16" style={s}><path d="M3 8l3 3 7-7" {...sp}/></svg>;
     case "warn":     return <svg viewBox="0 0 16 16" style={s}><g {...sp}><path d="M8 2L1.5 14h13L8 2z"/><path d="M8 6v4M8 12v0"/></g></svg>;
+    case "ghost":    return <svg viewBox="0 0 16 16" style={s}><g {...sp}><path d="M3 13V7a5 5 0 0110 0v6l-2-1.5L9 13l-2-1.5L5 13l-2-1.5z"/><circle cx="6" cy="7" r="0.7" fill="currentColor"/><circle cx="10" cy="7" r="0.7" fill="currentColor"/></g></svg>;
+    case "video":    return <svg viewBox="0 0 16 16" style={s}><g {...sp}><rect x="2" y="4" width="9" height="8" rx="1"/><path d="M11 7l3-2v6l-3-2z"/></g></svg>;
     default: return null;
   }
 };
@@ -65,6 +67,10 @@ const NAV_ITEMS = {
     { key: "std",    label: "Standardize Splits", icn: "standard" },
     { key: "timer",  label: "Run Timer",          icn: "timer"    },
   ],
+  resources: [
+    { key: "ghosts", label: "Ghosts",       icn: "ghost" },
+    { key: "videos", label: "Route Videos", icn: "video" },
+  ],
 };
 
 /* onNav: (key: string) => void — called when a nav item is clicked */
@@ -85,6 +91,15 @@ export const Sidebar = ({ active = "parse", onNav, steamReady = false, playerNam
     ))}
     <div className="sidebar-section"><Icon name="caret" size={10} /> Rush Tools</div>
     {NAV_ITEMS.rush.map(n => (
+      <div key={n.key}
+           className={"nav " + (active === n.key ? "active" : "")}
+           onClick={() => onNav && onNav(n.key)}
+           style={{ cursor: "pointer" }}>
+        <span className="icn"><Icon name={n.icn} /></span>{n.label}
+      </div>
+    ))}
+    <div className="sidebar-section"><Icon name="caret" size={10} /> Resources</div>
+    {NAV_ITEMS.resources.map(n => (
       <div key={n.key}
            className={"nav " + (active === n.key ? "active" : "")}
            onClick={() => onNav && onNav(n.key)}

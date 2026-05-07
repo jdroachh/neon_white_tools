@@ -12,6 +12,8 @@ import RunTimer      from "./pages/RunTimer.jsx";
 import GlobalExport  from "./pages/GlobalExport.jsx";
 import LevelSearch   from "./pages/LevelSearch.jsx";
 import PlayerLookup  from "./pages/PlayerLookup.jsx";
+import Ghosts        from "./pages/Ghosts.jsx";
+import RouteVideos   from "./pages/RouteVideos.jsx";
 import Settings      from "./pages/Settings.jsx";
 
 const PAGE_TITLES = {
@@ -23,6 +25,8 @@ const PAGE_TITLES = {
   global:      "Global Export",
   levelsearch: "Level Search",
   lookup:      "Player Lookup",
+  ghosts:      "Ghosts",
+  videos:      "Route Videos",
   settings:    "Settings",
 };
 
@@ -40,7 +44,11 @@ const LB_PAGES = [
   { key: "levelsearch", Component: LevelSearch  },
   { key: "lookup",      Component: PlayerLookup },
 ];
-const WIRED_PAGES = [...RUSH_PAGES, ...LB_PAGES];
+const RES_PAGES = [
+  { key: "ghosts", Component: Ghosts      },
+  { key: "videos", Component: RouteVideos },
+];
+const WIRED_PAGES = [...RUSH_PAGES, ...LB_PAGES, ...RES_PAGES];
 const WIRED_KEYS = new Set(WIRED_PAGES.map(p => p.key));
 
 function Placeholder({ pageName }) {

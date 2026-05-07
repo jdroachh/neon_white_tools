@@ -75,6 +75,70 @@ Ranked by ROI. Best done *after* the `steam_api.py` extraction so they live as i
 - **Rewrite the entire app using Opus.** Larger conversation. Worth scoping: clean-room rewrite vs. incremental refactor + AI-assisted polish. The current modularization work makes a clean-room rewrite easier to justify (slim modules already).
 - **Google Auth alternatives.** Today's flow bundles `credentials.json` into the EXE (security concern flagged earlier). Options to explore: device-code OAuth (no client secret), service-account JSON file the user provides, or dropping Sheets push entirely in favor of CSV-only.
 
+## After pywebview migration
+
+### GitHub Releases update-notification on launch
+
+**Goal:** when the user opens the app, quietly check GitHub for a newer release and show a non-blocking banner if one exists. No auto-download, no auto-install — just notify + link.
+
+**Defer until after migration** so we only build it on the new (pywebview) UI. The legacy tkinter app will be retired by then.
+
+**Prerequisites before this work starts:**
+- App is published to a public GitHub repo with `vMAJOR.MINOR.PATCH` release tags (e.g. `v1.10.5`).
+- `VERSION` constant in `SteamScraper/neonwhite_app.py` (currently line 51) — or wherever it lives post-migration — is the source of truth and matches the release tag.
+- `OWNER` and `REPO` constants known and hard-coded into the new module.
+
+#### Implementation prompt for Sonnet
+
+> You are implementing a launch-time update notification for the Neon White Leaderboard Tool. The app is open-sourced on GitHub Releases; users download an EXE built with PyInstaller. On launch, the app should check GitHub's Releases API for a newer version and, if found, show a dismissable banner in the pywebview UI with the new version number, release notes preview, and a button to open the release page in a browser.
+>
+> **Read first:**
+> - `01_Codebase_Map/overview.md` for current architecture (pywebview is the live UI by then; tkinter retired).
+> - `SteamScraper/webview_app/bridge.py` to understand the `JsApi` bridge pattern and how existing methods return Pydantic models.
+> - `SteamScraper/webview_app/models/` for the request/response type convention.
+> - `frontend/src/shared.jsx` and `frontend/src/api.js` for how JS calls bridge methods and where global UI chrome lives.
+> - The existing GitHub-raw fetcher in the codebase (search for `cheaterlist.json` and `communitymedals.json`) — that's the precedent for "fetch from GitHub at startup, fall back silently if offline." Reuse the same `urllib.request` posture; do **not** add `requests` as a dependency.
+>
+> **Deliver these changes:**
+>
+> 1. **New module** `SteamScraper/update_check.py`:
+>    - Constants: `OWNER = "<fill in>"`, `REPO = "<fill in>"`, `TIMEOUT_S = 4`.
+>    - `UpdateInfo` dataclass / NamedTuple: `current: str, latest: str, url: str, notes: str`.
+>    - `check(current: str) -> Optional[UpdateInfo]` — GET `https://api.github.com/repos/{OWNER}/{REPO}/releases/latest` with `Accept: application/vnd.github+json` and a `User-Agent` header (GitHub requires one). Catch `URLError`, `TimeoutError`, `JSONDecodeError`, `OSError` and return `None` — *never raise* into the caller. Compare versions as integer tuples after stripping a leading `v` from `tag_name`.
+>    - Use the project logger (`logger.get_logger`) for one debug-level line on each outcome (up-to-date, newer found, network error). Match the style of `fetch_cheater_list` and friends.
+>
+> 2. **Bridge method** in `SteamScraper/webview_app/bridge.py`:
+>    - `def check_for_update(self) -> CheckForUpdateResponse` — calls `update_check.check(VERSION)`, consults `config.get("skipped_version")`, returns `{available: False}` if no update or if `latest == skipped_version`, else `{available: True, current, latest, url, notes}`.
+>    - Add a sibling `def skip_update_version(self, version: str) -> None` that writes `skipped_version` into `neonwhite_config.json` via the existing `save_config_field` mechanism.
+>    - Add corresponding Pydantic models in `SteamScraper/webview_app/models/`.
+>
+> 3. **Frontend banner** in `frontend/src/shared.jsx`:
+>    - New `<UpdateBanner>` component that calls `api.checkForUpdate()` once on mount.
+>    - If `available`, render a slim banner across the top of every page: "Version {latest} is available (you're on {current})."
+>    - Three actions: **"Open release"** (`window.open(url)` — or pywebview's `webview.open_url_in_browser` equivalent if it exists in the bridge layer), **"Skip this version"** (calls `api.skipUpdateVersion(latest)` then hides the banner), **"Later"** (just hides the banner for the session, no persistence).
+>    - Mount it once at the top of the root layout — must overlay every page route, not be inside any per-page component.
+>
+> 4. **API wrapper** in `frontend/src/api.js`: thin wrappers `checkForUpdate()` and `skipUpdateVersion(version)`.
+>
+> 5. **Config schema**: add optional `skipped_version: str | null` to `neonwhite_config.json`. Don't write it on app start; only when the user clicks "Skip this version".
+>
+> **Do not:**
+> - Implement auto-download or auto-install. The "Open release" button is the only path forward; user does the rest manually.
+> - Add a beta/pre-release channel. The `/releases/latest` endpoint already excludes pre-releases — keep that behavior.
+> - Block app startup on the network call. The check runs after the UI is mounted; failures are silent.
+> - Introduce `requests`, `httpx`, or `pygithub` as a dependency — `urllib.request` is sufficient and matches existing code.
+> - Force the user to update or show modal dialogs. The banner is dismissable, always.
+>
+> **Verify before reporting done:**
+> 1. *Offline:* disable the network adapter, launch the app — no banner, no error in `logs/app.log`, normal startup.
+> 2. *Up-to-date:* point `OWNER/REPO` at a repo whose latest tag equals `VERSION` — no banner.
+> 3. *Newer available:* point at a repo with a higher `vX.Y.Z` — banner appears with correct current/latest/URL; "Open release" opens the page; "Skip this version" hides the banner and persists; relaunch confirms it stays hidden until `VERSION` advances past it.
+> 4. *5xx / 403 (rate-limited):* mock the request to fail — banner suppressed, app starts normally.
+> 5. *Slow host:* point at a black-hole address — app starts within ~4 s, banner never appears.
+> 6. Confirm `app.log` has one debug line per launch describing the outcome.
+>
+> Keep the patch tight; this should be ~150 lines of Python + ~80 lines of JSX. No refactors of unrelated code.
+
 ## Before pushing to GitHub
 - `git init` and create a sensible `.gitignore` (must exclude: `credentials.json`, `token.json`, `tokenold.json`, `__pycache__/`, `build/`, `.obsidian/workspace.json`, `*.csv` outputs, `shuffle.exp`, `shuffle.lib`)
 - Decide what to do with the credential files currently bundled into the EXE (`neonwhite.spec` line 27-28) — they should not land in a public repo

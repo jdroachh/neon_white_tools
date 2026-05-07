@@ -20,6 +20,9 @@ from shuffle_lib import _load_c_shuffle, full_shuffle
 from rush_data import (LEVELS, LEVEL_LOOKUP, RUSH_LEVELS, RUSH_ALIASES, STANDARD_MEDAL_DATA,
                        CHAPTERS, WHOLE_GAME_LEVELS)
 from seed_search import _seed_search_worker, _expected_match_count
+from . import resources as _resources
+
+_resources.start_background_fetch()
 
 APP_VERSION = "2.0.0-dev"
 
@@ -906,3 +909,63 @@ class JsApi:
             "segments":       seg_out,
             "segment_medals": _compute_medals(std_names, seg_out, key) if seg_out else [],
         }
+
+    # ── Medal targets ─────────────────────────────────────────────────────────
+
+    def get_medal_times(self, level: str) -> dict:
+        """Return community medal target times (in seconds) for a stage display name.
+
+        Returns {} if the stage isn't recognized or community-medal data hasn't
+        finished loading yet. Caller should treat empty as "no targets available."
+        """
+        nl = (level or "").strip().lower()
+        if nl not in LEVEL_LOOKUP:
+            return {}
+        _, code = LEVEL_LOOKUP[nl]
+        comm = _COMMUNITY_MEDAL_DATA.get(code)
+        if not comm or len(comm) < 3:
+            return {}
+        return {
+            "emerald":  comm[0] / 1_000_000,
+            "amethyst": comm[1] / 1_000_000,
+            "sapphire": comm[2] / 1_000_000,
+        }
+
+    # ── Resources (Ghosts + Route Videos) ─────────────────────────────────────
+
+    def get_resources_status(self) -> dict:
+        return _resources.get_status()
+
+    def get_ghosts(self, level: str, medal: str) -> list:
+        return _resources.get_ghosts_for(str(level or ""), str(medal or ""))
+
+    def get_videos(self, level: str, medal: str) -> list:
+        return _resources.get_videos_for(str(level or ""), str(medal or ""))
+
+    def open_external_url(self, url: str) -> dict:
+        """Open an allow-listed external URL in the user's default browser.
+
+        Restricted to Drive + YouTube to keep the JS↔Python bridge from
+        becoming an arbitrary-URL launcher.
+        """
+        import webbrowser
+        u = str(url or "").strip()
+        allowed_prefixes = (
+            "https://drive.google.com/",
+            "https://docs.google.com/",
+            "https://www.youtube.com/",
+            "https://youtube.com/",
+            "https://youtu.be/",
+        )
+        if not any(u.startswith(p) for p in allowed_prefixes):
+            try:
+                from logger import get_logger
+                get_logger("bridge").warning("open_external_url rejected: %r", u)
+            except Exception:
+                pass
+            return {"ok": False, "error": "URL not in allow-list."}
+        try:
+            webbrowser.open(u)
+            return {"ok": True}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
