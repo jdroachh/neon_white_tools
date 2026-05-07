@@ -134,6 +134,40 @@ def test_stop_finder_when_idle():
     assert res["ok"] is True
 
 
+# ── Excluded Levels: Seed Finder ──────────────────────────────────────────────
+
+def test_excluded_bad_level_name():
+    api = JsApi()
+    res = api.start_finder("White / Mikey", "Movement", "5", "first", "1",
+                           excluded_levels="NonexistentLevelXYZ", excluded_window="5")
+    assert res["ok"] is False
+    assert "Unknown level" in res["error"]
+
+
+def test_excluded_window_out_of_range():
+    api = JsApi()
+    res = api.start_finder("White / Mikey", "Movement", "5", "first", "1",
+                           excluded_levels="Pummel", excluded_window="200")
+    assert res["ok"] is False
+    assert "Exclusion Window" in res["error"]
+
+
+def test_excluded_valid_starts():
+    api = JsApi()
+    res = api.start_finder("White / Mikey", "Movement", "5", "first", "1",
+                           excluded_levels="Pummel, Gunner", excluded_window="10")
+    assert res["ok"] is True
+    api.stop_finder()
+
+
+def test_excluded_non_white_rejected():
+    api = JsApi()
+    res = api.start_finder("Violet", "Doghouse", "5", "first", "1",
+                           excluded_levels="Doghouse", excluded_window="3")
+    assert res["ok"] is False
+    assert "White / Mikey" in res["error"]
+
+
 # ── M2: Run Timer bridge ──────────────────────────────────────────────────────
 
 def test_load_timer_seed_invalid():

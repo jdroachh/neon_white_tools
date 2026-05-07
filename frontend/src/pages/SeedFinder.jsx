@@ -4,6 +4,13 @@ import { PageHead, Field, Seg, Btn, RushSelect, ErrorBanner, RUSHES } from "../s
 
 const TOTAL_SEEDS = 2_147_483_647;
 
+const DESIRED_PLACEHOLDERS = {
+  "White / Mikey": "e.g. The Third Temple, Absolution",
+  "Violet":        "e.g. Doghouse, Razor",
+  "Red":           "e.g. Stomp Traversal, Fireball Traversal",
+  "Yellow":        "e.g. Balloon Mountain, Arena",
+};
+
 function ProgressBar({ pct }) {
   return (
     <div style={{
@@ -61,8 +68,8 @@ function SeedCard({ result, targetNames }) {
             <div key={i} style={{
               display: "flex", alignItems: "center", gap: 8,
               padding: "5px 8px",
-              background: lvl.is_target ? "rgba(180,255,100,0.08)" : lvl.is_forced ? "rgba(100,200,255,0.07)" : "transparent",
-              border: `1px solid ${lvl.is_target ? "var(--accent)" : lvl.is_forced ? "rgba(100,200,255,0.4)" : "var(--border)"}`,
+              background: lvl.is_target ? "rgba(180,255,100,0.08)" : lvl.is_forced ? "rgba(100,200,255,0.07)" : lvl.is_excluded ? "rgba(255,180,60,0.08)" : "transparent",
+              border: `1px solid ${lvl.is_target ? "var(--accent)" : lvl.is_forced ? "rgba(100,200,255,0.4)" : lvl.is_excluded ? "rgba(255,180,60,0.45)" : "var(--border)"}`,
               borderRadius: 2,
             }}>
               <span className="data muted" style={{ fontSize: 10, width: 20 }}>
@@ -70,7 +77,7 @@ function SeedCard({ result, targetNames }) {
               </span>
               <span className="data" style={{
                 fontSize: 11, flex: 1,
-                color: lvl.is_target ? "var(--accent)" : lvl.is_forced ? "rgb(100,200,255)" : "var(--fg)",
+                color: lvl.is_target ? "var(--accent)" : lvl.is_forced ? "rgb(100,200,255)" : lvl.is_excluded ? "rgb(255,180,60)" : "var(--fg)",
                 display: "flex", alignItems: "center", gap: 5,
               }}>
                 {lvl.name}
@@ -102,6 +109,9 @@ export default function SeedFinder() {
   const [hellRushMin, setHellRushMin] = useState("70");
   const [forceFirst, setForceFirst] = useState(false);
   const [forceFirstStr, setForceFirstStr] = useState("");
+  const [excludedOn, setExcludedOn] = useState(false);
+  const [excludedLevels, setExcludedLevels] = useState("");
+  const [excludedWindow, setExcludedWindow] = useState("10");
   const [running, setRunning]       = useState(false);
   const [status, setStatus]         = useState("");
   const [pct, setPct]               = useState(0);
@@ -149,6 +159,7 @@ export default function SeedFinder() {
       setDepth("8");
       setHellRush(false);
       setForceFirst(false);
+      setExcludedOn(false);
     }
   }
 
@@ -176,7 +187,19 @@ export default function SeedFinder() {
       return;
     }
 
-    const res = await startFinder(rushName, levelsStr, depth, mode, maxSeeds, hellRush, hellRushMin, forceFirst ? forceFirstStr : "");
+    if (excludedOn && !excludedLevels.trim()) {
+      setError("Excluded Levels is enabled but no levels were entered.");
+      setStatus("");
+      return;
+    }
+
+    const res = await startFinder(
+      rushName, levelsStr, depth, mode, maxSeeds,
+      hellRush, hellRushMin,
+      forceFirst ? forceFirstStr : "",
+      excludedOn ? excludedLevels : "",
+      excludedOn ? excludedWindow : "",
+    );
     if (!res.ok) {
       setError(res.error);
       setStatus("");
@@ -215,7 +238,7 @@ export default function SeedFinder() {
                 className="input"
                 value={levelsStr}
                 onChange={e => handleLevelsChange(e.target.value)}
-                placeholder="e.g. The Third Temple, Absolution"
+                placeholder={DESIRED_PLACEHOLDERS[rushName] ?? "e.g. The Third Temple, Absolution"}
                 disabled={running}
               />
             </Field>
@@ -282,6 +305,37 @@ export default function SeedFinder() {
                   value={forceFirstStr}
                   onChange={e => setForceFirstStr(e.target.value)}
                   placeholder="e.g. Movement"
+                  disabled={running}
+                />
+              </Field>
+            )}
+            {isWhiteMikey && (
+              <Field label="Excluded Levels">
+                <Seg
+                  options={["off", "on"]}
+                  value={excludedOn ? "on" : "off"}
+                  onChange={v => { if (!running) setExcludedOn(v === "on"); }}
+                />
+              </Field>
+            )}
+            {isWhiteMikey && excludedOn && (
+              <Field label={`Exclusion window (1–${rushCount - 1})`} hint="Excluded levels must not appear within this many positions from the start">
+                <input
+                  className="input"
+                  value={excludedWindow}
+                  onChange={e => setExcludedWindow(e.target.value)}
+                  style={{ width: 80 }}
+                  disabled={running}
+                />
+              </Field>
+            )}
+            {isWhiteMikey && excludedOn && (
+              <Field label="Excluded levels" hint="Comma-separated, partial names ok">
+                <input
+                  className="input"
+                  value={excludedLevels}
+                  onChange={e => setExcludedLevels(e.target.value)}
+                  placeholder="e.g. Godspeed, Pummel"
                   disabled={running}
                 />
               </Field>

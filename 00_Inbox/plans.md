@@ -4,6 +4,35 @@ Saved Claude-authored plans for the Neon White app. Newest at the top.
 
 ---
 
+## 2026-05-07 — Excluded Levels (Seed Finder) ✓ DONE
+
+**Files changed:** `SteamScraper/webview_app/bridge.py`, `frontend/src/api.js`, `frontend/src/pages/SeedFinder.jsx`, `tests/test_bridge.py`
+
+### Context
+
+Mirror of "Desired Starting Levels": a toggle that lets the user specify levels which must **not** appear within the first N positions of a shuffled seed. Useful for routing — e.g. force runs that defer a healthpack-poor or hard-to-reach level past the early game.
+
+### Decisions
+
+- Scope: **White / Mikey only** (same gating as Hell Rush + Force First).
+- Stacks with Desired Starting Levels, Hell Rush, and Force First with no mutual exclusion.
+- Window cap is dynamic: `1 .. count - 1` per rush (95 for White/Mikey).
+- Empty textbox while toggle on → submit error (matches existing posture).
+
+### Implementation
+
+- **Bridge** (`bridge.py`): `start_finder` got two new params (`excluded_levels: str`, `excluded_window: str`). Validation reuses the existing `_parse_level_names` helper. Post-shuffle filter sits in the manager loop right next to the `forced_idx` check — zero C-kernel and zero `seed_search.py` changes.
+- **API** (`api.js`): two trailing string args added to `startFinder`.
+- **UI** (`SeedFinder.jsx`): toggle + window + textbox using the Hell Rush / Force First `<Seg>`+`<Field>` pattern. Reset on rush change. Result-card cells render with an amber tint (`rgba(255,180,60,*)`) when `is_excluded` is true; priority chain is target > forced > excluded.
+- **Tests** (`test_bridge.py`): four new — bad name, out-of-range window, valid request, non-White rejection. **31 passed.**
+
+### Polish round
+
+- Excluded-level placeholder set to `e.g. Godspeed, Pummel`.
+- Desired-starting-levels placeholder is now rush-aware via a `DESIRED_PLACEHOLDERS` map keyed on rush name (Violet → `Doghouse, Razor`, Red → `Stomp Traversal, Fireball Traversal`, Yellow → `Balloon Mountain, Arena`, White/Mikey → `The Third Temple, Absolution`).
+
+---
+
 ## 2026-05-07 — Force First Level (Seed Finder) ✓ DONE
 
 **Actual files changed:** `SteamScraper/webview_app/bridge.py`, `frontend/src/api.js`, `frontend/src/pages/SeedFinder.jsx`

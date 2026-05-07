@@ -331,7 +331,8 @@ class JsApi:
     def start_finder(self, rush_name: str, levels_str: str, depth: str,
                      mode: str, max_seeds: str,
                      hell_rush: bool = False, hell_rush_min: str = "70",
-                     force_first: str = "") -> dict:
+                     force_first: str = "",
+                     excluded_levels: str = "", excluded_window: str = "") -> dict:
         """
         Begin a seed search. Returns {ok} immediately; progress events are
         pushed to window._nwFinderEvent({type, ...}) in the JS layer.
@@ -375,6 +376,25 @@ class JsApi:
             if ferr or len(fi) != 1:
                 return {"ok": False, "error": f"Force First Level: '{force_first_str}' is not a valid level."}
             forced_idx = fi[0]
+
+        # Excluded Levels — White / Mikey only
+        excluded_set: set[int] = set()
+        excluded_window_int = 0
+        excluded_str = str(excluded_levels or "").strip()
+        excluded_window_raw = str(excluded_window or "").strip()
+        if excluded_str or excluded_window_raw:
+            if key != "96":
+                return {"ok": False, "error": "Excluded Levels is only supported for White / Mikey."}
+            ei, eerr = _parse_level_names(excluded_str, key)
+            if eerr:
+                return {"ok": False, "error": eerr}
+            try:
+                excluded_window_int = int(excluded_window_raw)
+                if excluded_window_int < 1 or excluded_window_int > count - 1:
+                    raise ValueError
+            except ValueError:
+                return {"ok": False, "error": f"Exclusion Window must be 1–{count - 1}."}
+            excluded_set = set(ei)
 
         expected = _expected_match_count(count, len(target_indices), depth_int, MAX_SEED)
 
@@ -429,6 +449,8 @@ class JsApi:
                 order = full_shuffle(count, seed)
                 if forced_idx is not None and order[0] != forced_idx:
                     continue
+                if excluded_set and any(order[pos] in excluded_set for pos in range(excluded_window_int)):
+                    continue
                 target_set = set(target_indices)
                 positions = {idx: pos + 1 for pos, idx in enumerate(order) if idx in target_set}
                 is_white_mikey = key == "96"
@@ -445,6 +467,7 @@ class JsApi:
                 level_order = [
                     {"name": names[idx], "is_target": idx in target_set,
                      "is_forced": idx == forced_idx,
+                     "is_excluded": idx in excluded_set,
                      "position": positions.get(idx),
                      "is_healthpack": (names[idx] in HEALTHPACK_LEVELS) if is_white_mikey else False}
                     for pos, idx in enumerate(order)
