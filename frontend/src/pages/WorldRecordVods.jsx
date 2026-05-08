@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { PageHead, Field, Seg, Btn } from "../shared.jsx";
+import { PageHead, Field, Seg, Btn, Icon } from "../shared.jsx";
 import { getLevels, getWorldRecord, getResourcesStatus, openExternalUrl } from "../api.js";
 
+const GOLD = "#ffd700";
+
+const TH = { padding: "4px 8px", fontSize: 9, fontWeight: 700, letterSpacing: 0.8, color: "var(--text-3)", textTransform: "uppercase", textAlign: "left", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" };
 const TD = { padding: "3px 8px", fontSize: 11 };
 
 const PLATFORMS = ["PC", "Switch", "PlayStation"];
@@ -42,6 +45,25 @@ export default function WorldRecordVods() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [level, platform]);
+
+  // Poll while resources aren't loaded yet; re-fetch WR the moment they become ready
+  useEffect(() => {
+    if (status.wrs_loaded || status.error || !level) return;
+    const id = setTimeout(() => {
+      getResourcesStatus().then(s => {
+        setStatus(s);
+        if (s.wrs_loaded) {
+          setLoading(true);
+          setVideoError(false);
+          getWorldRecord(level, PLATFORM_KEY[platform])
+            .then(r => setWr(r || null))
+            .catch(() => {})
+            .finally(() => setLoading(false));
+        }
+      }).catch(() => {});
+    }, 1000);
+    return () => clearTimeout(id);
+  }, [status.wrs_loaded, status.error, level, platform]);
 
   // Reset video error when WR changes
   useEffect(() => { setVideoError(false); }, [wr]);
@@ -84,6 +106,23 @@ export default function WorldRecordVods() {
             <Field label="Platform">
               <Seg options={PLATFORMS} value={platform} onChange={setPlatform} />
             </Field>
+            {wr && (
+              <Field label="World Record time">
+                <div style={{
+                  display: "inline-flex", alignItems: "center", gap: 8,
+                  padding: "6px 12px",
+                  border: `1px solid ${GOLD}`,
+                  borderRadius: 4,
+                  color: GOLD,
+                  fontFamily: "var(--mono-font)",
+                  fontSize: 13,
+                  fontWeight: 600,
+                }}>
+                  <Icon name="trophy" size={14} />
+                  {wr.time_formatted}
+                </div>
+              </Field>
+            )}
             {headerNote && <div className="muted" style={{ fontSize: 11 }}>{headerNote}</div>}
           </div>
         </div>
@@ -128,19 +167,30 @@ export default function WorldRecordVods() {
             </div>
           )}
           {wr && (
-            <div style={{ padding: "8px 12px", display: "flex", alignItems: "center", gap: 12, borderBottom: "1px solid var(--border)" }}>
-              <span style={{ ...TD, fontWeight: 600, flexShrink: 0 }}>{wr.player}</span>
-              <span style={{ ...TD, fontFamily: "var(--mono-font)", flexShrink: 0 }}>{wr.time_formatted}</span>
-              <span style={{ ...TD, color: "var(--muted)", flexShrink: 0 }}>{wr.date}</span>
-              {wr.title && (
-                <span style={{ ...TD, color: "var(--muted)", fontSize: 10, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
-                  {wr.title}
-                </span>
-              )}
-              <Btn kind="ghost" size="sm" onClick={() => handleOpen(wr.youtube_url)} style={{ flexShrink: 0 }}>
-                Open in YouTube
-              </Btn>
-            </div>
+            <table style={{ width: "100%", borderCollapse: "collapse", borderBottom: "1px solid var(--border)", background: "var(--bg-1)" }}>
+              <thead style={{ background: "var(--bg-2)" }}>
+                <tr>
+                  <th style={TH}>Runner</th>
+                  <th style={TH}>Time</th>
+                  <th style={TH}>Date (YYYY-MM-DD)</th>
+                  <th style={{ ...TH, width: "100%" }}>Title</th>
+                  <th style={TH} />
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style={{ ...TD, fontWeight: 600, whiteSpace: "nowrap" }}>{wr.player}</td>
+                  <td style={{ ...TD, fontFamily: "var(--mono-font)", whiteSpace: "nowrap" }}>{wr.time_formatted}</td>
+                  <td style={{ ...TD, color: "var(--muted)", whiteSpace: "nowrap" }}>{wr.date}</td>
+                  <td style={{ ...TD, color: "var(--muted)", fontSize: 10, maxWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {wr.title}
+                  </td>
+                  <td style={{ ...TD, textAlign: "right", whiteSpace: "nowrap" }}>
+                    <Btn kind="ghost" size="sm" onClick={() => handleOpen(wr.youtube_url)}>Open in YouTube</Btn>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           )}
         </div>
       </div>

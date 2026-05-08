@@ -126,11 +126,12 @@ export const Sidebar = ({ active = "parse", onNav, steamReady = false, playerNam
 );
 
 /* === Page header === */
-export const PageHead = ({ crumb, title, accentWord, actions }) => (
+export const PageHead = ({ crumb, title, accentWord, subtitle, actions }) => (
   <div className="pageheader">
     <div>
       <div className="crumb"><span className="accent-slash">//</span> {crumb}</div>
       <h1>{title}{accentWord && <> <span className="accent">{accentWord}</span></>}</h1>
+      {subtitle && <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 2 }}>{subtitle}</div>}
     </div>
     <div className="actions">{actions}</div>
   </div>

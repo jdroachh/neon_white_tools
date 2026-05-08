@@ -112,7 +112,7 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "" }) {
 
   return (
     <>
-      <PageHead crumb="Leaderboard Tools" title="COMPARE" accentWord="PLAYERS"
+      <PageHead crumb={<>Leaderboard Tools <span style={{ color: "var(--text-3)", fontSize: "0.85em", fontWeight: 400 }}>· thanks Ferex!</span></>} title="COMPARE" accentWord="PLAYERS"
         actions={<>
           {rows.length > 0 && !running && outMode !== "csv" &&
             <Btn kind="ghost" size="sm" icn="copy" onClick={handleCopy}>Copy</Btn>}
