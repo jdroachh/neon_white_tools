@@ -1,6 +1,165 @@
 # Plans
 
-Saved Claude-authored plans for the Neon White app. Newest at the top.
+Saved Claude-authored plans for the Neon White app. Newest at the top. Full plan files live in `E:\Claude-Neon-White-App\plans\`; entries here are summaries with a link.
+
+---
+
+# World Record VODs tab (Resources)
+*Approved 2026-05-08 — unblocked, ready to implement*
+
+**Full plan:** `plans/world-record-vods-tab.md`
+
+**TL;DR:** New Resources sub-page mirroring Ghosts / Route Videos, sourced from the `WR Import` tab of the community speedrun-WR sheet (`1rG5WNRp...3cOLU`) — a denormalized flat list with raw YouTube URLs in their own column (no hyperlink-extraction problem after all). UI: level dropdown + PC/Switch/PlayStation segmented control → single WR card with Watch button. Verified structure: 2 header rows, 121 data rows in canonical `rush_data.LEVELS` order; PC / Switch / PS column blocks at offsets 2 / 10 / 18. **Critical parsing detail**: Runner Comment cells contain embedded newlines, so must parse with `csv.reader` (not line-counting). Implementation: extend `resources.py` with a third loader (zip rows with LEVELS, sanity-check canaries Movement/Sacrifice/Rocket), add `get_world_record(level, platform)` bridge method, copy `Ghosts.jsx` → `WorldRecordVods.jsx` swapping medal control for platform control.
+
+---
+
+# Customizable Accent Color (Settings)
+*Approved 2026-05-08 — handed off to Sonnet*
+
+**Full plan:** `plans/customizable-accent-color.md`
+
+**TL;DR:** User feedback flagged the default green accent (`#00e09a`) as off-putting. Add a **"Color Picker (Restrain setting)"** row to the Settings page with 8 preset swatches (mint/cyan/sky/violet/magenta/orange/amber/rose). The whole design system already routes through a single CSS variable `--accent` in `frontend/src/styles.css:12-13` (~50 references), so retinting is a one-line `setProperty` call. Persisted as `accent_color` in `neonwhite_config.json` via the existing `getConfig` / `saveConfigField` bridge — no new backend methods. **UI chrome only**: `MEDAL_COLORS` and chart series stay untouched. Touched files: `bridge.py` (default), `frontend/src/main.jsx` (apply on boot), `frontend/src/pages/Settings.jsx` (swatch row). ~30-60 min effort.
+
+---
+
+# Wire up the Ghosts library from Drive
+*Saved for tomorrow — 2026-05-07*
+
+**Full plan:** `plans/wire-up-ghosts-from-drive.md`
+
+**TL;DR:** The Ghosts page + bridge + GViz CSV cache are already shipped — only the placeholder sheet ID in `SteamScraper/webview_app/resources.py:32` and the actual rows are missing. Plan is three pieces: (1) create + publish a public Google Sheet with schema `level, medal, player, time, drive_url`; (2) build a one-shot dev-machine script `tools/build_ghosts_sheet.py` that OAuths against Drive read + Sheets write, walks the `Ghosts/<Chapter>/<Level>/<Medal>/<Player> - <Time>/` tree, parses player/time from the deepest folder name, grabs each `.phant` file's `webViewLink`, validates level names against `rush_data.LEVELS`, and writes the `Ghosts` tab idempotently; (3) replace `_GHOSTS_SHEET_ID` placeholder. No bundled secrets, no runtime Drive calls, no frontend changes. UX stays "Open in browser" (already implemented).
+
+---
+
+# Updating the App After Hosting on GitHub — End-to-End Workflow
+*Approved 2026-05-07*
+
+## Context
+
+The Neon White Leaderboard Tool ships as a one-file Windows EXE (`NeonWhiteLeaderboardTool.exe`) — the **pywebview + React app** at `SteamScraper/webview_app/main.py` is the canonical shipping target as of 2026-05-07. The legacy tkinter app (`SteamScraper/neonwhite_app.py` + `tab_*.py` mixins) is archived and not in scope. The user builds locally with PyInstaller and distributes ad-hoc to speedrunners (Discord). The user wants to:
+
+1. Host the project on a **public** GitHub repo.
+2. Move the EXE build off the local machine and into **GitHub Actions** so a tag push produces a downloadable Release.
+3. Add an **in-app update check** so users learn about new versions on launch.
+
+We discussed full self-updating (download + swap + relaunch) and decided it's not worth the cost on a one-file PyInstaller build for a small, friendly user base. **Option 2 — passive in-app check with a "new version available" banner that opens the Releases page — is the recommendation.** Rationale captured below.
+
+**Scope decisions (confirmed with user):**
+- **Do not bundle `credentials.json` in the EXE.** Google Sheets push not worth exposing the OAuth client secret in a public-Release binary.
+- **Do not bundle `steam_api64.dll` in the EXE.** Document where to find it; surface clear first-launch error if missing.
+
+These decisions remove the only secrets/binaries CI would need; workflow becomes stock checkout-build-publish.
+
+## End-to-End Pipeline
+
+```
+local edit → git commit → git push (normal dev)
+                            │
+                            └─► git tag v2.0.0 && git push --tags
+                                          │
+                                          ▼
+                            GitHub Actions (Windows runner)
+                            checkout → npm build → pyinstaller → upload as Release asset
+                                          │
+                                          ▼
+                            GitHub Release v2.0.0
+                                          │
+                            ┌─────────────┴────────────────┐
+                            ▼                              ▼
+                    user opens app             Discord announcement
+                    api.github.com check        download link
+                    banner: "v2.0.0 available"
+                    → opens Releases page
+```
+
+## Part 1 — Dev push workflow
+
+- Normal commits to `main`.
+- When ready to ship, bump `APP_VERSION` in `SteamScraper/webview_app/bridge.py:28` (currently `"2.0.0-dev"`).
+- Optionally sync `frontend/package.json`.
+- `git tag v2.0.0 && git push --tags` triggers CI.
+- Use semver. Tag format `v<semver>`.
+
+## Part 2 — GitHub Actions builds the EXE
+
+New file: `.github/workflows/release.yml` (Windows runner, tag push `v*`).
+
+**Outline (no secrets):**
+- checkout → setup-python 3.12 → setup-node 20
+- pip install -r requirements.txt
+- cd frontend && npm ci && npm run build
+- cd SteamScraper && pyinstaller neonwhite.spec
+- softprops/action-gh-release@v2 uploads `SteamScraper/dist/NeonWhiteLeaderboardTool.exe`
+
+**Files to create:**
+- `.github/workflows/release.yml`
+- `.github/workflows/ci.yml` (optional PR test runner)
+- `requirements.txt`
+- `README.md` updates with DLL placement instructions
+
+**Files to modify:**
+- `SteamScraper/neonwhite.spec` — five edits:
+  1. Entry point `['neonwhite_app.py']` → `['webview_app/main.py']`
+  2. Remove `(credentials.json, '.')` from `all_datas`
+  3. Remove `(steam_api64.dll, '.')` from `all_binaries`
+  4. Add `('../frontend/dist', 'frontend/dist')` to `all_datas`
+  5. Optionally trim Google library `collect_all` block
+- `SteamScraper/webview_app/main.py` — improve missing-DLL error UX with actionable message pointing at Neon White install path
+- Google Sheets: nothing to do (frontend has no Sheets surface)
+
+## Part 3 — In-app update check (option 2)
+
+**Backend** (`SteamScraper/webview_app/`):
+- New `webview_app/update_check.py`:
+  - `check_for_update(current: str) -> dict | None`
+  - Hits `https://api.github.com/repos/<owner>/<repo>/releases/latest` via `urllib.request`
+  - 5s timeout, swallows all errors → `None` on failure
+  - Tuple-of-ints version compare; treat `-dev` suffixes as older
+  - Returns `{"latest", "url", "notes"}` or `None`
+- New bridge method `check_for_update()` in `bridge.py`:
+  - Reads `APP_VERSION`
+  - Calls `update_check.check_for_update(APP_VERSION)`
+  - Fires `_nwUpdateAvailable` on daemon thread post-window-load (same pattern as `_nwCompareEvent`)
+
+**Frontend** (`frontend/src/`):
+- New `UpdateBanner.jsx`. Top banner: "Version X available — Download". Buttons: "Open Releases" (uses `open_external_url` — must extend allow-list at `bridge.py:1181` to include `https://github.com/`) and "Dismiss" (localStorage per-version).
+- Mount in `main.jsx` above page router. Subscribes to `_nwUpdateAvailable`.
+
+**Effort**: ~half a day total.
+
+## Why option 2, not option 3
+
+Option 3 (full auto-update) costs:
+1. Windows file locks → need updater shim → two binaries to ship/version
+2. One-file PyInstaller incompatible with self-update libraries (PyUpdater, tufup) without switching to one-dir
+3. AV/SmartScreen flags self-replacing unsigned EXEs
+4. Support tail of "app won't start after update" >> "user didn't download new version"
+
+Audience size doesn't justify the cost. Revisit if install base grows.
+
+## Critical files
+
+**Create:** `.github/workflows/release.yml`, `.github/workflows/ci.yml` (opt), `requirements.txt`, `SteamScraper/webview_app/update_check.py`, `frontend/src/components/UpdateBanner.jsx`
+
+**Modify:** `SteamScraper/webview_app/bridge.py` (check_for_update method, allow-list extension, APP_VERSION bump), `SteamScraper/webview_app/main.py` (DLL UX), `frontend/src/main.jsx`, `frontend/src/api.js`, `SteamScraper/neonwhite.spec`, `frontend/package.json`, `README.md`
+
+**Reuse:**
+- `urllib.request` GitHub-fetch pattern from cheaterlist/communitymedals loader
+- `_nwCompareEvent` event-emit pattern from Compare Players (`2026-05-07.md`)
+- `dll_path` config key in `Settings` model (`webview_app/models/settings.py:13`)
+
+## Verification
+
+1. **CI build**: throwaway `v0.0.0-test` tag, watch Actions, smoke-test EXE on clean VM.
+2. **Update check**: hardcode old version locally, confirm banner; offline test → no banner no error; rate-limit failure path returns None.
+3. **Missing DLL**: build without DLL, confirm clear in-window message not stack trace.
+4. **Missing credentials.json**: app launches normally, all features work (Sheets surface absent in pywebview frontend).
+5. **End-to-end smoke**: bump version, tag, push, confirm a real user sees banner → clicks → downloads → new EXE runs.
+
+## Open
+
+- CHANGELOG.md confirmed (committed alongside, slice appended to release body).
+- Owner/repo name needed for update check URL once repo exists.
 
 ---
 

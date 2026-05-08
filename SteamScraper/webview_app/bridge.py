@@ -1171,6 +1171,9 @@ class JsApi:
     def get_videos(self, level: str, medal: str) -> list:
         return _resources.get_videos_for(str(level or ""), str(medal or ""))
 
+    def get_world_record(self, level: str, platform: str) -> dict | None:
+        return _resources.get_wr_for(str(level or ""), str(platform or ""))
+
     def open_external_url(self, url: str) -> dict:
         """Open an allow-listed external URL in the user's default browser.
 

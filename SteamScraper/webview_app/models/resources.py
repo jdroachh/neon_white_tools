@@ -16,7 +16,18 @@ class VideoRow(BaseModel):
     youtube_url: str
 
 
+class WorldRecordRow(BaseModel):
+    level: str
+    platform: str
+    player: str
+    time_formatted: str
+    date: str
+    youtube_url: str
+    title: str
+
+
 class ResourcesStatus(BaseModel):
     ghosts_loaded: bool
     videos_loaded: bool
+    wrs_loaded: bool = False
     error: str | None = None

@@ -172,6 +172,11 @@ export async function getVideos(level, medal) {
   return api.get_videos(level, medal);
 }
 
+export async function getWorldRecord(level, platform) {
+  const api = await waitForApi();
+  return api.get_world_record(level, platform);
+}
+
 export async function openExternalUrl(url) {
   const api = await waitForApi();
   return api.open_external_url(url);

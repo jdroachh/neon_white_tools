@@ -13,8 +13,9 @@ import GlobalExport  from "./pages/GlobalExport.jsx";
 import LevelSearch   from "./pages/LevelSearch.jsx";
 import PlayerLookup   from "./pages/PlayerLookup.jsx";
 import ComparePlayers from "./pages/ComparePlayers.jsx";
-import Ghosts        from "./pages/Ghosts.jsx";
-import RouteVideos   from "./pages/RouteVideos.jsx";
+import Ghosts           from "./pages/Ghosts.jsx";
+import RouteVideos      from "./pages/RouteVideos.jsx";
+import WorldRecordVods  from "./pages/WorldRecordVods.jsx";
 import Settings      from "./pages/Settings.jsx";
 
 const PAGE_TITLES = {
@@ -29,6 +30,7 @@ const PAGE_TITLES = {
   compare:     "Compare Players",
   ghosts:      "Ghosts",
   videos:      "Route Videos",
+  wrs:         "World Record VODs",
   settings:    "Settings",
 };
 
@@ -48,8 +50,9 @@ const LB_PAGES = [
   { key: "compare",     Component: ComparePlayers },
 ];
 const RES_PAGES = [
-  { key: "ghosts", Component: Ghosts      },
-  { key: "videos", Component: RouteVideos },
+  { key: "ghosts", Component: Ghosts          },
+  { key: "videos", Component: RouteVideos     },
+  { key: "wrs",    Component: WorldRecordVods },
 ];
 const WIRED_PAGES = [...RUSH_PAGES, ...LB_PAGES, ...RES_PAGES];
 const WIRED_KEYS = new Set(WIRED_PAGES.map(p => p.key));
