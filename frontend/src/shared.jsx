@@ -20,6 +20,7 @@ export const Icon = ({ name, size = 14 }) => {
     case "export":   return <svg viewBox="0 0 16 16" style={s}><g {...sp}><path d="M8 11V2"/><path d="M5 5l3-3 3 3"/><path d="M3 11v3h10v-3"/></g></svg>;
     case "search":   return <svg viewBox="0 0 16 16" style={s}><g {...sp}><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></g></svg>;
     case "user":     return <svg viewBox="0 0 16 16" style={s}><g {...sp}><circle cx="8" cy="5.5" r="2.5"/><path d="M3 13c0-2.5 2.2-4.5 5-4.5s5 2 5 4.5"/></g></svg>;
+    case "compare":  return <svg viewBox="0 0 16 16" style={s}><g {...sp}><circle cx="10.5" cy="4" r="1.5"/><path d="M11.6 7.5c1.2 0.3 2 1.6 2 3"/><circle cx="5.5" cy="6.5" r="2.1"/><path d="M1.5 13.5c0-2.2 1.8-3.8 4-3.8s4 1.6 4 3.8"/></g></svg>;
     case "seed":     return <svg viewBox="0 0 16 16" style={s}><g {...sp}><path d="M8 2v12M3 8l5-3 5 3M3 12l5-3 5 3"/></g></svg>;
     case "parse":    return <svg viewBox="0 0 16 16" style={s}><g {...sp}><path d="M5 3L2 8l3 5M11 3l3 5-3 5M9 3l-2 10"/></g></svg>;
     case "splits":   return <svg viewBox="0 0 16 16" style={s}><g {...sp}><path d="M2 4h12M2 8h7M2 12h12M11 7l3 1-3 1"/></g></svg>;
@@ -59,7 +60,7 @@ const NAV_ITEMS = {
     { key: "global",      label: "Global Export",    icn: "export" },
     { key: "levelsearch", label: "Level Search",     icn: "search" },
     { key: "lookup",      label: "Player Lookup",    icn: "user"   },
-    { key: "compare",     label: "Compare Players",  icn: "user"   },
+    { key: "compare",     label: "Compare Players",  icn: "compare" },
   ],
   rush: [
     { key: "find",   label: "Seed Finder",        icn: "seed"     },
