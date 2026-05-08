@@ -11,7 +11,7 @@
 	- Two UI sets of Windows window buttons (minimize, maximize, close)
 - ~~Seed Parser reads left to right in groups of four, need to mirror Seed Finder results~~ ✓ DONE — vertical flex column, matches SeedFinder card layout
 - Make the highlight in the player comparison window for the lower time brighter or more obvious
-- Make a color picker (change the highlights like the search button, accents, etc) (Restrain Mode)
+- ~~Make a color picker (change the highlights like the search button, accents, etc) (Restrain Mode)~~ ✓ DONE — 8-preset accent swatches on Settings page, persisted via neonwhite_config.json
 - May have to archive NeonWhite App versions
 - Run insights
 - Start config for sub-agent work
