@@ -1,6 +1,6 @@
 # neonwhite.spec
 # PyInstaller spec file for Neon White Leaderboard Tool
-# Run with: pyinstaller neonwhite.spec
+# Run with: pyinstaller neonwhite.spec  (from SteamScraper/)
 
 import sys
 from PyInstaller.building.build_main import Analysis, PYZ, EXE
@@ -8,8 +8,10 @@ from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 block_cipher = None
 
-# Explicitly collect all files from Google libraries
-# collect_all returns (datas, binaries, hiddenimports) for a package
+# Google libraries — kept for sheets.py (optional feature; not used by the
+# webview frontend but still present in SteamScraper/ and pulled in by
+# PyInstaller's static analysis). Remove this block once confirmed unused
+# in a post-migration smoke test.
 google_auth_datas,        google_auth_bins,        google_auth_hidden        = collect_all('google.auth')
 google_oauth2_datas,      google_oauth2_bins,      google_oauth2_hidden      = collect_all('google.oauth2')
 google_api_core_datas,    google_api_core_bins,    google_api_core_hidden    = collect_all('google.api_core')
@@ -24,16 +26,16 @@ all_datas = (
     google_auth_datas + google_oauth2_datas + google_api_core_datas +
     googleapiclient_datas + google_oauthlib_datas + httplib2_datas +
     requests_datas + requests_oauthlib_datas + uritemplate_datas +
-    # Bundle credentials.json — injected at build time via GitHub Actions
-    [('credentials.json', '.')]
+    # React frontend build — served by the local HTTP server in main.py
+    [('../frontend/dist', 'frontend/dist')]
 )
 
 all_binaries = (
     google_auth_bins + google_oauth2_bins + google_api_core_bins +
     googleapiclient_bins + google_oauthlib_bins + httplib2_bins +
-    requests_bins + requests_oauthlib_bins + uritemplate_bins +
-    # Bundle the Steam API DLL alongside the EXE
-    [('steam_api64.dll', '.')]
+    requests_bins + requests_oauthlib_bins + uritemplate_bins
+    # steam_api64.dll is NOT bundled — users supply it from their Neon White
+    # install via the dll_path setting. See README for placement instructions.
 )
 
 all_hidden = (
@@ -66,22 +68,16 @@ all_hidden = (
         'requests_oauthlib',
         'oauthlib',
         'oauthlib.oauth2',
-        'tkinter',
-        'tkinter.ttk',
-        'tkinter.filedialog',
-        'tkinter.messagebox',
         'urllib.request',
         'json',
         'csv',
         'threading',
         'ctypes',
-        'unittest',
-        'unittest.mock',
     ]
 )
 
 a = Analysis(
-    ['neonwhite_app.py'],
+    ['webview_app/main.py'],
     pathex=[],
     binaries=all_binaries,
     datas=all_datas,
@@ -90,6 +86,7 @@ a = Analysis(
     hooksconfig={},
     runtime_hooks=['rthook_google.py'],
     excludes=[
+        'tkinter',
         'matplotlib',
         'numpy',
         'pandas',
@@ -126,4 +123,3 @@ exe = EXE(
     entitlements_file=None,
     # icon='icon.ico',
 )
-
