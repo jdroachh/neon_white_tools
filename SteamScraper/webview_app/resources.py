@@ -28,8 +28,7 @@ from logger import get_logger
 logger = get_logger(__name__)
 
 
-# TODO(M4): replace placeholder with the real Ghosts sheet ID once it exists.
-_GHOSTS_SHEET_ID = "REPLACE_ME_GHOSTS_SHEET_ID"
+_GHOSTS_SHEET_ID = "1FXr-2Rs4RgPF6Oo2BVz-_UQXf_3PPa8nCGstdIl12q8"
 _GHOSTS_TAB      = "Ghosts"
 
 # Route Videos: wide-format "Backend" tab with header
