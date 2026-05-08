@@ -6,6 +6,12 @@
 -->
 
 - ~~**Player Lookup: Medals toggle + Text size toggle**~~ ✓ DONE — also extended to Level Search and Global Export.
+- ~~**Wire up the Ghosts library from Drive**~~ ✓ DONE — 472 ghosts across 121 levels. `tools/build_ghosts_sheet.py` for re-runs when Drive is updated.
+- Active Bugs:
+	- Two UI sets of Windows window buttons (minimize, maximize, close)
+- ~~Seed Parser reads left to right in groups of four, need to mirror Seed Finder results~~ ✓ DONE — vertical flex column, matches SeedFinder card layout
+- Make the highlight in the player comparison window for the lower time brighter or more obvious
+- Make a color picker (change the highlights like the search button, accents, etc) (Restrain Mode)
 - May have to archive NeonWhite App versions
 - Run insights
 - Start config for sub-agent work

@@ -1,19 +1,29 @@
 import React, { useState, useEffect } from "react";
 import { PageHead, Field, Seg, Btn } from "../shared.jsx";
-import { getLevels, getGhosts, getResourcesStatus, openExternalUrl } from "../api.js";
+import { getLevels, getGhosts, getResourcesStatus, openExternalUrl, getMedalTimes } from "../api.js";
 
 const TH = { padding: "4px 8px", fontWeight: 600, fontSize: 10, borderBottom: "1px solid var(--border)", textAlign: "left" };
 const TD = { padding: "3px 8px", fontSize: 11 };
 
 const MEDALS = ["Emerald", "Amethyst", "Sapphire"];
+const MEDAL_COLOR = { Emerald: "#54d09a", Amethyst: "#b886ff", Sapphire: "#5db1ff" };
+
+function formatSeconds(secs) {
+  if (secs == null || isNaN(secs)) return "—";
+  if (secs < 60) return `${secs.toFixed(3)}s`;
+  const m = Math.floor(secs / 60);
+  const s = secs - m * 60;
+  return `${m}:${s.toFixed(3).padStart(6, "0")}`;
+}
 
 export default function Ghosts() {
-  const [levels, setLevels]   = useState([]);
-  const [level, setLevel]     = useState("");
-  const [medal, setMedal]     = useState("Sapphire");
-  const [rows, setRows]       = useState([]);
-  const [status, setStatus]   = useState({ ghosts_loaded: false, videos_loaded: false, error: null });
-  const [loading, setLoading] = useState(false);
+  const [levels, setLevels]       = useState([]);
+  const [level, setLevel]         = useState("");
+  const [medal, setMedal]         = useState("Sapphire");
+  const [rows, setRows]           = useState([]);
+  const [status, setStatus]       = useState({ ghosts_loaded: false, videos_loaded: false, error: null });
+  const [loading, setLoading]     = useState(false);
+  const [medalTimes, setMedalTimes] = useState({});
 
   useEffect(() => {
     getLevels().then(ls => {
@@ -31,7 +41,15 @@ export default function Ghosts() {
       .finally(() => setLoading(false));
   }, [level, medal]);
 
+  useEffect(() => {
+    if (!level) { setMedalTimes({}); return; }
+    getMedalTimes(level).then(t => setMedalTimes(t || {})).catch(() => setMedalTimes({}));
+  }, [level]);
+
   function handleOpen(url) { openExternalUrl(url).catch(() => {}); }
+
+  const targetSecs = medalTimes[medal.toLowerCase()];
+  const displayTarget = targetSecs != null ? targetSecs - 0.001 : targetSecs;
 
   const headerNote = !status.ghosts_loaded
     ? (status.error ? "Could not reach Ghosts sheet — check connection." : "Loading resources…")
@@ -52,6 +70,24 @@ export default function Ghosts() {
             </Field>
             <Field label="Medal">
               <Seg options={MEDALS} value={medal} onChange={setMedal} />
+            </Field>
+            <Field label={`${medal} target time`}>
+              <div style={{
+                display: "inline-flex", alignItems: "center", gap: 8,
+                padding: "6px 12px",
+                border: `1px solid ${MEDAL_COLOR[medal]}`,
+                borderRadius: 4,
+                color: MEDAL_COLOR[medal],
+                fontFamily: "var(--mono-font)",
+                fontSize: 13,
+                fontWeight: 600,
+              }}>
+                <span style={{
+                  width: 8, height: 8, borderRadius: "50%",
+                  background: MEDAL_COLOR[medal],
+                }} />
+                {formatSeconds(displayTarget)}
+              </div>
             </Field>
             {headerNote && <div className="muted" style={{ fontSize: 11 }}>{headerNote}</div>}
           </div>

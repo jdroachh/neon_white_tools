@@ -81,19 +81,18 @@ export default function SeedParser() {
                   {result.rush_name} · {result.level_count} levels · seed parsed
                 </span>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "6px 10px" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                 {result.level_order.map((name, i) => (
                   <div key={i} style={{
-                    display: "flex", alignItems: "center", gap: 10,
-                    padding: "7px 10px",
-                    background: "var(--surface)",
+                    display: "flex", alignItems: "center", gap: 8,
+                    padding: "5px 8px",
                     border: "1px solid var(--border)",
                     borderRadius: 2,
                   }}>
-                    <span className="data muted" style={{ fontSize: 11, width: 22 }}>
+                    <span className="data muted" style={{ fontSize: 10, width: 20 }}>
                       {String(i + 1).padStart(2, "0")}
                     </span>
-                    <span className="data" style={{ fontSize: 12, flex: 1 }}>{name}</span>
+                    <span className="data" style={{ fontSize: 11, flex: 1 }}>{name}</span>
                   </div>
                 ))}
               </div>
