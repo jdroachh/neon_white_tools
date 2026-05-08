@@ -27,6 +27,16 @@ function ProgressBar({ pct }) {
 
 function SeedCard({ result, targetNames }) {
   const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  function handleCopy(e) {
+    e.stopPropagation();
+    navigator.clipboard.writeText(String(result.seed)).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }
+
   return (
     <div style={{
       background: "var(--surface)", border: "1px solid var(--border)",
@@ -54,6 +64,19 @@ function SeedCard({ result, targetNames }) {
           </span>
         )}
         <span className="muted" style={{ fontSize: 11, flex: 1 }}>{result.summary}</span>
+        <button
+          onClick={handleCopy}
+          title="Copy seed number"
+          style={{
+            background: "none", border: "1px solid var(--border)",
+            borderRadius: 2, cursor: "pointer",
+            color: copied ? "var(--accent)" : "var(--muted)",
+            fontSize: 10, padding: "2px 6px",
+            lineHeight: 1.4, transition: "color 0.15s",
+          }}
+        >
+          {copied ? "✓" : "copy"}
+        </button>
         <span className="muted" style={{ fontSize: 10 }}>{open ? "▲" : "▼"}</span>
       </div>
       {open && (
