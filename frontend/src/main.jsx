@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import "./styles.css";
 
 import { Titlebar, Sidebar } from "./shared.jsx";
-import { getSteamStatus, getConfig } from "./api.js";
+import { getSteamStatus, getConfig, applyAccent } from "./api.js";
 import SeedParser    from "./pages/SeedParser.jsx";
 import SplitsUpdater from "./pages/SplitsUpdater.jsx";
 import Standardize   from "./pages/Standardize.jsx";
@@ -76,7 +76,10 @@ function App() {
     getSteamStatus().then(s => {
       if (s.ready) setSteamStatus({ ready: true, playerName: s.player_name, steamId: s.steam_id });
     }).catch(() => {});
-    getConfig().then(cfg => setOutputFolder(cfg.output_folder || "")).catch(() => {});
+    getConfig().then(cfg => {
+      setOutputFolder(cfg.output_folder || "");
+      applyAccent(cfg.accent_color || '#00e09a');
+    }).catch(() => {});
   }, []);
 
   return (

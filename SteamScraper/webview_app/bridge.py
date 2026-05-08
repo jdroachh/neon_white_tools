@@ -88,6 +88,7 @@ _DEFAULT_CONFIG = {
     "dll_path":      "",
     "output_folder": os.path.expanduser("~\\Desktop"),
     "entry_count":   1000,
+    "accent_color":  "#00e09a",
 }
 
 def _load_config() -> dict:

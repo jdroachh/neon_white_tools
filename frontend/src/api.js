@@ -70,6 +70,13 @@ export async function calculateTimer(rushName, seed, splitsText) {
   return api.calculate_timer(rushName, String(seed), splitsText);
 }
 
+// ── Accent color ─────────────────────────────────────────────────────────────
+
+export function applyAccent(hex) {
+  const el = document.querySelector('.hifi') || document.documentElement;
+  el.style.setProperty('--accent', hex);
+}
+
 // ── Config ──────────────────────────────────────────────────────────────────
 
 export async function getConfig() {
