@@ -4,6 +4,57 @@ Saved Claude-authored plans for the Neon White app. Newest at the top.
 
 ---
 
+## 2026-05-07 — Player Lookup: Average Placement toggle ✓ DONE
+
+### Context
+
+When a Player Lookup completes, the user sees per-level rank rows but no aggregate "how is this player doing overall" number. The request: a frontend-only opt-in toggle that surfaces the player's average leaderboard placement across the queried levels, displayed as a footer row beneath the results table. CSV export is intentionally excluded — the value is constant per run, so embedding it in every row would just be noise.
+
+Pure view-state. The bridge already emits everything: each `row` event carries `rank`; the `done` event carries `total_levels`. No bridge / Pydantic / Python changes.
+
+### Approach
+
+Mirror the existing `MedalToggle` precedent in `PlayerLookup.jsx`: opt-in, default off, lives next to Medals + Normal/Large in the results-pane header. When on, render a single summary line directly under the results table.
+
+**Data model:**
+- Bridge only emits a `row` event when `entry` is non-`None` (`bridge.py:895-904`), so `rows.length` already equals "ranked levels" — no missing-rank filtering needed.
+- Denominator comes from `done.total_levels` (`bridge.py:925`), currently dropped on the floor in the frontend. Capture it into new state.
+- Average = `sum(rows[i].rank) / rows.length`, rounded to nearest integer.
+- Gate footer on `!running && rows.length > 0 && showAvg` — only show post-`done`.
+
+### Files to modify
+
+**`frontend/src/shared.jsx`** — append sibling export `AvgPlacementToggle` next to `MedalToggle` (~line 287). Same iOS-style switch markup, label "Avg Placement". No refactor of `MedalToggle`.
+
+**`frontend/src/pages/PlayerLookup.jsx`** — only logic file touched.
+1. Import `AvgPlacementToggle` from `shared.jsx`.
+2. State: `const [showAvg, setShowAvg] = useState(false);` and `const [totalLevels, setTotalLevels] = useState(0);`
+3. In `handleRun` resets: `setTotalLevels(0)`.
+4. In `_nwPlayerEvent` "done" branch: `setTotalLevels(ev.total_levels || 0);`
+5. Results-pane header (~line 166): add `<AvgPlacementToggle value={showAvg} onChange={setShowAvg} />` alongside `MedalToggle` and the Normal/Large `Seg`.
+6. Below `</table>` (after line 196), inside the scrolling `<div>`, conditionally render a footer when `showAvg && !running && rows.length > 0`: `Average Placement: #{avgRank} across {rows.length} / {totalLevels} levels`. Style: muted, `borderTop: "1px solid var(--border)"`, `padding: "8px 16px"`, `fontSize: largeText ? 13 : 11`.
+
+### Out of scope
+
+- CSV writer (`bridge.py:912-920`) untouched.
+- Compare Players, Level Search, Global Export untouched.
+- Copy output untouched.
+- No tests (no bridge surface change; existing 38-test pytest still applies).
+
+### Verification
+
+1. `cd frontend && npm run build` — clean.
+2. `python -m SteamScraper.webview_app.main`. Connect Steam in Settings, Player Lookup, mode=game, Look Up.
+3. While running: footer must NOT appear.
+4. After done: toggle "Avg Placement" on → footer shows `#NNN across X / 96 levels`. Toggle off → footer hides.
+5. Switch Normal↔Large → footer text scales with table.
+6. Mode=chapter on a single chapter → denominator reflects chapter level count, not 96.
+7. outMode=csv → empty-state message, toggle row doesn't render (existing behavior).
+8. After display run, switch outMode to csv and re-run → CSV does NOT contain the average row.
+9. `pytest` — still 38 passing.
+
+---
+
 ## 2026-05-07 — Compare Players: CSV export ✓ DONE
 
 **Context:** Compare Players v1 is display-only. This adds an optional CSV export — same `outMode` / folder-picker pattern as Player Lookup.
