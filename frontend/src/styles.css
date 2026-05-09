@@ -26,6 +26,8 @@
   color: var(--text);
   background: var(--bg);
   position: relative;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
 }
 
 /* ===== LIGHT ===== */

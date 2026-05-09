@@ -52,6 +52,8 @@ def _main():
     port = _find_free_port()
     _start_server(_DIST_DIR, port)
 
+    webview.settings['DRAG_REGION_SELECTOR'] = '.titlebar'
+
     api = JsApi()
     webview.create_window(
         title="Neon White Tools",
@@ -62,6 +64,7 @@ def _main():
         min_size=(800, 600),
         text_select=False,
         frameless=True,
+        easy_drag=False,
     )
     webview.start(debug=False)
 
