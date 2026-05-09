@@ -4,6 +4,7 @@
  * seededOrder() removed — replaced by api.parseSeed() at call sites.
  */
 import React from "react";
+import { minimizeWindow, toggleMaximize, closeWindow } from "./api.js";
 
 export const RUSHES = [
   { name: "White / Mikey", count: 96 },
@@ -44,15 +45,15 @@ export const Icon = ({ name, size = 14 }) => {
   }
 };
 
-/* === Title bar (Windows-style, non-functional chrome) === */
+/* === Title bar === */
 export const Titlebar = ({ pageTitle = "Tools" }) => (
   <div className="titlebar">
     <span className="nw-mark"><span>NEON</span><span className="accent">WHITE</span></span>
     <span className="titlebar-title">— Tools · {pageTitle}</span>
     <span className="titlebar-spacer"></span>
-    <span className="win-btn"><Icon name="min" /></span>
-    <span className="win-btn"><Icon name="max" /></span>
-    <span className="win-btn close"><Icon name="close" /></span>
+    <span className="win-btn" onClick={minimizeWindow}><Icon name="min" /></span>
+    <span className="win-btn" onClick={toggleMaximize}><Icon name="max" /></span>
+    <span className="win-btn close" onClick={closeWindow}><Icon name="close" /></span>
   </div>
 );
 

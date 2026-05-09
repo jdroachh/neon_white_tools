@@ -61,6 +61,7 @@ def _main():
         height=900,
         min_size=(800, 600),
         text_select=False,
+        frameless=True,
     )
     webview.start(debug=False)
 
