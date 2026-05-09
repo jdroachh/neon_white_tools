@@ -4,8 +4,10 @@ import { getLevels, getChapters, getSteamStatus, runComparePlayers, stopLeaderbo
 
 const TH = { padding: "4px 8px", fontWeight: 600, fontSize: "0.91em", borderBottom: "1px solid var(--border)", textAlign: "left" };
 const TD = { padding: "3px 8px", fontSize: "1em" };
-const FASTER_BG    = "rgba(120, 220, 160, 0.12)";
-const FASTER_COLOR = "rgb(120, 220, 160)";
+const P1_BG    = "rgba(80, 160, 255, 0.18)";
+const P1_COLOR = "rgb(80, 160, 255)";
+const P2_BG    = "rgba(255, 90, 90, 0.18)";
+const P2_COLOR = "rgb(255, 90, 90)";
 
 function formatDelta(delta_ms) {
   const secs = delta_ms / 1000;
@@ -221,9 +223,9 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "" }) {
                   </thead>
                   <tbody>
                     {rows.map((r, i) => {
-                      const p1bg    = r.faster === "p1" ? FASTER_BG : undefined;
-                      const p2bg    = r.faster === "p2" ? FASTER_BG : undefined;
-                      const dColor  = (r.faster === "p1" || r.faster === "p2") ? FASTER_COLOR : undefined;
+                      const p1bg    = r.faster === "p1" ? P1_BG : undefined;
+                      const p2bg    = r.faster === "p2" ? P2_BG : undefined;
+                      const dColor  = r.faster === "p1" ? P1_COLOR : r.faster === "p2" ? P2_COLOR : undefined;
                       const delta   = r.delta_ms != null ? formatDelta(r.delta_ms) : "—";
                       return (
                         <tr key={i} style={{ borderBottom: "1px solid var(--border)" }}>
