@@ -129,7 +129,7 @@ export default function LevelSearch({ outputFolder: defaultFolder = "" }) {
               <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px 6px", flexShrink: 0 }}>
                 <span style={{ fontSize: 12, fontWeight: 600, flex: 1 }}>{levelName}</span>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginLeft: "auto" }}>
-                  {cheaterCount > 0 && <span className="muted" style={{ fontSize: 10 }}>{cheaterCount} cheaters filtered</span>}
+                  {cheaterCount > 0 && <span style={{ fontSize: 10, color: "var(--accent)" }}>{cheaterCount} cheaters filtered</span>}
                   <MedalToggle value={showMedals} onChange={setShowMedals} />
                   <Seg value={largeText ? "Large" : "Normal"} onChange={v => setLargeText(v === "Large")}
                        options={["Normal", "Large"]} />
