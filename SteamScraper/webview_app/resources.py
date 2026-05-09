@@ -21,6 +21,7 @@ Schemas (sheet column headers, lowercase, case-insensitive on read):
 import csv
 import io
 import threading
+from urllib.error import URLError
 from urllib.parse import quote
 from urllib.request import urlopen, Request
 
@@ -28,6 +29,14 @@ from logger import get_logger
 
 logger = get_logger(__name__)
 
+
+GUIDES_SHEET_ID       = "1v0PT3dATQREHa6Bxjea2VeNL6oFyddBIvBxEtqNCxTs"
+_GUIDES_STAGES_TAB    = "stages"
+_GUIDES_TECHNICAL_TAB = "technical"
+_GUIDES_PLAYLIST_TAB  = "rush/route"
+
+# Tier names correspond to columns B–F of the main sheet.
+_TIER_NAMES = ("Emerald", "Amethyst 1", "Amethyst 2", "Sapphire 1", "Sapphire 2")
 
 _GHOSTS_SHEET_ID = "1FXr-2Rs4RgPF6Oo2BVz-_UQXf_3PPa8nCGstdIl12q8"
 _GHOSTS_TAB      = "Ghosts"
@@ -55,11 +64,13 @@ _GHOSTS: dict[str, dict[str, list[dict]]] = {}
 _VIDEOS: dict[str, dict[str, list[dict]]] = {}
 # level (lowercase) -> platform (lowercase) -> row dict  (single WR per platform)
 _WRS: dict[str, dict[str, dict]] = {}
+_GUIDES: list[dict] = []
 
 _STATUS = {
-    "ghosts_loaded": False,
-    "videos_loaded": False,
-    "wrs_loaded":    False,
+    "ghosts_loaded":  False,
+    "videos_loaded":  False,
+    "wrs_loaded":     False,
+    "guides_loaded":  False,
     "error": None,
 }
 
@@ -226,8 +237,62 @@ def _index_wrs(rows: list[list[str]]) -> dict[str, dict[str, dict]]:
     return out
 
 
+def _split_author(text: str) -> tuple[str, str]:
+    parts = text.split("'s ", 1)
+    return (parts[0], parts[1]) if len(parts) == 2 else ("", text)
+
+
+def _parse_stages(rows: list[list[str]]) -> list[dict]:
+    """Parse the 'stages' tab into route guide entries.
+
+    Header: Stage | Link(B) | Value(B) | Link(C) | Value(C) | ... | Link(F) | Value(F)
+    Tier order matches the main sheet columns B–F.
+    """
+    out: list[dict] = []
+    for row in rows[1:]:
+        row = list(row) + [""] * max(0, 11 - len(row))
+        level = row[0].strip()
+        if not level:
+            continue
+        for pair_idx, (link_col, val_col) in enumerate(((1, 2), (3, 4), (5, 6), (7, 8), (9, 10))):
+            text = row[val_col].strip()
+            if not text:
+                continue
+            url = row[link_col].strip() or None
+            author, title = _split_author(text)
+            out.append({"category": "route", "level": level,
+                        "tier": _TIER_NAMES[pair_idx],
+                        "title": title, "author": author, "url": url})
+    return out
+
+
+def _fetch_guides() -> None:
+    global _GUIDES
+    try:
+        out: list[dict] = []
+        stage_rows = _fetch_csv_rows(_csv_url(GUIDES_SHEET_ID, _GUIDES_STAGES_TAB))
+        out.extend(_parse_stages(stage_rows))
+
+        for tab, cat in ((_GUIDES_TECHNICAL_TAB, "technical"), (_GUIDES_PLAYLIST_TAB, "playlist")):
+            tab_rows = _fetch_csv_rows(_csv_url(GUIDES_SHEET_ID, tab))
+            for row in tab_rows[1:]:
+                if len(row) < 2 or not row[1].strip():
+                    continue
+                url = row[0].strip() or None
+                author, title = _split_author(row[1].strip())
+                out.append({"category": cat, "level": None, "tier": None,
+                            "title": title, "author": author, "url": url})
+
+        _GUIDES = out
+        _STATUS["guides_loaded"] = True
+        logger.debug("Guides loaded: %d entries", len(_GUIDES))
+    except (URLError, TimeoutError, OSError, ValueError) as e:
+        logger.debug("Could not load Guides sheet: %s", e)
+
+
 def _fetch_resources_bg() -> None:
     global _GHOSTS, _VIDEOS, _WRS
+    _fetch_guides()
     try:
         ghost_rows = _fetch_csv_dict(_csv_url(_GHOSTS_SHEET_ID, _GHOSTS_TAB))
         _GHOSTS = _index_ghosts(ghost_rows)
@@ -278,6 +343,10 @@ def get_videos_for(level: str, medal: str) -> list[dict]:
 
 def get_wr_for(level: str, platform: str) -> dict | None:
     return _WRS.get(level.lower(), {}).get(platform.lower())
+
+
+def get_guides() -> list[dict]:
+    return list(_GUIDES)
 
 
 def get_status() -> dict:

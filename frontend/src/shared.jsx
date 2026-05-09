@@ -72,9 +72,10 @@ const NAV_ITEMS = {
     { key: "timer",  label: "Run Timer",          icn: "timer"    },
   ],
   resources: [
-    { key: "ghosts", label: "Ghosts",             icn: "ghost"  },
-    { key: "videos", label: "Route Videos",       icn: "video"  },
-    { key: "wrs",    label: "World Record VODs",  icn: "trophy" },
+    { key: "ghosts",  label: "Ghosts",             icn: "ghost"  },
+    { key: "videos",  label: "Route Videos",       icn: "video"  },
+    { key: "wrs",     label: "World Record VODs",  icn: "trophy" },
+    { key: "guides",  label: "Guides",             icn: "copy"   },
   ],
 };
 

@@ -16,6 +16,7 @@ import ComparePlayers from "./pages/ComparePlayers.jsx";
 import Ghosts           from "./pages/Ghosts.jsx";
 import RouteVideos      from "./pages/RouteVideos.jsx";
 import WorldRecordVods  from "./pages/WorldRecordVods.jsx";
+import Guides           from "./pages/Guides.jsx";
 import Settings      from "./pages/Settings.jsx";
 
 const PAGE_TITLES = {
@@ -31,6 +32,7 @@ const PAGE_TITLES = {
   ghosts:      "Ghosts",
   videos:      "Route Videos",
   wrs:         "World Record VODs",
+  guides:      "Guides",
   settings:    "Settings",
 };
 
@@ -50,9 +52,10 @@ const LB_PAGES = [
   { key: "compare",     Component: ComparePlayers },
 ];
 const RES_PAGES = [
-  { key: "ghosts", Component: Ghosts          },
-  { key: "videos", Component: RouteVideos     },
-  { key: "wrs",    Component: WorldRecordVods },
+  { key: "ghosts",  Component: Ghosts          },
+  { key: "videos",  Component: RouteVideos     },
+  { key: "wrs",     Component: WorldRecordVods },
+  { key: "guides",  Component: Guides          },
 ];
 const WIRED_PAGES = [...RUSH_PAGES, ...LB_PAGES, ...RES_PAGES];
 const WIRED_KEYS = new Set(WIRED_PAGES.map(p => p.key));

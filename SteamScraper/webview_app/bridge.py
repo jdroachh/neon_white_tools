@@ -21,6 +21,7 @@ from .hell_rush import score_hell_rush, HEALTHPACK_LEVELS
 from rush_data import (LEVELS, LEVEL_LOOKUP, RUSH_LEVELS, RUSH_ALIASES, STANDARD_MEDAL_DATA,
                        CHAPTERS, WHOLE_GAME_LEVELS)
 from seed_search import _seed_search_worker, _expected_match_count
+from .models.resources import GuidesResponse
 from . import resources as _resources
 
 _resources.start_background_fetch()
@@ -1198,6 +1199,9 @@ class JsApi:
 
     def get_world_record(self, level: str, platform: str) -> dict | None:
         return _resources.get_wr_for(str(level or ""), str(platform or ""))
+
+    def get_guides(self) -> dict:
+        return GuidesResponse(guides=_resources.get_guides()).model_dump()
 
     def open_external_url(self, url: str) -> dict:
         """Open an allow-listed external URL in the user's default browser.

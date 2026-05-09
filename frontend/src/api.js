@@ -201,3 +201,8 @@ export async function openExternalUrl(url) {
   const api = await waitForApi();
   return api.open_external_url(url);
 }
+
+export async function getGuides() {
+  const api = await waitForApi();
+  return api.get_guides();
+}

@@ -9,6 +9,7 @@
 - Rewrite entire app using opus
 - Google Auth alternatives
 -  "let's tackle UI section split (modularization step 4)" or "let's do API efficiency work"
+- Discord announcements feed (backlog) — pull a server's announcement channel into a Resources page; relay via GitHub Actions cron + bot token → public `announcements.json`; full plan at `~/.claude/plans/i-have-a-new-crispy-moonbeam.md`
 
 # Language fit analysis — Neon White Tools
 

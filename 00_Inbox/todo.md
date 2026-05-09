@@ -5,10 +5,11 @@
 - Replace the bare `except Exception: pass` blocks with logging
 -->
 
+- ~~**Guides tab — video links blocked by GViz endpoint**~~ ✓ DONE — sheet owner added 3 link tabs (`stages`, `technical`, `rush/route`); parser now reads plain-text CSV from those tabs; 194 guides all have URLs.
+
 - ~~**Player Lookup: Medals toggle + Text size toggle**~~ ✓ DONE — also extended to Level Search and Global Export.
 - ~~**Wire up the Ghosts library from Drive**~~ ✓ DONE — 472 ghosts across 121 levels. `tools/build_ghosts_sheet.py` for re-runs when Drive is updated.
-- Active Bugs:
-	- Two UI sets of Windows window buttons (minimize, maximize, close)
+- ~~Active Bugs: Two UI sets of Windows window buttons (minimize, maximize, close)~~ ✓ DONE — frameless=True + bridge methods for minimize/maximize/close; titlebar drag region wired
 - ~~Seed Parser reads left to right in groups of four, need to mirror Seed Finder results~~ ✓ DONE — vertical flex column, matches SeedFinder card layout
 - Make the highlight in the player comparison window for the lower time brighter or more obvious
 - ~~Make a color picker (change the highlights like the search button, accents, etc) (Restrain Mode)~~ ✓ DONE — 8-preset accent swatches on Settings page, persisted via neonwhite_config.json
@@ -53,7 +54,7 @@
 
 5. **Reuse the shuffle output buffer** — `full_shuffle` (line 488) re-allocates `(ctypes.c_int * num_levels)` every call and re-initializes it with `*range(num_levels)`, but the C side already writes `arr[i] = i` itself (`compile_shuffle.py:39`). Allocate once per worker, reuse forever. Disappears entirely if #4 is done.
 
-6. **Cheater list lookup** — confirm whether the cheater list is stored as a `set`/`dict` or a `list`. If it's a `list`, every leaderboard entry incurs an O(N) scan. Grep for the lookup site and convert to a `set` if needed. One-line fix, big win on large leaderboards.
+6. ~~**Cheater list lookup**~~ ✓ DONE — already a `set`; also fixed: `fetch_cheater_list()` was never called in webview app (filtering silently disabled); now called on Steam init. Count displayed in Level Search + Global Export results header.
 
 7. **Dead-code-path branch in `full_shuffle`** — the pure-Python fallback (lines 491–523) is now unreachable in practice (DLL load is reliable + verified). The `if _SHUFFLE_LIB is not None` check runs every call. Either fail-loudly when the DLL doesn't load (and drop the fallback), or accept the marginal cost. Cosmetic only.
 

@@ -4,6 +4,15 @@ Saved Claude-authored plans for the Neon White app. Newest at the top. Full plan
 
 ---
 
+# Guides page (Resources)
+*Approved 2026-05-08 — handoff prompt for Sonnet included*
+
+**Full plan:** `plans/guides-page.md`
+
+**TL;DR:** New Resources sub-page surfacing the public Guides sheet (`1v0PT3dATQREHa6Bxjea2VeNL6oFyddBIvBxEtqNCxTs`, gid=0) as a flat searchable list. Sheet is matrix-shaped (col A = level, cols B–F = medal-tier guides, col G rows 2–14 = technical guides, col G rows 19+ = medal/rush playlists). Flatten into one record per non-empty cell tagged `route` / `technical` / `playlist`; parse `"Author's Title"` into separate fields. UI: search box + 3 category chips + level dropdown (visible when `route` chip is on). Backend mirrors `resources.py` precedent — `urllib` + stdlib `html.parser` against the GViz HTML endpoint (preserves `<a href>` if cells are linked), daemon thread, module-level cache, silent failure. No new deps, no OAuth (sheet is public). Out of scope v1: refresh button, matrix view, tier filter. Plan file includes a complete handoff prompt for Sonnet.
+
+---
+
 # World Record VODs tab (Resources)
 *Approved 2026-05-08 — unblocked, ready to implement*
 

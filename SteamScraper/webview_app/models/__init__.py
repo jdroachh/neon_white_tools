@@ -14,7 +14,7 @@ from .leaderboard import (
     LeaderboardRow, LogLine, LeaderboardProgress, LeaderboardDone,
 )
 from .settings import Settings
-from .resources import GhostRow, VideoRow, ResourcesStatus
+from .resources import GhostRow, VideoRow, ResourcesStatus, Guide, GuidesResponse
 
 __all__ = [
     "ExcludeSpec", "HellRushSpec", "SeedFindRequest", "LevelTag",
@@ -26,5 +26,5 @@ __all__ = [
     "GlobalExportRequest", "LevelSearchRequest", "PlayerLookupRequest",
     "LeaderboardRow", "LogLine", "LeaderboardProgress", "LeaderboardDone",
     "Settings",
-    "GhostRow", "VideoRow", "ResourcesStatus",
+    "GhostRow", "VideoRow", "ResourcesStatus", "Guide", "GuidesResponse",
 ]
