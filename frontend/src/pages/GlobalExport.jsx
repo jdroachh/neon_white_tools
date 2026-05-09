@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { PageHead, Field, Seg, Btn, ErrorBanner, MedalBadge, MedalToggle } from "../shared.jsx";
-import { runGlobalExport, stopLeaderboard, pickFolder } from "../api.js";
+import { runGlobalExport, stopLeaderboard, pickFolder, getCheaterCount } from "../api.js";
 
 const TH = { padding: "4px 8px", fontWeight: 600, fontSize: "0.91em", borderBottom: "1px solid var(--border)", textAlign: "left" };
 const TD = { padding: "3px 8px", fontSize: "1em" };
@@ -14,8 +14,9 @@ export default function GlobalExport({ outputFolder: defaultFolder = "" }) {
   const [error, setError]         = useState("");
   const [rows, setRows]           = useState([]);
   const [progress, setProgress]   = useState(null);
-  const [showMedals, setShowMedals] = useState(false);
-  const [largeText, setLargeText]   = useState(false);
+  const [showMedals, setShowMedals]     = useState(false);
+  const [largeText, setLargeText]       = useState(false);
+  const [cheaterCount, setCheaterCount] = useState(0);
 
   // Sync folder when the app-level default changes (e.g. updated in Settings),
   // but only if the user hasn't manually overridden it this session.
@@ -23,6 +24,8 @@ export default function GlobalExport({ outputFolder: defaultFolder = "" }) {
   useEffect(() => {
     if (!folderTouched) setFolder(defaultFolder);
   }, [defaultFolder]);
+
+  useEffect(() => { getCheaterCount().then(n => { if (n > 0) setCheaterCount(n); }); }, []);
 
   useEffect(() => {
     window._nwGlobalEvent = (ev) => {
@@ -35,6 +38,7 @@ export default function GlobalExport({ outputFolder: defaultFolder = "" }) {
         setStatus(ev.csv_path ? `${ev.message} → ${ev.csv_path}` : ev.message);
         setRunning(false);
         setProgress(null);
+        getCheaterCount().then(n => { if (n > 0) setCheaterCount(n); });
       } else if (ev.type === "error") {
         setError(ev.message);
         setRunning(false);
@@ -137,6 +141,7 @@ export default function GlobalExport({ outputFolder: defaultFolder = "" }) {
                   {rows.length.toLocaleString()} entries
                 </span>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginLeft: "auto" }}>
+                  {cheaterCount > 0 && <span className="muted" style={{ fontSize: 10 }}>{cheaterCount} cheaters filtered</span>}
                   <MedalToggle value={showMedals} onChange={setShowMedals} />
                   <Seg value={largeText ? "Large" : "Normal"} onChange={v => setLargeText(v === "Large")}
                        options={["Normal", "Large"]} />

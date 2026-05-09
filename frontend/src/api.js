@@ -27,6 +27,11 @@ export async function getRushes() {
   return api.get_rushes();
 }
 
+export async function getCheaterCount() {
+  const api = await waitForApi();
+  return api.get_cheater_count();
+}
+
 export async function parseSeed(rushName, seed) {
   const api = await waitForApi();
   return api.parse_seed(rushName, String(seed));

@@ -623,12 +623,17 @@ class JsApi:
                     self._steam_polling = False
 
                 threading.Thread(target=_poll, daemon=True).start()
+                threading.Thread(target=steam_api.fetch_cheater_list, daemon=True).start()
         return {
             "ok":          ok,
             "message":     msg,
             "player_name": steam_api.player_name if ok else "",
             "steam_id":    str(steam_api.logged_in_steam_id) if ok else "",
         }
+
+    def get_cheater_count(self) -> int:
+        import steam_api
+        return len(steam_api.cheater_ids)
 
     def get_steam_status(self) -> dict:
         import steam_api

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { PageHead, Field, Seg, Btn, ErrorBanner, MedalBadge, MedalToggle } from "../shared.jsx";
-import { getLevels, runLevelSearch, stopLeaderboard, pickFolder } from "../api.js";
+import { getLevels, runLevelSearch, stopLeaderboard, pickFolder, getCheaterCount } from "../api.js";
 
 const TH = { padding: "4px 8px", fontWeight: 600, fontSize: "0.91em", borderBottom: "1px solid var(--border)", textAlign: "left" };
 const TD = { padding: "3px 8px", fontSize: "1em" };
@@ -16,8 +16,11 @@ export default function LevelSearch({ outputFolder: defaultFolder = "" }) {
   const [status, setStatus]     = useState("");
   const [error, setError]       = useState("");
   const [rows, setRows]         = useState([]);
-  const [showMedals, setShowMedals] = useState(false);
-  const [largeText, setLargeText]   = useState(false);
+  const [showMedals, setShowMedals]     = useState(false);
+  const [largeText, setLargeText]       = useState(false);
+  const [cheaterCount, setCheaterCount] = useState(0);
+
+  useEffect(() => { getCheaterCount().then(n => { if (n > 0) setCheaterCount(n); }); }, []);
 
   useEffect(() => {
     getLevels().then(ls => {
@@ -32,6 +35,7 @@ export default function LevelSearch({ outputFolder: defaultFolder = "" }) {
       } else if (ev.type === "done") {
         setStatus(ev.csv_path ? `${ev.message} → ${ev.csv_path}` : ev.message);
         setRunning(false);
+        getCheaterCount().then(n => { if (n > 0) setCheaterCount(n); });
       } else if (ev.type === "error") {
         setError(ev.message);
         setRunning(false);
@@ -125,6 +129,7 @@ export default function LevelSearch({ outputFolder: defaultFolder = "" }) {
               <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px 6px", flexShrink: 0 }}>
                 <span style={{ fontSize: 12, fontWeight: 600, flex: 1 }}>{levelName}</span>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginLeft: "auto" }}>
+                  {cheaterCount > 0 && <span className="muted" style={{ fontSize: 10 }}>{cheaterCount} cheaters filtered</span>}
                   <MedalToggle value={showMedals} onChange={setShowMedals} />
                   <Seg value={largeText ? "Large" : "Normal"} onChange={v => setLargeText(v === "Large")}
                        options={["Normal", "Large"]} />
