@@ -92,7 +92,7 @@ export default function WorldRecordVods() {
 
   return (
     <>
-      <PageHead crumb="Resources" title="WORLD RECORD VODs" accentWord="" />
+      <PageHead crumb="Resources" title={<>WORLD <span className="accent">RECORD</span> VODs</>} />
       <div className="body">
         <div className="panel-left">
           <div className="form">
