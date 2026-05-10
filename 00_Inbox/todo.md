@@ -5,6 +5,8 @@
 - Replace the bare `except Exception: pass` blocks with logging
 -->
 
+- ~~**Community Guides: watchlist / watched markers**~~ ✓ DONE — cycling ○/✓/✗ icon per row, "Hide watched" + "Watchlist only" filter pills (combinable, now persistent), keyed by YouTube ID, persisted in `neonwhite_config.json`. Race conditions fixed: `_CONFIG_LOCK` + atomic `save_config_fields`, functional setState. Resource-page load race fixed for Guides, Route Videos, Ghosts (polling until `*_loaded` flips).
+
 - ~~**Guides tab — video links blocked by GViz endpoint**~~ ✓ DONE — sheet owner added 3 link tabs (`stages`, `technical`, `rush/route`); parser now reads plain-text CSV from those tabs; 194 guides all have URLs.
 
 - ~~**Player Lookup: Medals toggle + Text size toggle**~~ ✓ DONE — also extended to Level Search and Global Export.

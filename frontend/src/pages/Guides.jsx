@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { PageHead, Btn } from "../shared.jsx";
-import { getGuides, openExternalUrl } from "../api.js";
+import { getGuides, openExternalUrl, getConfig, saveConfigFields, getResourcesStatus } from "../api.js";
 
 const ALL_CATS = ["route", "technical", "playlist"];
 const CAT_LABELS = { route: "Route guides", technical: "Technical guides", playlist: "Medal playlists" };
@@ -66,7 +66,6 @@ function VideoEmbed({ url, onOpenExternal }) {
     );
   }
 
-  // Non-YouTube URL — just offer an open button.
   return (
     <div style={{ paddingTop: 8 }}>
       <Btn kind="ghost" size="sm" onClick={onOpenExternal}>Open link</Btn>
@@ -74,22 +73,90 @@ function VideoEmbed({ url, onOpenExternal }) {
   );
 }
 
+// Three-state cycle icon: null → "watchlist" → "watched" → null
+function WatchCycleBtn({ state, onClick }) {
+  if (state === "watchlist") {
+    return (
+      <span title="In watchlist — click to mark watched" onClick={onClick}
+        style={{ cursor: "pointer", fontSize: 14, userSelect: "none", flexShrink: 0, color: "var(--accent)", lineHeight: 1 }}>
+        ✓
+      </span>
+    );
+  }
+  if (state === "watched") {
+    return (
+      <span title="Watched — click to clear" onClick={onClick}
+        style={{ cursor: "pointer", fontSize: 14, userSelect: "none", flexShrink: 0, color: "#f87171", lineHeight: 1 }}>
+        ✗
+      </span>
+    );
+  }
+  return (
+    <span title="Add to watchlist" onClick={onClick}
+      style={{ cursor: "pointer", fontSize: 14, userSelect: "none", flexShrink: 0, color: "var(--text-3)", opacity: 0.35, lineHeight: 1 }}>
+      ○
+    </span>
+  );
+}
+
 export default function Guides() {
-  const [guides, setGuides]       = useState([]);
-  const [loaded, setLoaded]       = useState(false);
-  const [query, setQuery]         = useState("");
-  const [categories, setCats]     = useState(new Set(ALL_CATS));
-  const [level, setLevel]         = useState("");
+  const [guides, setGuides]        = useState([]);
+  const [loaded, setLoaded]        = useState(false);
+  const [query, setQuery]          = useState("");
+  const [categories, setCats]      = useState(new Set(ALL_CATS));
+  const [level, setLevel]          = useState("");
   const [expandedIdx, setExpanded] = useState(null);
+
+  // Watch state keyed by YouTube video ID — hydrated from config.
+  // Combined into one object so functional setState always sees the latest of both.
+  const [watchState, setWatchState] = useState({ watchlist: new Set(), watched: new Set() });
+  const { watchlist, watched } = watchState;
+  const [guidesLoaded, setGuidesLoaded] = useState(false);
+
+  const [hideWatched, setHideWatched]     = useState(false);
+  const [watchlistOnly, setWatchlistOnly] = useState(false);
+
+  useEffect(() => {
+    getConfig().then(cfg => {
+      setWatchState({
+        watchlist: new Set(Array.isArray(cfg.guide_watchlist) ? cfg.guide_watchlist : []),
+        watched:   new Set(Array.isArray(cfg.guide_watched)   ? cfg.guide_watched   : []),
+      });
+      setHideWatched(!!cfg.guide_hide_watched);
+      setWatchlistOnly(!!cfg.guide_watchlist_only);
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     getGuides()
-      .then(r => setGuides(Array.isArray(r?.guides) ? r.guides : []))
+      .then(r => {
+        setGuides(Array.isArray(r?.guides) ? r.guides : []);
+        setGuidesLoaded(!!r?.loaded);
+      })
       .catch(() => {})
       .finally(() => setLoaded(true));
   }, []);
 
-  // Collapse expansion when filters change (avoids stale index).
+  // Poll until guides_loaded flips, then re-fetch.
+  useEffect(() => {
+    if (guidesLoaded || !loaded) return;
+    const id = setTimeout(() => {
+      getResourcesStatus().then(s => {
+        if (s.guides_loaded) {
+          getGuides()
+            .then(r => {
+              setGuides(Array.isArray(r?.guides) ? r.guides : []);
+              setGuidesLoaded(true);
+            })
+            .catch(() => {});
+        } else if (!s.error) {
+          setGuidesLoaded(false); // keep the effect looping
+        }
+      }).catch(() => {});
+    }, 1000);
+    return () => clearTimeout(id);
+  }, [guidesLoaded, loaded]);
+
   useEffect(() => { setExpanded(null); }, [query, categories, level]);
 
   function toggleCat(cat) {
@@ -100,6 +167,32 @@ export default function Guides() {
     });
   }
 
+  // Cycle: null → watchlist → watched → null.
+  // Uses functional setState so rapid clicks never read stale closure state.
+  function handleCycle(ytId, e) {
+    e.stopPropagation();
+    setWatchState(prev => {
+      const inWL = prev.watchlist.has(ytId);
+      const inW  = prev.watched.has(ytId);
+      const nextWL = new Set(prev.watchlist);
+      const nextW  = new Set(prev.watched);
+
+      if (!inWL && !inW) {
+        nextWL.add(ytId);
+      } else if (inWL) {
+        nextWL.delete(ytId);
+        nextW.add(ytId);
+      } else {
+        nextW.delete(ytId);
+      }
+
+      // Single atomic write — both keys updated together.
+      saveConfigFields({ guide_watchlist: [...nextWL], guide_watched: [...nextW] }).catch(() => {});
+
+      return { watchlist: nextWL, watched: nextW };
+    });
+  }
+
   const levelOptions = [...new Set(
     guides.filter(g => g.category === "route" && g.level).map(g => g.level)
   )].sort();
@@ -107,12 +200,15 @@ export default function Guides() {
   const filtered = guides.filter(g => {
     if (!categories.has(g.category)) return false;
     if (g.category === "route" && level && g.level !== level) return false;
+    const ytId = extractYouTubeId(g.url);
+    if (hideWatched && ytId && watched.has(ytId)) return false;
+    if (watchlistOnly && !(ytId && watchlist.has(ytId))) return false;
     const q = query.toLowerCase();
     if (!q) return true;
     return `${g.title} ${g.author} ${g.level || ""}`.toLowerCase().includes(q);
   });
 
-  const fetchFailed = loaded && guides.length === 0;
+  const fetchFailed = loaded && guidesLoaded && guides.length === 0;
 
   return (
     <>
@@ -141,6 +237,24 @@ export default function Guides() {
               {levelOptions.map(l => <option key={l} value={l}>{l}</option>)}
             </select>
           )}
+          <span
+            className={"seg-btn " + (hideWatched ? "on" : "")}
+            onClick={() => setHideWatched(v => {
+              saveConfigFields({ guide_hide_watched: !v }).catch(() => {});
+              return !v;
+            })}
+            style={{ cursor: "pointer", marginLeft: 4 }}>
+            Hide watched
+          </span>
+          <span
+            className={"seg-btn " + (watchlistOnly ? "on" : "")}
+            onClick={() => setWatchlistOnly(v => {
+              saveConfigFields({ guide_watchlist_only: !v }).catch(() => {});
+              return !v;
+            })}
+            style={{ cursor: "pointer" }}>
+            Watchlist only
+          </span>
         </div>
       </div>
       <div style={{ flex: 1, overflow: "auto", padding: "8px 16px" }}>
@@ -156,6 +270,10 @@ export default function Guides() {
           <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 4 }}>
             {filtered.map((g, i) => {
               const isOpen = expandedIdx === i;
+              const ytId = extractYouTubeId(g.url);
+              const watchState = ytId
+                ? (watchlist.has(ytId) ? "watchlist" : watched.has(ytId) ? "watched" : null)
+                : null;
               return (
                 <li key={i} style={{
                   border: `1px solid ${isOpen ? "var(--accent)" : "var(--border)"}`,
@@ -163,7 +281,6 @@ export default function Guides() {
                   overflow: "hidden",
                   transition: "border-color 0.1s",
                 }}>
-                  {/* Row header — click to toggle */}
                   <div
                     onClick={() => setExpanded(isOpen ? null : i)}
                     style={{
@@ -174,7 +291,6 @@ export default function Guides() {
                       userSelect: "none",
                     }}
                   >
-                    {/* Caret */}
                     <span style={{
                       fontSize: 9, color: isOpen ? "var(--accent)" : "var(--text-3)",
                       transition: "transform 0.15s, color 0.1s",
@@ -183,7 +299,6 @@ export default function Guides() {
                       flexShrink: 0,
                     }}>▶</span>
 
-                    {/* Title + author */}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                         <span style={{
@@ -229,9 +344,15 @@ export default function Guides() {
                         })()}
                       </div>
                     </div>
+
+                    {ytId && (
+                      <WatchCycleBtn
+                        state={watchState}
+                        onClick={e => handleCycle(ytId, e)}
+                      />
+                    )}
                   </div>
 
-                  {/* Expanded panel */}
                   {isOpen && (
                     <div style={{ padding: "0 12px 12px" }}>
                       <VideoEmbed

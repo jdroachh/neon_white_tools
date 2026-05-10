@@ -49,6 +49,25 @@ export default function RouteVideos() {
       .finally(() => setLoading(false));
   }, [level, medal]);
 
+  // Poll until videos are loaded, then re-fetch the current selection.
+  useEffect(() => {
+    if (status.videos_loaded || status.error || !level) return;
+    const id = setTimeout(() => {
+      getResourcesStatus().then(s => {
+        setStatus(s);
+        if (s.videos_loaded) {
+          setLoading(true);
+          setSelectedIdx(0);
+          getVideos(level, medal)
+            .then(r => setRows(Array.isArray(r) ? r : []))
+            .catch(() => {})
+            .finally(() => setLoading(false));
+        }
+      }).catch(() => {});
+    }, 1000);
+    return () => clearTimeout(id);
+  }, [status.videos_loaded, status.error, level, medal]);
+
   useEffect(() => {
     if (!level) { setMedalTimes({}); return; }
     getMedalTimes(level).then(t => setMedalTimes(t || {})).catch(() => setMedalTimes({}));

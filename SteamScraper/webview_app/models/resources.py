@@ -46,3 +46,4 @@ class Guide(BaseModel):
 
 class GuidesResponse(BaseModel):
     guides: list[Guide]
+    loaded: bool = False

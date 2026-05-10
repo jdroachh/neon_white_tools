@@ -4,6 +4,15 @@ Saved Claude-authored plans for the Neon White app. Newest at the top. Full plan
 
 ---
 
+# Community Guides — Watchlist & Watched markers
+*Approved 2026-05-10 — handoff prompt for Sonnet included*
+
+**Full plan:** `plans/hey-claude-wondering-if-iridescent-glacier.md`
+
+**TL;DR:** Add per-video tracking to the Community Guides tab (`frontend/src/pages/Guides.jsx`). Single cycling icon on each row: None → ✓ (watchlist) → ✗ (watched) → None. Two independent filter pills in the existing filter bar — "Hide watched" and "Watchlist only" (combinable; reset to off on launch). State keyed by **YouTube video ID** (regex already at `Guides.jsx:10–13`); rows whose URL has no extractable YT id show no cycle button. Persisted in `neonwhite_config.json` as new `guide_watchlist: []` and `guide_watched: []` fields via the existing `save_config_field` bridge (parity with `accent_color` / `saved_profiles`) — no new backend methods. Touched files: `webview_app/bridge.py` (default config), `frontend/src/pages/Guides.jsx` (state, hydration, cycle handler, filter pipeline, row UI, filter pills). Verification requires actually running the webview and clicking through the three states.
+
+---
+
 # Saved Profiles for Compare Players
 *Approved 2026-05-09 — handoff prompt for Sonnet included*
 

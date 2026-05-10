@@ -109,6 +109,11 @@ export async function saveConfigField(key, value) {
   return api.save_config_field(key, value);
 }
 
+export async function saveConfigFields(fields) {
+  const api = await waitForApi();
+  return api.save_config_fields(fields);
+}
+
 // ── Steam ────────────────────────────────────────────────────────────────────
 
 export async function initSteam(dllPath) {

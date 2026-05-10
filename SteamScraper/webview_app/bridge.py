@@ -86,14 +86,21 @@ _CONFIG_FILE = os.path.join(
     "neonwhite_config.json",
 )
 _DEFAULT_CONFIG = {
-    "dll_path":       "",
-    "output_folder":  os.path.expanduser("~\\Desktop"),
-    "entry_count":    1000,
-    "accent_color":   "#00e09a",
-    "saved_profiles": [],
+    "dll_path":        "",
+    "output_folder":   os.path.expanduser("~\\Desktop"),
+    "entry_count":     1000,
+    "accent_color":    "#00e09a",
+    "saved_profiles":  [],
+    "guide_watchlist":     [],
+    "guide_watched":       [],
+    "guide_hide_watched":  False,
+    "guide_watchlist_only": False,
 }
 
-def _load_config() -> dict:
+_CONFIG_LOCK = __import__("threading").Lock()
+
+def _load_config_raw() -> dict:
+    """Read config from disk. Caller must hold _CONFIG_LOCK."""
     if os.path.exists(_CONFIG_FILE):
         try:
             with open(_CONFIG_FILE) as f:
@@ -105,9 +112,18 @@ def _load_config() -> dict:
             pass
     return dict(_DEFAULT_CONFIG)
 
-def _save_config(cfg: dict) -> None:
+def _save_config_raw(cfg: dict) -> None:
+    """Write config to disk. Caller must hold _CONFIG_LOCK."""
     with open(_CONFIG_FILE, "w") as f:
         json.dump(cfg, f, indent=2)
+
+def _load_config() -> dict:
+    with _CONFIG_LOCK:
+        return _load_config_raw()
+
+def _save_config(cfg: dict) -> None:
+    with _CONFIG_LOCK:
+        _save_config_raw(cfg)
 
 
 def _resolve_rush(rush_name: str) -> tuple[str, int, list[str]]:
@@ -597,9 +613,18 @@ class JsApi:
         return _load_config()
 
     def save_config_field(self, key: str, value) -> dict:
-        cfg = _load_config()
-        cfg[key] = value
-        _save_config(cfg)
+        with _CONFIG_LOCK:
+            cfg = _load_config_raw()
+            cfg[key] = value
+            _save_config_raw(cfg)
+        return {"ok": True}
+
+    def save_config_fields(self, fields: dict) -> dict:
+        """Atomically update multiple config keys in one write."""
+        with _CONFIG_LOCK:
+            cfg = _load_config_raw()
+            cfg.update(fields)
+            _save_config_raw(cfg)
         return {"ok": True}
 
     # ── Steam runtime ─────────────────────────────────────────────────────────
@@ -1202,7 +1227,10 @@ class JsApi:
         return _resources.get_wr_for(str(level or ""), str(platform or ""))
 
     def get_guides(self) -> dict:
-        return GuidesResponse(guides=_resources.get_guides()).model_dump()
+        return GuidesResponse(
+            guides=_resources.get_guides(),
+            loaded=_resources.get_status()["guides_loaded"],
+        ).model_dump()
 
     def open_external_url(self, url: str) -> dict:
         """Open an allow-listed external URL in the user's default browser.
