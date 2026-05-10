@@ -43,7 +43,7 @@ Neon White speedrunners and competitive players who want to analyze leaderboard 
 | `SteamScraper/webview_app/` | pywebview bridge package |
 | `SteamScraper/webview_app/bridge.py` | `JsApi` — all bridge methods (Rush + Leaderboard + Steam + Config + Resources) |
 | `SteamScraper/webview_app/hell_rush.py` | Hell Rush spacing scorer (`score_hell_rush`) |
-| `SteamScraper/webview_app/resources.py` | Ghosts + Route Videos — fetches two published Google Sheets via GViz CSV (no auth, no API key); caches in-memory once at startup |
+| `SteamScraper/webview_app/resources.py` | Ghosts, Route Videos, World Record VODs, Community Guides — fetches four published Google Sheets via GViz CSV (no auth, no API key); caches in-memory once at startup; `GuidesResponse` includes `loaded: bool` so the frontend can distinguish "not yet loaded" from "empty sheet" |
 | `SteamScraper/webview_app/models/` | Pydantic request/response types for all endpoints |
 | `frontend/src/` | JSX source — `shared.jsx`, `api.js`, `pages/` |
 | `frontend/dist/` | esbuild output (gitignored) — `bundle.js`, `bundle.css`, `index.html` |
@@ -53,15 +53,20 @@ Neon White speedrunners and competitive players who want to analyze leaderboard 
 
 **Bridge methods by group:**
 - Rush tools: `ping`, `get_rushes`, `parse_seed`, `reorder_splits`, `standardize_splits`, `get_standard_order`, `start_finder`, `stop_finder`, `load_timer_seed`, `calculate_timer`
-- Config: `get_config`, `save_config_field`
+- Config: `get_config`, `save_config_field`, `save_config_fields` ← atomic multi-key write
 - Steam: `init_steam`, `get_steam_status`, `pick_dll_file`
 - Leaderboard metadata: `get_levels`, `get_chapters`
-- Leaderboard ops (streaming via `_nw<Page>Event`): `run_global_export`, `run_level_search`, `run_player_lookup`, `stop_leaderboard`
-- Resources: `get_resources_status`, `get_ghosts`, `get_videos`, `open_external_url` (allow-listed to drive.google.com / docs.google.com / youtube.com / youtu.be)
+- Leaderboard ops (streaming via `_nw<Page>Event`): `run_global_export`, `run_level_search`, `run_player_lookup`, `run_compare_players`, `stop_leaderboard`
+- Resources: `get_resources_status`, `get_ghosts`, `get_videos`, `get_world_record`, `get_guides`, `open_external_url` (allow-listed to drive.google.com / docs.google.com / youtube.com / youtu.be)
 
-**Event handlers (JS side):** `window._nwFinderEvent` (Seed Finder), `window._nwGlobalEvent` (Global Export), `window._nwLevelEvent` (Level Search), `window._nwPlayerEvent` (Player Lookup)
+**Config keys (`neonwhite_config.json`):**
+`dll_path`, `output_folder`, `entry_count`, `accent_color`, `saved_profiles` (list of `{nickname, steam_id}`), `guide_watchlist` (list of YT IDs), `guide_watched` (list of YT IDs), `guide_hide_watched` (bool), `guide_watchlist_only` (bool)
 
-All 11 pages live: Seed Parser, Splits Updater, Standardize, Seed Finder, Run Timer, Global Export, Level Search, Player Lookup, Ghosts, Route Videos, Settings.
+**Config I/O:** all reads/writes are serialised by `_CONFIG_LOCK` (threading.Lock). `save_config_fields` holds the lock across the full read-modify-write to prevent interleaving. `_load_config_raw` / `_save_config_raw` are internal helpers (require lock held by caller).
+
+**Event handlers (JS side):** `window._nwFinderEvent` (Seed Finder), `window._nwGlobalEvent` (Global Export), `window._nwLevelEvent` (Level Search), `window._nwPlayerEvent` (Player Lookup), `window._nwCompareEvent` (Compare Players)
+
+All 13 pages live: Seed Parser, Splits Updater, Standardize, Seed Finder, Run Timer, Global Export, Level Search, Player Lookup, Compare Players, Ghosts, Route Videos, World Record VODs, Community Guides, Settings.
 
 ## Legacy tkinter module layout
 
