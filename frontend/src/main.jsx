@@ -105,7 +105,7 @@ function App() {
               overflow:      "hidden",
             }}>
               <Component showMedals={showMedals} setShowMedals={setShowMedals}
-                         outputFolder={outputFolder} />
+                         outputFolder={outputFolder} visible={key === page} />
             </div>
           ))}
           {/* Settings — mounted separately so it can update steamStatus and outputFolder */}

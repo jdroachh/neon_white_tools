@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { PageHead, Field, Btn, ErrorBanner } from "../shared.jsx";
 import { getConfig, saveConfigField, initSteam, pickDllFile, pickFolder, applyAccent } from "../api.js";
+import { loadProfiles, saveProfiles, addProfile, updateProfile, removeProfile, moveProfile, validateProfile } from "../lib/savedProfiles.js";
 
 const ACCENT_PRESETS = [
   { hex: "#00e09a", label: "Mint"    },
@@ -20,6 +21,11 @@ export default function Settings({ onSteamConnected, onFolderChange }) {
   const [error, setError]             = useState("");
   const [connecting, setConnecting]   = useState(false);
   const [accentColor, setAccentColor] = useState("#00e09a");
+  const [savedProfiles, setSavedProfiles] = useState([]);
+  const [profileErrors, setProfileErrors] = useState({});
+  const [newNickname, setNewNickname]   = useState("");
+  const [newSteamId, setNewSteamId]     = useState("");
+  const [addError, setAddError]         = useState("");
 
   useEffect(() => {
     getConfig().then(cfg => {
@@ -27,6 +33,7 @@ export default function Settings({ onSteamConnected, onFolderChange }) {
       setOutputFolder(cfg.output_folder || "");
       setAccentColor(cfg.accent_color || "#00e09a");
     });
+    loadProfiles().then(setSavedProfiles);
   }, []);
 
   async function handleAccentPick(hex) {
@@ -77,6 +84,54 @@ export default function Settings({ onSteamConnected, onFolderChange }) {
       await saveConfigField("output_folder", val);
       onFolderChange && onFolderChange(val);
     }
+  }
+
+  async function handleProfileFieldChange(idx, field, value) {
+    const p = { ...savedProfiles[idx], [field]: value };
+    const err = validateProfile(p.nickname, p.steam_id);
+    const errs = { ...profileErrors };
+    if (err) errs[idx] = err; else delete errs[idx];
+    setProfileErrors(errs);
+    const next = savedProfiles.map((x, i) => i === idx ? { nickname: p.nickname, steam_id: p.steam_id } : x);
+    setSavedProfiles(next);
+  }
+
+  async function handleProfileFieldBlur(idx) {
+    const p = savedProfiles[idx];
+    const err = validateProfile(p.nickname, p.steam_id);
+    if (err) return;
+    const result = updateProfile(savedProfiles, idx, p);
+    if (result.error) {
+      setProfileErrors(prev => ({ ...prev, [idx]: result.error }));
+      return;
+    }
+    setSavedProfiles(result.list);
+    await saveProfiles(result.list);
+  }
+
+  async function handleProfileDelete(idx) {
+    const next = removeProfile(savedProfiles, idx);
+    setSavedProfiles(next);
+    const errs = { ...profileErrors };
+    delete errs[idx];
+    setProfileErrors(errs);
+    await saveProfiles(next);
+  }
+
+  async function handleProfileMove(idx, dir) {
+    const next = moveProfile(savedProfiles, idx, dir);
+    setSavedProfiles(next);
+    await saveProfiles(next);
+  }
+
+  async function handleAddProfile() {
+    setAddError("");
+    const result = addProfile(savedProfiles, { nickname: newNickname, steam_id: newSteamId });
+    if (result.error) { setAddError(result.error); return; }
+    setSavedProfiles(result.list);
+    setNewNickname("");
+    setNewSteamId("");
+    await saveProfiles(result.list);
   }
 
   return (
@@ -144,6 +199,56 @@ export default function Settings({ onSteamConnected, onFolderChange }) {
                 ))}
               </div>
             </Field>
+            <div style={{ borderTop: "1px solid var(--border)", margin: "4px 0" }} />
+            <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 6 }}>Saved Profiles</div>
+            <div className="muted" style={{ fontSize: 11, marginBottom: 8 }}>
+              Nickname + Steam ID pairs used in Compare Players.
+            </div>
+            {savedProfiles.map((p, i) => (
+              <div key={i} style={{ marginBottom: 8 }}>
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <input className="input" style={{ width: 110 }}
+                    value={p.nickname}
+                    onChange={e => handleProfileFieldChange(i, "nickname", e.target.value)}
+                    onBlur={() => handleProfileFieldBlur(i)}
+                    placeholder="Nickname" />
+                  <input className="input" style={{ flex: 1, fontSize: 10 }}
+                    value={p.steam_id}
+                    onChange={e => handleProfileFieldChange(i, "steam_id", e.target.value)}
+                    onBlur={() => handleProfileFieldBlur(i)}
+                    placeholder="17-digit Steam ID" />
+                  <Btn kind="ghost" size="sm" disabled={i === 0}
+                       onClick={() => handleProfileMove(i, -1)}>↑</Btn>
+                  <Btn kind="ghost" size="sm" disabled={i === savedProfiles.length - 1}
+                       onClick={() => handleProfileMove(i, 1)}>↓</Btn>
+                  <Btn kind="danger" size="sm"
+                       onClick={() => handleProfileDelete(i)}>✕</Btn>
+                </div>
+                {profileErrors[i] && (
+                  <div style={{ fontSize: 11, color: "var(--bad, #f87171)", marginTop: 3 }}>
+                    {profileErrors[i]}
+                  </div>
+                )}
+              </div>
+            ))}
+            {savedProfiles.length < 10 ? (
+              <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 4 }}>
+                <input className="input" style={{ width: 110 }}
+                  value={newNickname}
+                  onChange={e => { setNewNickname(e.target.value); setAddError(""); }}
+                  placeholder="Nickname" />
+                <input className="input" style={{ flex: 1, fontSize: 10 }}
+                  value={newSteamId}
+                  onChange={e => { setNewSteamId(e.target.value); setAddError(""); }}
+                  placeholder="17-digit Steam ID" />
+                <Btn kind="ghost" size="sm" onClick={handleAddProfile}>+ Add</Btn>
+              </div>
+            ) : (
+              <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>Limit: 10 profiles.</div>
+            )}
+            {addError && (
+              <div style={{ fontSize: 11, color: "var(--bad, #f87171)", marginTop: 4 }}>{addError}</div>
+            )}
           </div>
         </div>
         <div className="panel-right" style={{ padding: 24 }}>

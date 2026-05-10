@@ -86,10 +86,11 @@ _CONFIG_FILE = os.path.join(
     "neonwhite_config.json",
 )
 _DEFAULT_CONFIG = {
-    "dll_path":      "",
-    "output_folder": os.path.expanduser("~\\Desktop"),
-    "entry_count":   1000,
-    "accent_color":  "#00e09a",
+    "dll_path":       "",
+    "output_folder":  os.path.expanduser("~\\Desktop"),
+    "entry_count":    1000,
+    "accent_color":   "#00e09a",
+    "saved_profiles": [],
 }
 
 def _load_config() -> dict:

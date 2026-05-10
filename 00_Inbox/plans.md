@@ -4,6 +4,15 @@ Saved Claude-authored plans for the Neon White app. Newest at the top. Full plan
 
 ---
 
+# Saved Profiles for Compare Players
+*Approved 2026-05-09 — handoff prompt for Sonnet included*
+
+**Full plan:** `plans/saved-profiles.md`
+
+**TL;DR:** Persist 5–10 nickname + Steam ID pairs in `neonwhite_config.json` under a new `saved_profiles` key (default `[]`, added to `_DEFAULT_CONFIG` in `SteamScraper/webview_app/bridge.py:88`). No new backend endpoint — reuse `save_config_field`. New helper `frontend/src/lib/savedProfiles.js` handles load/save/add/update/remove/move with validation (nickname 1–24 chars, steam_id `/^\d{17}$/`, dedupe by ID, cap 10). On `ComparePlayers.jsx` lines 126–141: each P1/P2 input gets a `[▾ Saved]` dropdown next to `[Mine]` (disabled when empty) plus a `★` quick-save button (visible only when input holds a new valid 17-digit ID). Full rename/reorder/delete UI lives in `Settings.jsx` as a new "Saved Profiles" section. Validate in React only; backend stays a generic key/value setter. No changes to `run_compare_players`.
+
+---
+
 # Guides page (Resources)
 *Approved 2026-05-08 — handoff prompt for Sonnet included*
 
