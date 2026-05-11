@@ -136,6 +136,21 @@ export async function pickFolder() {
   return api.pick_folder();
 }
 
+export async function openLogFolder() {
+  const api = await waitForApi();
+  return api.open_log_folder();
+}
+
+export async function findSteamDll() {
+  const api = await waitForApi();
+  return api.find_steam_dll();
+}
+
+export async function getAppVersion() {
+  const api = await waitForApi();
+  return api.get_app_version();
+}
+
 // ── Leaderboard metadata ─────────────────────────────────────────────────────
 
 export async function getLevels() {
@@ -210,4 +225,9 @@ export async function openExternalUrl(url) {
 export async function getGuides() {
   const api = await waitForApi();
   return api.get_guides();
+}
+
+export async function getHelpfulLinks() {
+  const api = await waitForApi();
+  return api.get_helpful_links();
 }

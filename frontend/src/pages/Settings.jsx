@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { PageHead, Field, Btn, ErrorBanner } from "../shared.jsx";
-import { getConfig, saveConfigField, initSteam, pickDllFile, pickFolder, applyAccent } from "../api.js";
+import { getConfig, saveConfigField, initSteam, pickDllFile, pickFolder, applyAccent, openLogFolder, getAppVersion, findSteamDll } from "../api.js";
 import { loadProfiles, saveProfiles, addProfile, updateProfile, removeProfile, moveProfile, validateProfile } from "../lib/savedProfiles.js";
 
 const ACCENT_PRESETS = [
@@ -26,6 +26,10 @@ export default function Settings({ onSteamConnected, onFolderChange }) {
   const [newNickname, setNewNickname]   = useState("");
   const [newSteamId, setNewSteamId]     = useState("");
   const [addError, setAddError]         = useState("");
+  const [appVersion, setAppVersion]     = useState("");
+  const [logStatus, setLogStatus]       = useState("");
+  const [findingDll, setFindingDll]     = useState(false);
+  const [findDllError, setFindDllError] = useState("");
 
   useEffect(() => {
     getConfig().then(cfg => {
@@ -34,7 +38,14 @@ export default function Settings({ onSteamConnected, onFolderChange }) {
       setAccentColor(cfg.accent_color || "#00e09a");
     });
     loadProfiles().then(setSavedProfiles);
+    getAppVersion().then(v => setAppVersion(v || ""));
   }, []);
+
+  async function handleOpenLogs() {
+    setLogStatus("");
+    const r = await openLogFolder();
+    if (!r.ok) setLogStatus(r.error || "Could not open log folder.");
+  }
 
   async function handleAccentPick(hex) {
     setAccentColor(hex);
@@ -62,6 +73,32 @@ export default function Settings({ onSteamConnected, onFolderChange }) {
     if (r.ok && r.path) {
       setDllPath(r.path);
       await saveConfigField("dll_path", r.path);
+    }
+  }
+
+  async function handleFindDll() {
+    setFindDllError(""); setFindingDll(true);
+    try {
+      const r = await findSteamDll();
+      if (r.found && r.path) {
+        setDllPath(r.path);
+        await saveConfigField("dll_path", r.path);
+        const sr = await initSteam(r.path);
+        if (sr.ok) {
+          setStatus(`Connected as ${sr.player_name}`);
+          setError("");
+          onSteamConnected && onSteamConnected({ ready: true, playerName: sr.player_name, steamId: sr.steam_id });
+        } else {
+          setError(sr.message || "DLL found but Steam connection failed.");
+          setStatus("");
+        }
+      } else {
+        setFindDllError("Couldn't locate steam_api64.dll automatically. Use Browse to find it manually.");
+      }
+    } catch (e) {
+      setFindDllError("Unexpected error during DLL search.");
+    } finally {
+      setFindingDll(false);
     }
   }
 
@@ -149,8 +186,15 @@ export default function Settings({ onSteamConnected, onFolderChange }) {
                        onBlur={handleDllBlur}
                        placeholder="C:\...\Neon White\steam_api64.dll" />
                 <Btn kind="ghost" onClick={handleBrowseDll}>Browse</Btn>
+                <Btn kind="ghost" onClick={handleFindDll} disabled={findingDll}
+                     title="Checks your Steam install path to locate the Neon White folder. No data is collected or sent.">
+                  {findingDll ? "Searching…" : "Find DLL"}
+                </Btn>
               </div>
             </Field>
+            {findDllError && (
+              <div style={{ fontSize: 11, color: "var(--bad, #f87171)", marginBottom: 4 }}>{findDllError}</div>
+            )}
             <ErrorBanner message={error} />
             {status && (
               <div style={{ fontSize: 11, color: "var(--good, #3ddc84)" }}>{status}</div>
@@ -248,6 +292,22 @@ export default function Settings({ onSteamConnected, onFolderChange }) {
             )}
             {addError && (
               <div style={{ fontSize: 11, color: "var(--bad, #f87171)", marginTop: 4 }}>{addError}</div>
+            )}
+            <div style={{ borderTop: "1px solid var(--border)", margin: "4px 0" }} />
+            <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 6 }}>Diagnostics</div>
+            <div className="muted" style={{ fontSize: 11, marginBottom: 8 }}>
+              Hitting a bug? Open the log folder and attach <code>app.log</code> to your report.
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <Btn kind="ghost" onClick={handleOpenLogs}>Open log folder</Btn>
+              {appVersion && (
+                <span className="muted" style={{ fontSize: 11 }}>
+                  Version {appVersion}
+                </span>
+              )}
+            </div>
+            {logStatus && (
+              <div style={{ fontSize: 11, color: "var(--bad, #f87171)", marginTop: 4 }}>{logStatus}</div>
             )}
           </div>
         </div>

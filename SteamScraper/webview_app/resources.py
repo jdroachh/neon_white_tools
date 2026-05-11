@@ -34,6 +34,7 @@ GUIDES_SHEET_ID       = "1v0PT3dATQREHa6Bxjea2VeNL6oFyddBIvBxEtqNCxTs"
 _GUIDES_STAGES_TAB    = "stages"
 _GUIDES_TECHNICAL_TAB = "technical"
 _GUIDES_PLAYLIST_TAB  = "rush/route"
+_HELPFUL_LINKS_TAB    = "helpful_links"
 
 # Tier names correspond to columns B–F of the main sheet.
 _TIER_NAMES = ("Emerald", "Amethyst 1", "Amethyst 2", "Sapphire 1", "Sapphire 2")
@@ -65,12 +66,14 @@ _VIDEOS: dict[str, dict[str, list[dict]]] = {}
 # level (lowercase) -> platform (lowercase) -> row dict  (single WR per platform)
 _WRS: dict[str, dict[str, dict]] = {}
 _GUIDES: list[dict] = []
+_HELPFUL_LINKS: list[dict] = []
 
 _STATUS = {
-    "ghosts_loaded":  False,
-    "videos_loaded":  False,
-    "wrs_loaded":     False,
-    "guides_loaded":  False,
+    "ghosts_loaded":         False,
+    "videos_loaded":         False,
+    "wrs_loaded":            False,
+    "guides_loaded":         False,
+    "helpful_links_loaded":  False,
     "error": None,
 }
 
@@ -290,9 +293,31 @@ def _fetch_guides() -> None:
         logger.debug("Could not load Guides sheet: %s", e)
 
 
+def _fetch_helpful_links() -> None:
+    """Parse the 'helpful_links' tab — header: Link | Value. Flat list."""
+    global _HELPFUL_LINKS
+    try:
+        rows = _fetch_csv_rows(_csv_url(GUIDES_SHEET_ID, _HELPFUL_LINKS_TAB))
+        out: list[dict] = []
+        for row in rows[1:]:
+            if len(row) < 2:
+                continue
+            url = row[0].strip()
+            label = row[1].strip()
+            if not url or not label:
+                continue
+            out.append({"url": url, "label": label})
+        _HELPFUL_LINKS = out
+        _STATUS["helpful_links_loaded"] = True
+        logger.debug("Helpful links loaded: %d entries", len(_HELPFUL_LINKS))
+    except (URLError, TimeoutError, OSError, ValueError) as e:
+        logger.debug("Could not load Helpful Links sheet: %s", e)
+
+
 def _fetch_resources_bg() -> None:
     global _GHOSTS, _VIDEOS, _WRS
     _fetch_guides()
+    _fetch_helpful_links()
     try:
         ghost_rows = _fetch_csv_dict(_csv_url(_GHOSTS_SHEET_ID, _GHOSTS_TAB))
         _GHOSTS = _index_ghosts(ghost_rows)
@@ -347,6 +372,10 @@ def get_wr_for(level: str, platform: str) -> dict | None:
 
 def get_guides() -> list[dict]:
     return list(_GUIDES)
+
+
+def get_helpful_links() -> list[dict]:
+    return list(_HELPFUL_LINKS)
 
 
 def get_status() -> dict:

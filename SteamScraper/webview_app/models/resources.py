@@ -32,6 +32,7 @@ class ResourcesStatus(BaseModel):
     videos_loaded: bool
     wrs_loaded: bool = False
     guides_loaded: bool = False
+    helpful_links_loaded: bool = False
     error: str | None = None
 
 
@@ -46,4 +47,14 @@ class Guide(BaseModel):
 
 class GuidesResponse(BaseModel):
     guides: list[Guide]
+    loaded: bool = False
+
+
+class HelpfulLink(BaseModel):
+    url: str
+    label: str
+
+
+class HelpfulLinksResponse(BaseModel):
+    links: list[HelpfulLink]
     loaded: bool = False

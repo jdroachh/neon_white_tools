@@ -10,7 +10,12 @@ import logging.handlers
 import os
 import sys
 
-_HERE         = os.path.dirname(os.path.abspath(__file__))
+# When frozen (PyInstaller bundle), log next to the EXE so testers can find
+# the file without poking into the internal bundle subfolder.
+if getattr(sys, "frozen", False):
+    _HERE = os.path.dirname(sys.executable)
+else:
+    _HERE = os.path.dirname(os.path.abspath(__file__))
 _LOG_DIR      = os.path.join(_HERE, "logs")
 _LOG_FILE     = os.path.join(_LOG_DIR, "app.log")
 _MAX_BYTES    = 5 * 1024 * 1024   # 5 MB per file
@@ -63,3 +68,11 @@ def get_logger(name):
     # Strip __main__ / package prefix so names stay readable
     short = name.split(".")[-1] if name else "app"
     return logging.getLogger(f"neonwhite.{short}")
+
+
+def get_log_dir() -> str:
+    """Absolute path to the directory holding app.log.
+    Created on first call so callers can safely open it in Explorer.
+    """
+    os.makedirs(_LOG_DIR, exist_ok=True)
+    return _LOG_DIR

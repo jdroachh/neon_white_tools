@@ -5,6 +5,22 @@
 - Replace the bare `except Exception: pass` blocks with logging
 -->
 
+## BETA round 1 feedback — Quick wins ✓ DONE 2026-05-11
+
+- ~~**Route Videos: move route-select buttons above the video player**~~ ✓ — route table now above player, max-height 40%
+- ~~**Community Guides: convert filter pills → tabs**~~ ✓ — single-active tab bar, search/level/watch pills below
+- ~~**Status indicators: hardcode green/red, exempt from accent color**~~ ✓ — `.dot.ok` now hardcoded `#2ecc71` instead of `var(--accent)`; `.dot.bad` already used static `--bad`
+- ~~**Player Lookup: drop "show average placement" toggle**~~ ✓ — always renders avg row when results present; removed `AvgPlacementToggle` component
+- ~~**Level Search: fix empty-on-first-boot race**~~ ✓ — retry-on-empty loop in useEffect (20 attempts × 250ms), also catches Promise rejection
+
+## BETA round 2 feedback — Phase C (research first, then implement)
+
+- ~~**First page: Welcome + smart routing**~~ ✓ DONE 2026-05-11 — Welcome page on first launch (`welcome_seen` flag); "GETTING STARTED" header; "Find Steam DLL & Connect" button (registry → VDF → recursive game-dir search); "I'll set it up later" link; "Don't show again" checkbox; post-connect landing panel; `last_tab` smart routing on subsequent launches.
+- ~~**Smart `steam_api64.dll` finder**~~ ✓ DONE 2026-05-11 — `dll_finder.py`; wired into Welcome + Settings "Find DLL" button; finds DLL inside `Neon White_Data/Plugins/x86_64/` via unlimited-depth game-dir search.
+- [ ] **Window snaps back to center, can't drag edges to resize** (Restrain) — Phase C: write ADR first, then fix
+- [ ] **Tied WRs / multiple WRs handling** (DerelictJade) — Phase C: inspect WR sheet schema, write ADR, then fix
+- [ ] **Side panel scrolling broken** (Restrain) — blocked on repro of which page
+
 - ~~**Community Guides: watchlist / watched markers**~~ ✓ DONE — cycling ○/✓/✗ icon per row, "Hide watched" + "Watchlist only" filter pills (combinable, now persistent), keyed by YouTube ID, persisted in `neonwhite_config.json`. Race conditions fixed: `_CONFIG_LOCK` + atomic `save_config_fields`, functional setState. Resource-page load race fixed for Guides, Route Videos, Ghosts (polling until `*_loaded` flips).
 
 - ~~**Guides tab — video links blocked by GViz endpoint**~~ ✓ DONE — sheet owner added 3 link tabs (`stages`, `technical`, `rush/route`); parser now reads plain-text CSV from those tabs; 194 guides all have URLs.
@@ -74,7 +90,13 @@ Ranked by ROI. Best done *after* the `steam_api.py` extraction so they live as i
 
 ## Polish (low priority)
 
+- **Auto-connect to Steam on launch if `dll_path` is set.** Today the user has to click Settings → Connect every time. Once `neonwhite_config.json` has a valid `dll_path`, the app should call `init_steam(cfg.dll_path)` automatically on mount and only fall back to the manual Connect flow if it fails. Implementation: in `frontend/src/main.jsx` `useEffect` (or a new effect right after `getSteamStatus`), if `cfg.dll_path` is truthy and `!steamStatus.ready`, kick off `initSteam(cfg.dll_path)`; on success update `steamStatus`; on failure leave the Settings page reachable for manual recovery. ~10 lines. Validated 2026-05-10 beta smoke test surfaced the friction.
+
 - **Silence Google OAuth URL print** in `sheets.get_sheets_service`. `flow.run_local_server` prints the auth URL to stdout as a browser-open fallback. Pass `authorization_prompt_message=""` to suppress, or route through `logger.info` so it ends up in `app.log` instead. One-line change.
+
+- **Drop unused `rush_key` parameter from `_compute_medals`** in `SteamScraper/webview_app/bridge.py:199`. After the 2026-05-10 fix to line 203 (extra arg removed from `_get_medal` call), `rush_key` is passed in but never read inside the function — medal lookup goes through `_resolve_level_code(level_name)`. Cleanup touches 4 call sites (`bridge.py:336`, `:338`, `:1189`, `:1191`). Cosmetic only.
+
+- **Migrate `_csv_url` to accept gids in `resources.py`.** Currently the helper uses `&sheet=<name>`, hardcoding tab names (`stages`, `technical`, `rush/route`, `helpful_links`). If the sheet owner ever renames a tab, the fetch breaks silently. Robustness fix: make `_csv_url` accept either a name or a numeric gid (gids are immutable). Need the user to grab the four gids from the sheet (click each tab → copy `gid=NNN` from URL). ~10 lines.
 
 ## M3 backlog
 

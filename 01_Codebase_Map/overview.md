@@ -58,15 +58,21 @@ Neon White speedrunners and competitive players who want to analyze leaderboard 
 - Leaderboard metadata: `get_levels`, `get_chapters`
 - Leaderboard ops (streaming via `_nw<Page>Event`): `run_global_export`, `run_level_search`, `run_player_lookup`, `run_compare_players`, `stop_leaderboard`
 - Resources: `get_resources_status`, `get_ghosts`, `get_videos`, `get_world_record`, `get_guides`, `open_external_url` (allow-listed to drive.google.com / docs.google.com / youtube.com / youtu.be)
+- DLL finder: `find_steam_dll` — reads `HKCU\Software\Valve\Steam\SteamPath`, parses `libraryfolders.vdf`, checks `steamapps\common\Neon White\steam_api64.dll`, falls back to capped recursive search; returns `{found, path, steps}`; **user-triggered only**, never called on startup
+- Diagnostics: `open_log_folder`, `get_app_version`
+
+**New module:** `SteamScraper/webview_app/dll_finder.py` — pure functions for DLL discovery (`read_steam_path`, `parse_library_folders`, `search_for_dll`, `find_neon_white_dll`). No tkinter/webview imports.
+
+**New page:** `frontend/src/pages/Welcome.jsx` — shown on first launch (`welcome_seen` not set in config). Contains "Find Steam DLL & Connect" button (calls `findSteamDll` + `initSteam`), "I'll set it up later" link, and "Don't show again" checkbox. `onDismiss(target)` routes to Settings or last_tab.
 
 **Config keys (`neonwhite_config.json`):**
-`dll_path`, `output_folder`, `entry_count`, `accent_color`, `saved_profiles` (list of `{nickname, steam_id}`), `guide_watchlist` (list of YT IDs), `guide_watched` (list of YT IDs), `guide_hide_watched` (bool), `guide_watchlist_only` (bool)
+`dll_path`, `output_folder`, `entry_count`, `accent_color`, `saved_profiles` (list of `{nickname, steam_id}`), `guide_watchlist` (list of YT IDs), `guide_watched` (list of YT IDs), `guide_hide_watched` (bool), `guide_watchlist_only` (bool), `welcome_seen` (bool — set when user ticks "Don't show again"), `last_tab` (str — written on every nav, used for smart routing on subsequent launches)
 
 **Config I/O:** all reads/writes are serialised by `_CONFIG_LOCK` (threading.Lock). `save_config_fields` holds the lock across the full read-modify-write to prevent interleaving. `_load_config_raw` / `_save_config_raw` are internal helpers (require lock held by caller).
 
 **Event handlers (JS side):** `window._nwFinderEvent` (Seed Finder), `window._nwGlobalEvent` (Global Export), `window._nwLevelEvent` (Level Search), `window._nwPlayerEvent` (Player Lookup), `window._nwCompareEvent` (Compare Players)
 
-All 13 pages live: Seed Parser, Splits Updater, Standardize, Seed Finder, Run Timer, Global Export, Level Search, Player Lookup, Compare Players, Ghosts, Route Videos, World Record VODs, Community Guides, Settings.
+All 15 pages live: Welcome, Seed Parser, Splits Updater, Standardize, Seed Finder, Run Timer, Global Export, Level Search, Player Lookup, Compare Players, Ghosts, Route Videos, World Record VODs, Community Guides, Helpful Links, Settings.
 
 ## Legacy tkinter module layout
 

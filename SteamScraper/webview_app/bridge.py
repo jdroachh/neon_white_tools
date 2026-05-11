@@ -21,12 +21,12 @@ from .hell_rush import score_hell_rush, HEALTHPACK_LEVELS
 from rush_data import (LEVELS, LEVEL_LOOKUP, RUSH_LEVELS, RUSH_ALIASES, STANDARD_MEDAL_DATA,
                        CHAPTERS, WHOLE_GAME_LEVELS)
 from seed_search import _seed_search_worker, _expected_match_count
-from .models.resources import GuidesResponse
+from .models.resources import GuidesResponse, HelpfulLinksResponse
 from . import resources as _resources
 
 _resources.start_background_fetch()
 
-APP_VERSION = "2.0.0-dev"
+APP_VERSION = "1.11.0-beta.1"
 
 # Community medal data — fetched once at module init in background threads.
 # communitymedals.json: {code: [emerald_us, amethyst_us, sapphire_us]}
@@ -81,10 +81,13 @@ _loaded = _load_c_shuffle()
 MAX_SEED = 2_147_483_647
 
 # ── Config ────────────────────────────────────────────────────────────────
-_CONFIG_FILE = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-    "neonwhite_config.json",
-)
+# When frozen, neonwhite_config.json lives next to the EXE so users can edit
+# or reset it without spelunking into the bundle.
+if getattr(sys, "frozen", False):
+    _CONFIG_DIR = os.path.dirname(sys.executable)
+else:
+    _CONFIG_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_CONFIG_FILE = os.path.join(_CONFIG_DIR, "neonwhite_config.json")
 _DEFAULT_CONFIG = {
     "dll_path":        "",
     "output_folder":   os.path.expanduser("~\\Desktop"),
@@ -200,7 +203,7 @@ def _compute_medals(level_names: list[str], time_strs: list[str], rush_key: str)
     medals = []
     for name, s in zip(level_names, time_strs):
         t = _parse_time_to_secs(s)
-        medals.append(_get_medal(name, t, rush_key) if t is not None else "")
+        medals.append(_get_medal(name, t) if t is not None else "")
     return medals
 
 
@@ -714,6 +717,33 @@ class JsApi:
         except Exception:
             pass
         return {"ok": False, "path": ""}
+
+    def find_steam_dll(self) -> dict:
+        """User-triggered DLL finder. Never called on startup."""
+        from .dll_finder import find_neon_white_dll
+        return find_neon_white_dll()
+
+    def open_log_folder(self) -> dict:
+        """Open the log directory in the user's file explorer.
+        Beta tester workflow: click → Explorer opens → drag app.log into Discord.
+        """
+        from logger import get_log_dir
+        path = get_log_dir()
+        try:
+            if sys.platform == "win32":
+                os.startfile(path)  # type: ignore[attr-defined]
+            elif sys.platform == "darwin":
+                import subprocess
+                subprocess.Popen(["open", path])
+            else:
+                import subprocess
+                subprocess.Popen(["xdg-open", path])
+            return {"ok": True, "path": path}
+        except Exception as e:
+            return {"ok": False, "path": path, "error": str(e)}
+
+    def get_app_version(self) -> str:
+        return APP_VERSION
 
     # ── Level / chapter metadata ──────────────────────────────────────────────
 
@@ -1232,6 +1262,12 @@ class JsApi:
             loaded=_resources.get_status()["guides_loaded"],
         ).model_dump()
 
+    def get_helpful_links(self) -> dict:
+        return HelpfulLinksResponse(
+            links=_resources.get_helpful_links(),
+            loaded=_resources.get_status()["helpful_links_loaded"],
+        ).model_dump()
+
     def open_external_url(self, url: str) -> dict:
         """Open an allow-listed external URL in the user's default browser.
 
@@ -1246,6 +1282,10 @@ class JsApi:
             "https://www.youtube.com/",
             "https://youtube.com/",
             "https://youtu.be/",
+            "https://discord.gg/",
+            "https://www.speedrun.com/",
+            "https://speedrun.com/",
+            "https://bit.ly/",
         )
         if not any(u.startswith(p) for p in allowed_prefixes):
             try:

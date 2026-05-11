@@ -23,10 +23,22 @@ export default function LevelSearch({ outputFolder: defaultFolder = "" }) {
   useEffect(() => { getCheaterCount().then(n => { if (n > 0) setCheaterCount(n); }); }, []);
 
   useEffect(() => {
-    getLevels().then(ls => {
-      setLevels(ls);
-      if (ls.length) setLevel(ls[0].display);
-    });
+    let cancelled = false;
+    let attempts = 0;
+    function tryLoad() {
+      getLevels().then(ls => {
+        if (cancelled) return;
+        if (Array.isArray(ls) && ls.length) {
+          setLevels(ls);
+          setLevel(ls[0].display);
+        } else if (attempts++ < 20) {
+          setTimeout(tryLoad, 250);
+        }
+      }).catch(() => {
+        if (!cancelled && attempts++ < 20) setTimeout(tryLoad, 250);
+      });
+    }
+    tryLoad();
     window._nwLevelEvent = (ev) => {
       if (ev.type === "status") {
         setStatus(ev.message);
@@ -41,7 +53,7 @@ export default function LevelSearch({ outputFolder: defaultFolder = "" }) {
         setRunning(false);
       }
     };
-    return () => { window._nwLevelEvent = null; };
+    return () => { cancelled = true; window._nwLevelEvent = null; };
   }, []);
 
   useEffect(() => {

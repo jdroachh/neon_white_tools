@@ -4,6 +4,24 @@ Saved Claude-authored plans for the Neon White app. Newest at the top. Full plan
 
 ---
 
+# Beta Round 2 — Deep Fixes & UX Improvements
+*Drafted 2026-05-11*
+
+**Full plan:** `E:\Claude-Neon-White-App\plans\beta-round-2-deep-fixes.md`
+
+**TL;DR:** Five remaining beta-feedback items after the round-1 quick wins shipped same day. (1) **Welcome page** on first launch + **smart routing** (last-used tab) on subsequent launches, gated by `welcome_seen` config flag. (2) **Tied WRs** — investigate sheet schema first, then expand `get_wr_for` to return a list and stack entries in `WorldRecordVods.jsx`. (3) **Opt-in DLL finder** — new `dll_finder.py` module with read-only `HKCU\Software\Valve\Steam\SteamPath` lookup + `libraryfolders.vdf` parse + recursive fallback; triggered only by a "Find DLL" button on Welcome + Settings, never on launch. (4) **Window resize/snap-back** — research pywebview frameless+resizable Windows behavior, write an ADR, then fix. (5) **Side panel scrolling** — needs repro from Restrain before action. Ships as `beta.2` (Phase A+B) and `beta.3` (Phase C after investigation).
+
+---
+
+# Beta Release (private/Discord distribution)
+*Approved 2026-05-10*
+
+**Full plan:** `C:\Users\iamro\.claude\plans\want-to-chat-about-mutable-goblet.md`
+
+**TL;DR:** Ship `v1.11.0-beta.1` privately via Discord/direct link. Sheets push stays disabled (already absent from the pywebview app — it was only ever wired into the legacy tkinter UI). Strip the entire Google SDK collection from `SteamScraper/neonwhite.spec` (lines 11–77 + `runtime_hooks=['rthook_google.py']`); the pywebview entry never imports `googleapiclient`/`google_auth_oauthlib`/`requests`/`httplib2`, so PyInstaller's static analysis won't pull them in once the explicit `collect_all` calls are gone. Expected EXE size: ~60–90 MB → ~20–25 MB. Keep `sheets.py`, `credentials.json`, `rthook_google.py` on disk for the legacy app — they just won't be in the bundle. Polish includes the two pre-existing bugs in `00_Inbox/todo.md` (Run Timer parser, Seed Finder `finder_result`) **only if** they reach the webview path; both are likely legacy-only. Pre-flight: verify no secrets in git history, bump `VERSION` at `SteamScraper/neonwhite_app.py:51`, build, smoke-test all 14 pages on a clean machine, document SmartScreen workaround. PyInstaller now; Nuitka, code signing, GitHub Releases + auto-update banner all deferred to post-beta.
+
+---
+
 # Community Guides — Watchlist & Watched markers
 *Approved 2026-05-10 — handoff prompt for Sonnet included*
 

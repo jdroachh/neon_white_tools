@@ -7,6 +7,7 @@ will slow per-search startup.
 """
 import ctypes
 import os
+import sys
 
 _MBIG = 2147483647
 _SHUFFLE_LIB = None  # populated by _load_c_shuffle()
@@ -51,7 +52,11 @@ void full_shuffle(int num_levels, int seed, int* arr) {
 def _load_c_shuffle():
     """Load pre-compiled shuffle.dll. No compiler required at runtime."""
     global _SHUFFLE_LIB
-    dll_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "shuffle.dll")
+    # When frozen, PyInstaller extracts bundled binaries to sys._MEIPASS.
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        dll_path = os.path.join(sys._MEIPASS, "shuffle.dll")
+    else:
+        dll_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "shuffle.dll")
     if not os.path.exists(dll_path):
         return False
     try:

@@ -103,7 +103,7 @@ export default function Guides() {
   const [guides, setGuides]        = useState([]);
   const [loaded, setLoaded]        = useState(false);
   const [query, setQuery]          = useState("");
-  const [categories, setCats]      = useState(new Set(ALL_CATS));
+  const [activeCat, setActiveCat]  = useState("route");
   const [level, setLevel]          = useState("");
   const [expandedIdx, setExpanded] = useState(null);
 
@@ -157,15 +157,7 @@ export default function Guides() {
     return () => clearTimeout(id);
   }, [guidesLoaded, loaded]);
 
-  useEffect(() => { setExpanded(null); }, [query, categories, level]);
-
-  function toggleCat(cat) {
-    setCats(prev => {
-      const next = new Set(prev);
-      if (next.has(cat)) next.delete(cat); else next.add(cat);
-      return next;
-    });
-  }
+  useEffect(() => { setExpanded(null); }, [query, activeCat, level]);
 
   // Cycle: null → watchlist → watched → null.
   // Uses functional setState so rapid clicks never read stale closure state.
@@ -198,7 +190,7 @@ export default function Guides() {
   )].sort();
 
   const filtered = guides.filter(g => {
-    if (!categories.has(g.category)) return false;
+    if (g.category !== activeCat) return false;
     if (g.category === "route" && level && g.level !== level) return false;
     const ytId = extractYouTubeId(g.url);
     if (hideWatched && ytId && watched.has(ytId)) return false;
@@ -213,26 +205,38 @@ export default function Guides() {
   return (
     <>
       <PageHead crumb="Resources" title="COMMUNITY" accentWord="GUIDES" />
+      <div style={{ borderBottom: "1px solid var(--border)", display: "flex", gap: 0, padding: "0 16px" }}>
+        {ALL_CATS.map(cat => {
+          const isActive = activeCat === cat;
+          return (
+            <div key={cat}
+              onClick={() => setActiveCat(cat)}
+              style={{
+                padding: "10px 14px",
+                cursor: "pointer",
+                fontSize: 12,
+                fontWeight: isActive ? 600 : 500,
+                color: isActive ? "var(--accent)" : "var(--text-2)",
+                borderBottom: `2px solid ${isActive ? "var(--accent)" : "transparent"}`,
+                marginBottom: -1,
+                userSelect: "none",
+              }}>
+              {CAT_LABELS[cat]}
+            </div>
+          );
+        })}
+      </div>
       <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 8 }}>
         <input
           className="input"
-          placeholder="Search guides by title, author, or level"
+          placeholder={`Search ${CAT_LABELS[activeCat].toLowerCase()} by title, author${activeCat === "route" ? ", or level" : ""}`}
           value={query}
           onChange={e => setQuery(e.target.value)}
           style={{ width: "100%", boxSizing: "border-box" }}
         />
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-          {ALL_CATS.map(cat => (
-            <span key={cat}
-              className={"seg-btn " + (categories.has(cat) ? "on" : "")}
-              onClick={() => toggleCat(cat)}
-              style={{ cursor: "pointer" }}>
-              {CAT_LABELS[cat]}
-            </span>
-          ))}
-          {categories.has("route") && levelOptions.length > 0 && (
-            <select className="input" value={level} onChange={e => setLevel(e.target.value)}
-              style={{ marginLeft: 4 }}>
+          {activeCat === "route" && levelOptions.length > 0 && (
+            <select className="input" value={level} onChange={e => setLevel(e.target.value)}>
               <option value="">All levels</option>
               {levelOptions.map(l => <option key={l} value={l}>{l}</option>)}
             </select>
@@ -243,7 +247,7 @@ export default function Guides() {
               saveConfigFields({ guide_hide_watched: !v }).catch(() => {});
               return !v;
             })}
-            style={{ cursor: "pointer", marginLeft: 4 }}>
+            style={{ cursor: "pointer" }}>
             Hide watched
           </span>
           <span

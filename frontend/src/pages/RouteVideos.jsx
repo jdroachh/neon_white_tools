@@ -139,46 +139,7 @@ export default function RouteVideos() {
           </div>
         </div>
         <div className="panel-right" style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
-          {videoId ? (
-            <div style={{
-              position: "relative", width: "100%", paddingTop: "56.25%",
-              background: "#000", borderBottom: "1px solid var(--border)",
-            }}>
-              {videoError ? (
-                <div style={{
-                  position: "absolute", top: 0, left: 0, width: "100%", height: "100%",
-                  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                  gap: 12, color: "var(--muted)", fontSize: 12,
-                }}>
-                  <span>Could not load video in app.</span>
-                  <Btn kind="ghost" size="sm" onClick={() => handleOpen(selected.youtube_url)}>
-                    Open in YouTube
-                  </Btn>
-                </div>
-              ) : (
-                <iframe
-                  key={videoId}
-                  src={`https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`}
-                  style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: 0 }}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen
-                  referrerPolicy="strict-origin-when-cross-origin"
-                  title={selected ? selected.title : "video"}
-                />
-              )}
-            </div>
-          ) : (
-            <div className="muted" style={{
-              padding: 32, fontSize: 12, textAlign: "center",
-              borderBottom: "1px solid var(--border)",
-            }}>
-              {loading ? "Loading…"
-                : status.videos_loaded
-                  ? `No ${medal} videos indexed for ${level || "this stage"} yet.`
-                  : "Resources not loaded."}
-            </div>
-          )}
-          <div style={{ flex: 1, overflow: "auto" }}>
+          <div style={{ maxHeight: "40%", overflow: "auto", borderBottom: "1px solid var(--border)" }}>
             {rows.length > 0 && (
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead style={{ position: "sticky", top: 0, background: "var(--bg-2)" }}>
@@ -216,6 +177,44 @@ export default function RouteVideos() {
               </table>
             )}
           </div>
+          {videoId ? (
+            <div style={{
+              position: "relative", width: "100%", paddingTop: "56.25%",
+              background: "#000",
+            }}>
+              {videoError ? (
+                <div style={{
+                  position: "absolute", top: 0, left: 0, width: "100%", height: "100%",
+                  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                  gap: 12, color: "var(--muted)", fontSize: 12,
+                }}>
+                  <span>Could not load video in app.</span>
+                  <Btn kind="ghost" size="sm" onClick={() => handleOpen(selected.youtube_url)}>
+                    Open in YouTube
+                  </Btn>
+                </div>
+              ) : (
+                <iframe
+                  key={videoId}
+                  src={`https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`}
+                  style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: 0 }}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  title={selected ? selected.title : "video"}
+                />
+              )}
+            </div>
+          ) : (
+            <div className="muted" style={{
+              padding: 32, fontSize: 12, textAlign: "center",
+            }}>
+              {loading ? "Loading…"
+                : status.videos_loaded
+                  ? `No ${medal} videos indexed for ${level || "this stage"} yet.`
+                  : "Resources not loaded."}
+            </div>
+          )}
         </div>
       </div>
     </>

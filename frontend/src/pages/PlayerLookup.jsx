@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { PageHead, Field, Seg, Btn, ErrorBanner, MedalBadge, MedalToggle, AvgPlacementToggle } from "../shared.jsx";
+import { PageHead, Field, Seg, Btn, ErrorBanner, MedalBadge, MedalToggle } from "../shared.jsx";
 import { getLevels, getChapters, getSteamStatus, runPlayerLookup, stopLeaderboard, pickFolder } from "../api.js";
 
 const TH = { padding: "4px 8px", fontWeight: 600, fontSize: "0.91em", borderBottom: "1px solid var(--border)", textAlign: "left" };
@@ -22,7 +22,6 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "" }) {
   const [playerName, setPlayerName]   = useState("");
   const [showMedals, setShowMedals]   = useState(false);
   const [largeText, setLargeText]     = useState(false);
-  const [showAvg, setShowAvg]         = useState(false);
   const [totalLevels, setTotalLevels] = useState(0);
 
   useEffect(() => {
@@ -168,7 +167,6 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "" }) {
                 )}
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginLeft: "auto" }}>
                   <MedalToggle value={showMedals} onChange={setShowMedals} />
-                  <AvgPlacementToggle value={showAvg} onChange={setShowAvg} />
                   <Seg value={largeText ? "Large" : "Normal"} onChange={(v) => setLargeText(v === "Large")}
                        options={["Normal", "Large"]} />
                 </div>
@@ -198,7 +196,7 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "" }) {
                     ))}
                   </tbody>
                 </table>
-                {showAvg && !running && rows.length > 0 && (() => {
+                {!running && rows.length > 0 && (() => {
                   const avgRank = Math.round(rows.reduce((s, r) => s + r.rank, 0) / rows.length);
                   return (
                     <div style={{

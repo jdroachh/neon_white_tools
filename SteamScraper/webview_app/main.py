@@ -7,7 +7,9 @@ Serves frontend/dist/ over a loopback HTTP server so WebView2 loads the page
 from http://127.0.0.1:<port>/ instead of file://. This gives the page a proper
 origin, which is required for YouTube iframes to load without error 153.
 """
+import multiprocessing
 import os
+import platform
 import socket
 import sys
 import threading
@@ -15,13 +17,47 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 import webview
 
-from .bridge import JsApi
+# sys.path setup so `logger` and `bridge` resolve identically.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-_DIST_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-    "frontend", "dist",
-)
+from logger import get_logger
+from .bridge import JsApi, APP_VERSION
+
+_log = get_logger(__name__)
+
+# When frozen, frontend assets land inside the PyInstaller bundle's _internal/
+# directory (a.k.a. sys._MEIPASS). In dev they sit three levels up from this file.
+if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+    _DIST_DIR = os.path.join(sys._MEIPASS, "frontend", "dist")
+else:
+    _DIST_DIR = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+        "frontend", "dist",
+    )
 _INDEX_HTML = os.path.join(_DIST_DIR, "index.html")
+
+
+def _install_crash_hooks() -> None:
+    """Funnel uncaught exceptions (main thread + worker threads) into app.log.
+    Without this, pywebview's traceback only reaches stderr — invisible to
+    end-users running the frozen EXE.
+    """
+    def _hook(exc_type, exc_value, tb):
+        if issubclass(exc_type, KeyboardInterrupt):
+            sys.__excepthook__(exc_type, exc_value, tb)
+            return
+        _log.exception("Unhandled exception", exc_info=(exc_type, exc_value, tb))
+    sys.excepthook = _hook
+
+    def _thread_hook(args):
+        if issubclass(args.exc_type, SystemExit):
+            return
+        _log.exception(
+            "Unhandled exception in thread %s",
+            args.thread.name if args.thread else "?",
+            exc_info=(args.exc_type, args.exc_value, args.exc_traceback),
+        )
+    threading.excepthook = _thread_hook
 
 
 def _find_free_port() -> int:
@@ -43,6 +79,12 @@ def _start_server(directory: str, port: int) -> None:
 
 
 def _main():
+    _install_crash_hooks()
+    _log.info(
+        "NeonWhiteTool v%s starting (Python %s on %s)",
+        APP_VERSION, platform.python_version(), platform.platform(),
+    )
+
     if not os.path.exists(_INDEX_HTML):
         sys.exit(
             f"[webview_app] frontend not built — expected: {_INDEX_HTML}\n"
@@ -70,4 +112,7 @@ def _main():
 
 
 if __name__ == "__main__":
+    # Must be the very first call when frozen on Windows — without it, worker
+    # processes re-execute the whole app instead of running the worker target.
+    multiprocessing.freeze_support()
     _main()
