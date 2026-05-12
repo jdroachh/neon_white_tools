@@ -1,0 +1,3 @@
+pywebview
+pydantic
+pyinstaller

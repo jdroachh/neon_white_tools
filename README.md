@@ -45,17 +45,19 @@ No installer. No admin rights required. Settings are stored in `neonwhite_config
 **Prerequisites:** Python 3.12+, Node 20+
 
 ```powershell
-# 1. Build the React frontend
+# 1. Install Python dependencies
+pip install -r requirements.txt
+
+# 2. Build the React frontend
 cd frontend
 npm install
 npm run build
 cd ..
 
-# 2. Run in dev mode (no EXE needed)
+# 3. Run in dev mode (no EXE needed)
 python -m SteamScraper.webview_app.main
 
-# 3. Build the EXE (one-dir, ~73 MB)
-pip install pyinstaller
+# 4. Build the EXE (one-dir, ~73 MB)
 cd SteamScraper
 pyinstaller neonwhite.spec
 # Output: SteamScraper/dist/NeonWhiteLeaderboardTool/
