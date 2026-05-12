@@ -2,7 +2,7 @@
 
 A speedrun analysis app for [Neon White](https://store.steampowered.com/app/1533420/Neon_White/) that pulls live leaderboard data via the Steamworks SDK and surfaces it in a fast local UI.
 
-**[Download the latest release →](https://github.com/jdroachh/neon-white-tools/releases/latest)**
+**[Download the latest release →](https://github.com/jdroachh/neon_white_tools/releases/latest)**
 
 
 
@@ -31,7 +31,7 @@ The app locates `steam_api64.dll` automatically via the Steam registry → `libr
 
 ## Installation
 
-1. Download `NeonWhiteLeaderboardTool-<version>.zip` from the [Releases page](https://github.com/jdroachh/neon-white-tools/releases/latest)
+1. Download `NeonWhiteLeaderboardTool-<version>.zip` from the [Releases page](https://github.com/jdroachh/neon_white_tools/releases/latest)
 2. Unzip anywhere (e.g. `C:\Games\NeonWhiteLeaderboardTool\`)
 3. Run `NeonWhiteLeaderboardTool.exe`
 4. On first launch the Welcome page will guide you through finding `steam_api64.dll`
