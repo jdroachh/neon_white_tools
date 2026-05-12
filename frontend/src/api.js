@@ -37,6 +37,7 @@ export async function minimizeWindow() {
   return api.minimize_window();
 }
 
+
 export async function toggleMaximize() {
   const api = await waitForApi();
   return api.toggle_maximize();

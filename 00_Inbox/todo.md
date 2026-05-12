@@ -17,8 +17,8 @@
 
 - ~~**First page: Welcome + smart routing**~~ ✓ DONE 2026-05-11 — Welcome page on first launch (`welcome_seen` flag); "GETTING STARTED" header; "Find Steam DLL & Connect" button (registry → VDF → recursive game-dir search); "I'll set it up later" link; "Don't show again" checkbox; post-connect landing panel; `last_tab` smart routing on subsequent launches.
 - ~~**Smart `steam_api64.dll` finder**~~ ✓ DONE 2026-05-11 — `dll_finder.py`; wired into Welcome + Settings "Find DLL" button; finds DLL inside `Neon White_Data/Plugins/x86_64/` via unlimited-depth game-dir search.
-- [ ] **Window snaps back to center, can't drag edges to resize** (Restrain) — Phase C: write ADR first, then fix
-- [ ] **Tied WRs / multiple WRs handling** (DerelictJade) — Phase C: inspect WR sheet schema, write ADR, then fix
+- ~~**Window snaps back to center, can't drag edges to resize**~~ ✓ DONE 2026-05-12 — Dropped `frameless=True`; native chrome provides edge-drag resize. Title bar themed to `#050505` / `#f0f0e8` via DWM `DWMWA_CAPTION_COLOR` + `DWMWA_TEXT_COLOR`. ADR: `02_Decisions/2026-05-11-window-resize.md`.
+- ~~**Tied WRs / multiple WRs handling**~~ — investigated 2026-05-11: WR sheet stores only one runner per platform per level; ties are informally noted in the video title string only. Deferred — consider speedrun.com API as a proper data source post-V1.
 - [ ] **Side panel scrolling broken** (Restrain) — blocked on repro of which page
 
 - ~~**Community Guides: watchlist / watched markers**~~ ✓ DONE — cycling ○/✓/✗ icon per row, "Hide watched" + "Watchlist only" filter pills (combinable, now persistent), keyed by YouTube ID, persisted in `neonwhite_config.json`. Race conditions fixed: `_CONFIG_LOCK` + atomic `save_config_fields`, functional setState. Resource-page load race fixed for Guides, Route Videos, Ghosts (polling until `*_loaded` flips).

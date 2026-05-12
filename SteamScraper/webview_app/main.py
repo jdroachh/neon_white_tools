@@ -17,6 +17,60 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 import webview
 
+# ── Win32 title-bar theming ───────────────────────────────────────────────────
+# Match the native title bar to the app's dark theme using DWM attributes.
+# DWMWA_USE_IMMERSIVE_DARK_MODE works on Windows 10 21H1+.
+# DWMWA_CAPTION_COLOR / DWMWA_TEXT_COLOR require Windows 11 Build 22000+.
+# All three are applied best-effort — failures are logged and ignored.
+
+def _rgb_to_colorref(hex_color: str) -> int:
+    """Convert #RRGGBB to a Win32 COLORREF (0x00BBGGRR)."""
+    h = hex_color.lstrip("#")
+    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    return (b << 16) | (g << 8) | r
+
+_TITLEBAR_BG   = "#050505"   # matches --titlebar in dark theme
+_TITLEBAR_TEXT = "#f0f0e8"   # matches --titlebar-text in dark theme
+
+def _apply_titlebar_theme(hwnd: int) -> None:
+    if sys.platform != "win32":
+        return
+    import ctypes
+    dwm = ctypes.windll.dwmapi
+    DWMWA_USE_IMMERSIVE_DARK_MODE = 20
+    DWMWA_CAPTION_COLOR           = 35
+    DWMWA_TEXT_COLOR              = 36
+
+    try:
+        dark = ctypes.c_int(1)
+        dwm.DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE,
+                                   ctypes.byref(dark), ctypes.sizeof(dark))
+    except Exception as e:
+        _log.debug("titlebar dark mode unavailable: %s", e)
+
+    for attr, color in ((DWMWA_CAPTION_COLOR, _TITLEBAR_BG),
+                        (DWMWA_TEXT_COLOR,    _TITLEBAR_TEXT)):
+        try:
+            ref = ctypes.c_uint32(_rgb_to_colorref(color))
+            dwm.DwmSetWindowAttribute(hwnd, attr, ctypes.byref(ref), ctypes.sizeof(ref))
+        except Exception as e:
+            _log.debug("DwmSetWindowAttribute attr=%d failed: %s", attr, e)
+
+def _titlebar_theme_worker() -> None:
+    """Poll until the window is visible, then apply DWM title-bar theming."""
+    if sys.platform != "win32":
+        return
+    import ctypes
+    import time
+    for _ in range(40):
+        time.sleep(0.1)
+        hwnd = ctypes.windll.user32.FindWindowW(None, "Neon White Tools")
+        if hwnd and ctypes.windll.user32.IsWindowVisible(hwnd):
+            _apply_titlebar_theme(hwnd)
+            _log.debug("titlebar theme applied to hwnd=0x%x", hwnd)
+            return
+    _log.warning("titlebar theme: window not found after 4s")
+
 # sys.path setup so `logger` and `bridge` resolve identically.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -94,8 +148,7 @@ def _main():
     port = _find_free_port()
     _start_server(_DIST_DIR, port)
 
-    webview.settings['DRAG_REGION_SELECTOR'] = '.titlebar'
-
+    threading.Thread(target=_titlebar_theme_worker, daemon=True).start()
     api = JsApi()
     webview.create_window(
         title="Neon White Tools",
@@ -104,9 +157,8 @@ def _main():
         width=1440,
         height=900,
         min_size=(800, 600),
+        resizable=True,
         text_select=False,
-        frameless=True,
-        easy_drag=False,
     )
     webview.start(debug=False)
 

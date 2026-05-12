@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
 
-import { Titlebar, Sidebar } from "./shared.jsx";
+import { Sidebar } from "./shared.jsx";
 import { getSteamStatus, getConfig, applyAccent, saveConfigFields } from "./api.js";
 import Welcome       from "./pages/Welcome.jsx";
 import SeedParser    from "./pages/SeedParser.jsx";
@@ -142,7 +142,6 @@ function App() {
   return (
     <div className="hifi dark"
          style={{ width: "100vw", height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-      <Titlebar pageTitle={PAGE_TITLES[page] || page} />
       <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
         <Sidebar active={page} onNav={handleNav}
                  steamReady={steamStatus.ready} playerName={steamStatus.playerName} />
