@@ -61,7 +61,7 @@ pyinstaller neonwhite.spec
 # Output: SteamScraper/dist/NeonWhiteLeaderboardTool/
 ```
 
-`neonwhite.spec` is production-ready and correctly excludes Google SDK, `credentials.json`, and `steam_api64.dll` (users supply their own DLL at runtime).
+`neonwhite.spec` is production-ready and correctly excludes `steam_api64.dll` (users supply their own DLL at runtime).
 
 Copy `neonwhite_config.example.json` to `neonwhite_config.json` and fill in your `dll_path` to skip the Welcome-page setup flow on first launch.
 
@@ -80,12 +80,6 @@ Copy `neonwhite_config.example.json` to `neonwhite_config.json` and fill in your
 | `guide_watchlist_only` | bool | Show only watchlisted guides |
 | `welcome_seen` | bool | Skip Welcome page on next launch |
 | `last_tab` | string | Re-open to this tab on launch |
-
----
-
-## Optional: Google Sheets push
-
-The legacy tkinter build supports pushing leaderboard exports to a Google Sheet. The webview app (the public release) does not include a Sheets UI — this is a future feature. If you need it today, drop your own `credentials.json` (OAuth desktop client) next to the EXE and use the legacy build path.
 
 ---
 
