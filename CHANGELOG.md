@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to the Neon White Leaderboard Tool are documented here.
+All notable changes to Neon White Tools are documented here.
 
 ---
 

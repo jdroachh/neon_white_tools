@@ -7,8 +7,9 @@ SteamScraper/token.json
 SteamScraper/tokenold.json
 
 # ── User config (per-machine paths, Sheet IDs) ────────────────────────
-# Track a neonwhite_config.example.json template instead (todo item).
+# Track neonwhite_config.example.json as a sanitized template instead.
 SteamScraper/neonwhite_config.json
+neonwhite_config.json
 
 # ── Third-party redistributables ──────────────────────────────────────
 # Valve's Steam runtime DLL — users should supply their own from their
@@ -19,6 +20,8 @@ SteamScraper/steam_api64.dll
 # Permission allowlists granted on this machine. A shared .claude/settings.json
 # (without `.local`) IS meant to be tracked if you ever add one.
 .claude/settings.local.json
+SteamScraper/.claude/
+steam_appid.txt
 
 # ── Python ────────────────────────────────────────────────────────────
 __pycache__/
@@ -46,11 +49,22 @@ SteamScraper/shuffle.obj
 # ── CSV outputs (sample/test data, regenerable) ───────────────────────
 SteamScraper/*.csv
 
-# ── Obsidian per-user state ───────────────────────────────────────────
-# workspace.json churns every time you change panes — would dominate diffs.
-.obsidian/workspace.json
-.obsidian/workspace-mobile.json
-.obsidian/cache
+# ── Obsidian vault — local working notes, not part of public repo ─────
+00_Inbox/
+01_Codebase_Map/
+02_Decisions/
+03_Sessions/
+plans/
+.obsidian/
+CLAUDE.md
+
+# ── Loose local-only files ────────────────────────────────────────────
+scraps/
+uploads/
+ClaudeDesignHandoff/
+fonts/
+tests/Ghosts Upload Log.md
+i-m-configuring-a-frontend-declarative-clover.md
 
 # ── OS / editor cruft ─────────────────────────────────────────────────
 Thumbs.db
@@ -72,3 +86,29 @@ frontend/dist/
 # ── tools/ dev scripts ────────────────────────────────────────────────────────
 tools/.ghosts_token.json
 tools/__pycache__/
+
+# ── Legacy tkinter app (untracked; files kept on disk for reference) ──────────
+SteamScraper/Neon White App versions/
+SteamScraper/neonwhite_app.py
+SteamScraper/tab_*.py
+SteamScraper/leaderboard.py
+SteamScraper/discover.py
+SteamScraper/testingBalloon.py
+SteamScraper/test_sheets_write.py
+
+# ── Standalone scripts and dev probes (not part of live app) ─────────────────
+SteamScraper/IL_level_search.py
+SteamScraper/_seed_algo_probe.py
+SteamScraper/_seed_finder_test.py
+SteamScraper/_seed_ground_truth.py
+SteamScraper/fullGlobalTop1000.py
+SteamScraper/globalLeaderboard.py
+SteamScraper/movement_leaderboard.py
+SteamScraper/neonwhite_player_lookup.py
+SteamScraper/neonwhite_player_lookup-v2.py
+SteamScraper/sheets.py
+SteamScraper/rthook_google.py
+tools/build_ghosts_sheet.py
+
+# ── SteamScraper untracked loose files ───────────────────────────────────────
+SteamScraper/_seed_repro.py
