@@ -39,6 +39,10 @@ SteamScraper/dist/
 NeonWhiteLeaderboardTool.exe
 SteamScraper/NeonWhiteLeaderboardTool.exe
 
+# Release zips and notes (built locally; uploaded to GitHub Releases instead)
+NeonWhiteLeaderboardTool-*.zip
+release-notes.md
+
 # ── Compiled C side-products (keep shuffle.dll itself) ────────────────
 # shuffle.dll is committed so the app runs out-of-box without a C compiler.
 # These are intermediate MSVC linker outputs from compile_shuffle.py.
