@@ -40,7 +40,7 @@ From the repo root (`E:\Claude-Neon-White-App`):
 cd frontend
 npm run build
 cd ..\SteamScraper
-pyinstaller neonwhite.spec
+python -m PyInstaller neonwhite.spec
 # Output: SteamScraper\dist\NeonWhiteLeaderboardTool\
 ```
 
