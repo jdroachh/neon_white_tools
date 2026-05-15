@@ -6,6 +6,17 @@ All notable changes to Neon White Tools are documented here.
 
 ## [Unreleased]
 
+---
+
+## [1.0.0-beta.2] — 2026-05-14
+
+### Fixed
+- **Medal thresholds corrected for 33 levels** — chapters 7–12 and 5 violet sidequests had thresholds significantly tighter than in-game values, causing late-game levels to show BRONZE instead of the correct medal (DEV, ACE, etc.)
+
+---
+
+## [1.0.0-beta.1] — 2026-05-12
+
 ### Added
 - **Ghosts library wired**: 472 ghost replays across 121 levels now load in-app from the published Google Sheet
 - **`tools/build_ghosts_sheet.py`**: one-shot dev script to walk the Drive tree (`Ghosts/<Chapter>/<Level>/<Medal>/<Player> - <Time>/`) and write the Ghosts index sheet; handles `1-1 `/ `V-1 `/ `R-1 `/ `Y-1 ` folder prefixes automatically; re-running is idempotent
