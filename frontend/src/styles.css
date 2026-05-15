@@ -158,7 +158,8 @@
   cursor: pointer;
   user-select: none;
 }
-.hifi .sidebar-section .caret { font-size: 8px; }
+.hifi .sidebar-section .caret { font-size: 8px; transition: transform 0.15s; }
+.hifi .sidebar-section.collapsed .caret { transform: rotate(-90deg); }
 
 .hifi .nav {
   display: flex;

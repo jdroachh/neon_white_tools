@@ -3,8 +3,8 @@
  * Converted from Babel-in-browser globals to ES module exports.
  * seededOrder() removed — replaced by api.parseSeed() at call sites.
  */
-import React from "react";
-import { minimizeWindow, toggleMaximize, closeWindow } from "./api.js";
+import React, { useState, useEffect } from "react";
+import { minimizeWindow, toggleMaximize, closeWindow, getConfig, saveConfigField } from "./api.js";
 
 export const RUSHES = [
   { name: "White / Mikey", count: 96 },
@@ -81,52 +81,77 @@ const NAV_ITEMS = {
 };
 
 /* onNav: (key: string) => void — called when a nav item is clicked */
-export const Sidebar = ({ active = "parse", onNav, steamReady = false, playerName = "" }) => (
-  <div className="sidebar">
-    <div className="sidebar-brand">
-      <div className="logo">NEON<br /><span className="accent">WHITE</span></div>
-      <div className="ver">Tools · v1.11.0-beta.1</div>
+export function Sidebar({ active = "parse", onNav, steamReady = false, playerName = "" }) {
+  const [collapsed, setCollapsed] = useState({ leaderboard: false, rush: false, resources: false });
+
+  useEffect(() => {
+    getConfig().then(cfg => {
+      if (cfg.sidebar_collapsed) setCollapsed(c => ({ ...c, ...cfg.sidebar_collapsed }));
+    });
+  }, []);
+
+  function toggle(section) {
+    const next = { ...collapsed, [section]: !collapsed[section] };
+    setCollapsed(next);
+    saveConfigField("sidebar_collapsed", next);
+  }
+
+  return (
+    <div className="sidebar">
+      <div className="sidebar-brand">
+        <div className="logo">NEON<br /><span className="accent">WHITE</span></div>
+        <div className="ver">Tools · v1.11.0-beta.1</div>
+      </div>
+      <div className={"sidebar-section" + (collapsed.leaderboard ? " collapsed" : "")}
+           onClick={() => toggle("leaderboard")}>
+        <span className="caret"><Icon name="caret" size={10} /></span> Leaderboard Tools
+      </div>
+      {!collapsed.leaderboard && NAV_ITEMS.leaderboard.map(n => (
+        <div key={n.key}
+             className={"nav " + (active === n.key ? "active" : "")}
+             onClick={() => onNav && onNav(n.key)}
+             style={{ cursor: "pointer" }}>
+          <span className="icn"><Icon name={n.icn} /></span>{n.label}
+        </div>
+      ))}
+      <div className={"sidebar-section" + (collapsed.rush ? " collapsed" : "")}
+           onClick={() => toggle("rush")}>
+        <span className="caret"><Icon name="caret" size={10} /></span> Rush Tools
+      </div>
+      {!collapsed.rush && NAV_ITEMS.rush.map(n => (
+        <div key={n.key}
+             className={"nav " + (active === n.key ? "active" : "")}
+             onClick={() => onNav && onNav(n.key)}
+             style={{ cursor: "pointer" }}>
+          <span className="icn"><Icon name={n.icn} /></span>{n.label}
+        </div>
+      ))}
+      <div className={"sidebar-section" + (collapsed.resources ? " collapsed" : "")}
+           onClick={() => toggle("resources")}>
+        <span className="caret"><Icon name="caret" size={10} /></span> Resources
+      </div>
+      {!collapsed.resources && NAV_ITEMS.resources.map(n => (
+        <div key={n.key}
+             className={"nav " + (active === n.key ? "active" : "")}
+             onClick={() => onNav && onNav(n.key)}
+             style={{ cursor: "pointer" }}>
+          <span className="icn"><Icon name={n.icn} /></span>{n.label}
+        </div>
+      ))}
+      <div className="sidebar-spacer"></div>
+      <div className={"nav " + (active === "settings" ? "active" : "")}
+           onClick={() => onNav && onNav("settings")} style={{ cursor: "pointer" }}>
+        <span className="icn"><Icon name="gear" /></span>Settings
+      </div>
+      <div className="sidebar-footer">
+        <div className="row">
+          <span className={"dot " + (steamReady ? "ok" : "bad")}></span>
+          {steamReady ? (playerName || "Connected") : "Not connected"}
+        </div>
+      </div>
     </div>
-    <div className="sidebar-section"><Icon name="caret" size={10} /> Leaderboard Tools</div>
-    {NAV_ITEMS.leaderboard.map(n => (
-      <div key={n.key}
-           className={"nav " + (active === n.key ? "active" : "")}
-           onClick={() => onNav && onNav(n.key)}
-           style={{ cursor: "pointer" }}>
-        <span className="icn"><Icon name={n.icn} /></span>{n.label}
-      </div>
-    ))}
-    <div className="sidebar-section"><Icon name="caret" size={10} /> Rush Tools</div>
-    {NAV_ITEMS.rush.map(n => (
-      <div key={n.key}
-           className={"nav " + (active === n.key ? "active" : "")}
-           onClick={() => onNav && onNav(n.key)}
-           style={{ cursor: "pointer" }}>
-        <span className="icn"><Icon name={n.icn} /></span>{n.label}
-      </div>
-    ))}
-    <div className="sidebar-section"><Icon name="caret" size={10} /> Resources</div>
-    {NAV_ITEMS.resources.map(n => (
-      <div key={n.key}
-           className={"nav " + (active === n.key ? "active" : "")}
-           onClick={() => onNav && onNav(n.key)}
-           style={{ cursor: "pointer" }}>
-        <span className="icn"><Icon name={n.icn} /></span>{n.label}
-      </div>
-    ))}
-    <div className="sidebar-spacer"></div>
-    <div className={"nav " + (active === "settings" ? "active" : "")}
-         onClick={() => onNav && onNav("settings")} style={{ cursor: "pointer" }}>
-      <span className="icn"><Icon name="gear" /></span>Settings
-    </div>
-    <div className="sidebar-footer">
-      <div className="row">
-        <span className={"dot " + (steamReady ? "ok" : "bad")}></span>
-        {steamReady ? (playerName || "Connected") : "Not connected"}
-      </div>
-    </div>
-  </div>
-);
+  );
+}
 
 /* === Page header === */
 export const PageHead = ({ crumb, title, accentWord, subtitle, actions }) => (
