@@ -6,6 +6,11 @@ All notable changes to Neon White Tools are documented here.
 
 ## [Unreleased]
 
+### Added
+- **Compare Players & Player Lookup — medal count breakdown**: when the Medals toggle is on, a row of colored MedalBadge pills with per-tier counts appears in the footer (Player Lookup) and in the stats strip (Compare Players, one row per player). Only tiers with at least one entry are shown, ordered rarest → most common. Hidden when Medals is off.
+- **Compare Players — sort & filter dropdowns**: available in chapter and game modes. Sort options: Level (default), P1 Rank, P2 Rank, P1 Lead, P2 Lead, Closest Gap, Medal Tier. Filter options: All (default), P1 Leads, P2 Leads, Gap > 1s, Medal Mismatch, Missing. Rows with a missing player always fall to the bottom under non-level sorts. Sort and filter reset to defaults on each new Compare run.
+- **Compare Players — summary stats strip**: two-line panel shown above the table in chapter and game modes. Line 1: win record (`P1 X–Y P2`), signed total delta, tie count, missing count. Line 2: biggest lead (player + level + delta), closest gap (level + ±delta), best rank for each player. Hides when no rows are loaded.
+
 ---
 
 ## [1.0.0-beta.2] — 2026-05-14

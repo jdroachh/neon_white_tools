@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { PageHead, Field, Seg, Btn, ErrorBanner, MedalBadge, MedalToggle } from "../shared.jsx";
 import { getLevels, getChapters, getSteamStatus, runComparePlayers, stopLeaderboard, pickFolder } from "../api.js";
 import { loadProfiles, saveProfiles, addProfile, isValidNewId } from "../lib/savedProfiles.js";
@@ -38,6 +38,8 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
   const [largeText, setLargeText]         = useState(false);
   const [savedProfiles, setSavedProfiles] = useState([]);
   const [openDropdown, setOpenDropdown]   = useState(null); // "p1" | "p2" | null
+  const [sortKey, setSortKey]             = useState("level");
+  const [filterKey, setFilterKey]         = useState("all");
 
   useEffect(() => {
     getLevels().then(ls => { setLevels(ls); if (ls.length) setLevelName(ls[0].display); });
@@ -110,6 +112,7 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
 
   async function handleRun() {
     setError(""); setStatus(""); setRows([]); setPlayerName1(""); setPlayerName2("");
+    setSortKey("level"); setFilterKey("all");
     const target = mode === "level" ? levelName : mode === "chapter" ? chapterName : "";
     const r = await runComparePlayers(steamId1, steamId2, mode, target, outMode, folder);
     if (!r.ok) { setError(r.error); return; }
@@ -135,6 +138,68 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
     });
     navigator.clipboard.writeText([header, ...lines].join("\n")).catch(() => {});
   }
+
+  const MEDAL_TIER_ORDER = ["BLOOD DIAMOND","TOPAZ","SAPPHIRE","AMETHYST","EMERALD","DEV","ACE","GOLD","SILVER","BRONZE"];
+
+  const stats = useMemo(() => {
+    if (!rows.length) return null;
+    const bothPresent = rows.filter(r => r.p1 && r.p2);
+    const p1Wins = rows.filter(r => r.faster === "p1").length;
+    const p2Wins = rows.filter(r => r.faster === "p2").length;
+    const ties = bothPresent.filter(r => r.faster !== "p1" && r.faster !== "p2").length;
+    const missing = rows.filter(r => !r.p1 || !r.p2).length;
+    const totalDeltaMs = bothPresent.reduce((s, r) => s + r.delta_ms, 0);
+    const biggestLead = bothPresent.length
+      ? bothPresent.reduce((best, r) => Math.abs(r.delta_ms) > Math.abs(best.delta_ms) ? r : best)
+      : null;
+    const closestGap = bothPresent.length
+      ? bothPresent.reduce((best, r) => Math.abs(r.delta_ms) < Math.abs(best.delta_ms) ? r : best)
+      : null;
+    const p1Rows = rows.filter(r => r.p1);
+    const p2Rows = rows.filter(r => r.p2);
+    const bestP1 = p1Rows.length ? p1Rows.reduce((best, r) => r.p1.rank < best.p1.rank ? r : best) : null;
+    const bestP2 = p2Rows.length ? p2Rows.reduce((best, r) => r.p2.rank < best.p2.rank ? r : best) : null;
+    const p1MedalCounts = {};
+    const p2MedalCounts = {};
+    rows.forEach(r => {
+      if (r.p1?.medal) p1MedalCounts[r.p1.medal] = (p1MedalCounts[r.p1.medal] || 0) + 1;
+      if (r.p2?.medal) p2MedalCounts[r.p2.medal] = (p2MedalCounts[r.p2.medal] || 0) + 1;
+    });
+    return { p1Wins, p2Wins, ties, missing, totalDeltaMs, biggestLead, closestGap, bestP1, bestP2, p1MedalCounts, p2MedalCounts };
+  }, [rows]);
+
+  const displayRows = useMemo(() => {
+    const filtered = rows.filter(r => {
+      switch (filterKey) {
+        case "p1_leads":       return r.faster === "p1";
+        case "p2_leads":       return r.faster === "p2";
+        case "gap_over_1s":    return r.delta_ms != null && Math.abs(r.delta_ms) > 1000;
+        case "medal_mismatch": return r.p1 && r.p2 && r.p1.medal !== r.p2.medal;
+        case "missing":        return !r.p1 || !r.p2;
+        default:               return true;
+      }
+    });
+    if (sortKey === "level") return filtered;
+    return [...filtered].sort((a, b) => {
+      const aMissing = !a.p1 || !a.p2;
+      const bMissing = !b.p1 || !b.p2;
+      if (aMissing && bMissing) return 0;
+      if (aMissing) return 1;
+      if (bMissing) return -1;
+      switch (sortKey) {
+        case "rank_best_p1": return a.p1.rank - b.p1.rank;
+        case "rank_best_p2": return a.p2.rank - b.p2.rank;
+        case "gap_p1_lead":  return a.delta_ms - b.delta_ms;
+        case "gap_p2_lead":  return b.delta_ms - a.delta_ms;
+        case "gap_closest":  return Math.abs(a.delta_ms) - Math.abs(b.delta_ms);
+        case "medal_tier": {
+          const ai = MEDAL_TIER_ORDER.indexOf(a.p1?.medal); const bi = MEDAL_TIER_ORDER.indexOf(b.p1?.medal);
+          return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+        }
+        default: return 0;
+      }
+    });
+  }, [rows, sortKey, filterKey]);
 
   return (
     <>
@@ -309,11 +374,97 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
             </div>
           ) : rows.length > 0 ? (
             <>
+              {mode !== "level" && stats && (
+                <div style={{
+                  borderBottom: "1px solid var(--border)",
+                  padding: "8px 16px 6px",
+                  flexShrink: 0,
+                }}>
+                  <div style={{ fontSize: 11, color: "var(--text-2)", lineHeight: 1.7 }}>
+                    <span style={{ fontWeight: 600, color: "var(--text)" }}>{playerName1 || "Player 1"}</span>
+                    {" "}{stats.p1Wins}–{stats.p2Wins}{" "}
+                    <span style={{ fontWeight: 600, color: "var(--text)" }}>{playerName2 || "Player 2"}</span>
+                    {"  ·  "}{formatDelta(stats.totalDeltaMs)}s total
+                    {"  ·  "}{stats.ties} ties{"  ·  "}{stats.missing} missing
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--text-3)", lineHeight: 1.7 }}>
+                    {stats.biggestLead && <>
+                      Biggest lead:{" "}
+                      <span style={{ color: "var(--text-2)" }}>
+                        {stats.biggestLead.delta_ms < 0 ? (playerName1 || "P1") : (playerName2 || "P2")}
+                        {" "}{stats.biggestLead.level}{" "}({formatDelta(stats.biggestLead.delta_ms)}s)
+                      </span>
+                    </>}
+                    {stats.closestGap && <>
+                      {"  ·  "}Closest:{" "}
+                      <span style={{ color: "var(--text-2)" }}>
+                        {stats.closestGap.level} (±{(Math.abs(stats.closestGap.delta_ms) / 1000).toFixed(3)}s)
+                      </span>
+                    </>}
+                    {stats.bestP1 && <>
+                      {"  ·  "}Best P1:{" "}
+                      <span style={{ color: "var(--text-2)" }}>
+                        {stats.bestP1.level} #{stats.bestP1.p1.rank}
+                      </span>
+                    </>}
+                    {!stats.bestP1 && <>{"  ·  "}Best P1: <span style={{ color: "var(--text-2)" }}>—</span></>}
+                    {stats.bestP2 && <>
+                      {"  ·  "}Best P2:{" "}
+                      <span style={{ color: "var(--text-2)" }}>
+                        {stats.bestP2.level} #{stats.bestP2.p2.rank}
+                      </span>
+                    </>}
+                    {!stats.bestP2 && <>{"  ·  "}Best P2: <span style={{ color: "var(--text-2)" }}>—</span></>}
+                  </div>
+                  {showMedals && (
+                    <div style={{ marginTop: 4 }}>
+                      {[
+                        { label: playerName1 || "P1", counts: stats.p1MedalCounts },
+                        { label: playerName2 || "P2", counts: stats.p2MedalCounts },
+                      ].map(({ label, counts }) => (
+                        <div key={label} style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "4px 8px", fontSize: 11, color: "var(--text-3)", marginTop: 2 }}>
+                          <span style={{ color: "var(--text-3)", minWidth: 24 }}>{label}:</span>
+                          {MEDAL_TIER_ORDER.some(t => counts[t])
+                            ? MEDAL_TIER_ORDER.filter(t => counts[t]).map(t => (
+                                <span key={t} style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                                  <MedalBadge medal={t} />
+                                  <span style={{ color: "var(--text-3)" }}>{counts[t]}</span>
+                                </span>
+                              ))
+                            : <span>—</span>
+                          }
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
               <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px 6px", flexShrink: 0 }}>
                 <span style={{ fontSize: 12, fontWeight: 600, flex: 1 }}>
                   {playerName1 || "Player 1"} vs {playerName2 || "Player 2"}
                 </span>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginLeft: "auto" }}>
+                  {mode !== "level" && <>
+                    <select className="input" value={sortKey} onChange={e => setSortKey(e.target.value)}
+                            style={{ fontSize: 11 }}>
+                      <option value="level">Sort: Level</option>
+                      <option value="rank_best_p1">Sort: P1 Rank</option>
+                      <option value="rank_best_p2">Sort: P2 Rank</option>
+                      <option value="gap_p1_lead">Sort: P1 Lead</option>
+                      <option value="gap_p2_lead">Sort: P2 Lead</option>
+                      <option value="gap_closest">Sort: Closest</option>
+                      <option value="medal_tier">Sort: Medal</option>
+                    </select>
+                    <select className="input" value={filterKey} onChange={e => setFilterKey(e.target.value)}
+                            style={{ fontSize: 11 }}>
+                      <option value="all">Filter: All</option>
+                      <option value="p1_leads">Filter: P1 Leads</option>
+                      <option value="p2_leads">Filter: P2 Leads</option>
+                      <option value="gap_over_1s">Filter: Gap &gt; 1s</option>
+                      <option value="medal_mismatch">Filter: Medal Mismatch</option>
+                      <option value="missing">Filter: Missing</option>
+                    </select>
+                  </>}
                   <MedalToggle value={showMedals} onChange={setShowMedals} />
                   <Seg value={largeText ? "Large" : "Normal"} onChange={v => setLargeText(v === "Large")}
                        options={["Normal", "Large"]} />
@@ -334,7 +485,7 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map((r, i) => {
+                    {displayRows.map((r, i) => {
                       const p1bg    = r.faster === "p1" ? P1_BG : undefined;
                       const p2bg    = r.faster === "p2" ? P2_BG : undefined;
                       const dColor  = r.faster === "p1" ? P1_COLOR : r.faster === "p2" ? P2_COLOR : undefined;

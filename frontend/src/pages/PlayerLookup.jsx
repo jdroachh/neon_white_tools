@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { PageHead, Field, Seg, Btn, ErrorBanner, MedalBadge, MedalToggle } from "../shared.jsx";
 import { getLevels, getChapters, getSteamStatus, runPlayerLookup, stopLeaderboard, pickFolder } from "../api.js";
 
@@ -83,6 +83,14 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "" }) {
   }
 
   const showFolder = outMode === "csv" || outMode === "both";
+
+  const MEDAL_TIER_ORDER = ["BLOOD DIAMOND","TOPAZ","SAPPHIRE","AMETHYST","EMERALD","DEV","ACE","GOLD","SILVER","BRONZE"];
+
+  const medalCounts = useMemo(() => {
+    const counts = {};
+    rows.forEach(r => { if (r.medal) counts[r.medal] = (counts[r.medal] || 0) + 1; });
+    return counts;
+  }, [rows]);
 
   return (
     <>
@@ -206,6 +214,16 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "" }) {
                       color: "var(--text-2)",
                     }}>
                       Average Placement: #{avgRank} across {rows.length} / {totalLevels} levels
+                      {showMedals && MEDAL_TIER_ORDER.some(t => medalCounts[t]) && (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 10px", marginTop: 5 }}>
+                          {MEDAL_TIER_ORDER.filter(t => medalCounts[t]).map(t => (
+                            <span key={t} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                              <MedalBadge medal={t} />
+                              <span style={{ color: "var(--text-3)" }}>{medalCounts[t]}</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 })()}
