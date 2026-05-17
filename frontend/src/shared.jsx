@@ -4,7 +4,7 @@
  * seededOrder() removed — replaced by api.parseSeed() at call sites.
  */
 import React, { useState, useEffect } from "react";
-import { minimizeWindow, toggleMaximize, closeWindow, getConfig, saveConfigField } from "./api.js";
+import { minimizeWindow, toggleMaximize, closeWindow, getConfig, saveConfigField, getAppVersion } from "./api.js";
 
 export const RUSHES = [
   { name: "White / Mikey", count: 96 },
@@ -83,11 +83,13 @@ const NAV_ITEMS = {
 /* onNav: (key: string) => void — called when a nav item is clicked */
 export function Sidebar({ active = "parse", onNav, steamReady = false, playerName = "" }) {
   const [collapsed, setCollapsed] = useState({ leaderboard: false, rush: false, resources: false });
+  const [version, setVersion] = useState("");
 
   useEffect(() => {
     getConfig().then(cfg => {
       if (cfg.sidebar_collapsed) setCollapsed(c => ({ ...c, ...cfg.sidebar_collapsed }));
     });
+    getAppVersion().then(setVersion);
   }, []);
 
   function toggle(section) {
@@ -100,7 +102,7 @@ export function Sidebar({ active = "parse", onNav, steamReady = false, playerNam
     <div className="sidebar">
       <div className="sidebar-brand">
         <div className="logo">NEON<br /><span className="accent">WHITE</span></div>
-        <div className="ver">Tools · v1.11.0-beta.1</div>
+        <div className="ver">Tools{version ? ` · v${version}` : ""}</div>
       </div>
       <div className={"sidebar-section" + (collapsed.leaderboard ? " collapsed" : "")}
            onClick={() => toggle("leaderboard")}>
