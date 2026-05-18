@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import "./styles.css";
 
 import { Sidebar } from "./shared.jsx";
-import { getSteamStatus, getConfig, applyAccent, saveConfigFields } from "./api.js";
+import { getSteamStatus, getConfig, applyAccent, saveConfigFields, initSteam } from "./api.js";
 import Welcome       from "./pages/Welcome.jsx";
 import SeedParser    from "./pages/SeedParser.jsx";
 import SplitsUpdater from "./pages/SplitsUpdater.jsx";
@@ -94,7 +94,7 @@ function App() {
     Promise.all([
       getSteamStatus().catch(() => null),
       getConfig().catch(() => null),
-    ]).then(([s, cfg]) => {
+    ]).then(async ([s, cfg]) => {
       if (cfg) {
         setOutputFolder(cfg.output_folder || "");
         applyAccent(cfg.accent_color || "#00e09a");
@@ -111,7 +111,19 @@ function App() {
 
       // Welcome already seen — smart routing
       const hasDll = cfg && cfg.dll_path;
-      if (!hasDll || !(s && s.ready)) {
+      let ready = !!(s && s.ready);
+
+      // Auto-connect: if a DLL is configured and Steam isn't already up,
+      // try to init once. On failure, fall through to Settings for manual recovery.
+      if (hasDll && !ready) {
+        const r = await initSteam(cfg.dll_path).catch(() => null);
+        if (r && r.ok) {
+          setSteamStatus({ ready: true, playerName: r.player_name, steamId: r.steam_id });
+          ready = true;
+        }
+      }
+
+      if (!hasDll || !ready) {
         setPage("settings");
         return;
       }

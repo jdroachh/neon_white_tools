@@ -17,6 +17,8 @@ A speedrun analysis app for [Neon White](https://store.steampowered.com/app/1533
 - **Community Guides** — browse community-curated guide videos; mark watchlist / watched
 - **Ghosts Library** — browse ghost replay files (Drive-sourced) filtered by level
 
+See [docs/USAGE.md](docs/USAGE.md) for a per-page walkthrough.
+
 ---
 
 ## Requirements
@@ -85,17 +87,8 @@ Copy `neonwhite_config.example.json` to `neonwhite_config.json` and fill in your
 
 ---
 
-## Known issues (beta)
-
-- Side panel scrolling broken on Restrain page — CSS fix pending (repro needed)
-- Seed Finder error paths raise `AttributeError` on invalid input — cosmetic; no data loss
-- Run Timer split parser fails on `Name time` format — expects `Name: time` (livesplit workaround: use colon separator)
-
----
-
 ## Credits
 
-- **Gohu font** — Hugo Chargois (see `SteamScraper/fonts.py` for license)
 - **Steamworks SDK** — Valve Corporation (trademark; users must own Neon White on Steam)
 
 ---

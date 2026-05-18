@@ -91,6 +91,7 @@ frontend/dist/
 # ── tools/ dev scripts ────────────────────────────────────────────────────────
 tools/.ghosts_token.json
 tools/__pycache__/
+tools/eda/
 
 # ── Legacy tkinter app (untracked; files kept on disk for reference) ──────────
 SteamScraper/Neon White App versions/

@@ -8,6 +8,20 @@ All notable changes to Neon White Tools are documented here.
 
 ---
 
+## [1.0.0] — 2026-05-18
+
+First public stable release. All beta features carry forward; this entry covers what landed since `1.0.0-beta.3`.
+
+### Changed
+- **Auto-connect to Steam on launch.** When `dll_path` is configured and Steam isn't already up, the app initializes Steam in the background during startup. No more clicking Settings → Connect on every launch. If init fails, the app falls through to Settings for manual recovery.
+
+### Docs
+- Added `docs/USAGE.md` — a per-page walkthrough of every tab in the app.
+- Trimmed stale beta-era Known Issues from `README.md`; the three items listed there were legacy tkinter bugs that don't exist in the shipping pywebview app.
+- Removed Gohu font credit; the shipping UI uses Anton-NWT, not Gohu.
+
+---
+
 ## [1.0.0-beta.3] — 2026-05-17
 
 ### Added
