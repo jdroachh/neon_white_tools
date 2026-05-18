@@ -51,6 +51,13 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "" }) {
     if (!folderTouched) setFolder(defaultFolder);
   }, [defaultFolder]);
 
+  useEffect(() => {
+    if (!showMedals) {
+      if (sortKey === "medal_tier") setSortKey("level");
+      if (filterKey === "community_medal") setFilterKey("all");
+    }
+  }, [showMedals]);
+
   async function handlePickFolder() {
     const r = await pickFolder();
     if (r.ok && r.path) { setFolder(r.path); setFolderTouched(true); }
@@ -136,7 +143,6 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "" }) {
       switch (sortKey) {
         case "rank":       return a.rank - b.rank;
         case "time":       return (a.score_ms || 0) - (b.score_ms || 0);
-        case "percentile": return (a.rank / (a.total || 1)) - (b.rank / (b.total || 1));
         case "medal_tier": {
           const ai = MEDAL_TIER_ORDER.indexOf(a.medal); const bi = MEDAL_TIER_ORDER.indexOf(b.medal);
           return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
@@ -243,6 +249,16 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "" }) {
                     {"  ·  "}Top 500: <span style={{ color: "var(--text-2)" }}>{stats.top500}</span>
                     {"  ·  "}Total time: <span style={{ color: "var(--text-2)" }}>{formatDuration(stats.totalTimeMs)}</span>
                   </div>
+                  {showMedals && MEDAL_TIER_ORDER.some(t => medalCounts[t]) && (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 8px", marginTop: 4, fontSize: 11, color: "var(--text-3)" }}>
+                      {MEDAL_TIER_ORDER.filter(t => medalCounts[t]).map(t => (
+                        <span key={t} style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                          <MedalBadge medal={t} />
+                          <span style={{ color: "var(--text-3)" }}>{medalCounts[t]}</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
               <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px 6px", flexShrink: 0 }}>
@@ -256,8 +272,7 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "" }) {
                       <option value="level">Sort: Level</option>
                       <option value="rank">Sort: Rank</option>
                       <option value="time">Sort: Time</option>
-                      <option value="percentile">Sort: Percentile</option>
-                      <option value="medal_tier">Sort: Medal</option>
+                      {showMedals && <option value="medal_tier">Sort: Medal</option>}
                     </select>
                     <select className="input" value={filterKey} onChange={e => setFilterKey(e.target.value)}
                             style={{ fontSize: 11 }}>
@@ -265,7 +280,7 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "" }) {
                       <option value="top_10">Filter: Top 10</option>
                       <option value="top_100">Filter: Top 100</option>
                       <option value="top_500">Filter: Top 500</option>
-                      <option value="community_medal">Filter: Community Medal</option>
+                      {showMedals && <option value="community_medal">Filter: Community Medal</option>}
                     </select>
                   </>}
                   <MedalToggle value={showMedals} onChange={setShowMedals} />
@@ -308,16 +323,6 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "" }) {
                       color: "var(--text-2)",
                     }}>
                       Average Placement: #{avgRank} across {rows.length} / {totalLevels} levels
-                      {showMedals && MEDAL_TIER_ORDER.some(t => medalCounts[t]) && (
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 10px", marginTop: 5 }}>
-                          {MEDAL_TIER_ORDER.filter(t => medalCounts[t]).map(t => (
-                            <span key={t} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                              <MedalBadge medal={t} />
-                              <span style={{ color: "var(--text-3)" }}>{medalCounts[t]}</span>
-                            </span>
-                          ))}
-                        </div>
-                      )}
                     </div>
                   );
                 })()}

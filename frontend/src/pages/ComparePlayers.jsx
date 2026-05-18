@@ -72,6 +72,13 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
     if (!folderTouched) setFolder(defaultFolder);
   }, [defaultFolder]);
 
+  useEffect(() => {
+    if (!showMedals) {
+      if (sortKey === "medal_tier") setSortKey("level");
+      if (filterKey === "medal_mismatch") setFilterKey("all");
+    }
+  }, [showMedals]);
+
   async function handleUseMine1() {
     const s = await getSteamStatus();
     if (s.ready && s.steam_id) {
@@ -453,7 +460,7 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
                       <option value="gap_p1_lead">Sort: P1 Lead</option>
                       <option value="gap_p2_lead">Sort: P2 Lead</option>
                       <option value="gap_closest">Sort: Closest</option>
-                      <option value="medal_tier">Sort: Medal</option>
+                      {showMedals && <option value="medal_tier">Sort: Medal</option>}
                     </select>
                     <select className="input" value={filterKey} onChange={e => setFilterKey(e.target.value)}
                             style={{ fontSize: 11 }}>
@@ -461,7 +468,7 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
                       <option value="p1_leads">Filter: P1 Leads</option>
                       <option value="p2_leads">Filter: P2 Leads</option>
                       <option value="gap_over_1s">Filter: Gap &gt; 1s</option>
-                      <option value="medal_mismatch">Filter: Medal Mismatch</option>
+                      {showMedals && <option value="medal_mismatch">Filter: Medal Mismatch</option>}
                       <option value="missing">Filter: Missing</option>
                     </select>
                   </>}
