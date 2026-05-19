@@ -14,7 +14,7 @@ const ACCENT_PRESETS = [
   { hex: "#fb7185", label: "Rose"    },
 ];
 
-export default function Settings({ onSteamConnected, onFolderChange }) {
+export default function Settings({ onSteamConnected, onFolderChange, visible = false }) {
   const [dllPath, setDllPath]         = useState("");
   const [outputFolder, setOutputFolder] = useState("");
   const [status, setStatus]           = useState("");
@@ -40,6 +40,10 @@ export default function Settings({ onSteamConnected, onFolderChange }) {
     loadProfiles().then(setSavedProfiles);
     getAppVersion().then(v => setAppVersion(v || ""));
   }, []);
+
+  useEffect(() => {
+    if (visible) loadProfiles().then(setSavedProfiles);
+  }, [visible]);
 
   async function handleOpenLogs() {
     setLogStatus("");

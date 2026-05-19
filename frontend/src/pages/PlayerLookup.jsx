@@ -2,11 +2,12 @@ import React, { useState, useEffect, useMemo } from "react";
 import { PageHead, Field, Seg, Btn, ErrorBanner, MedalBadge, MedalToggle } from "../shared.jsx";
 import { getLevels, getChapters, getSteamStatus, runPlayerLookup, stopLeaderboard, pickFolder } from "../api.js";
 import { loadLevelsWithRetry } from "../lib/retryLevels.js";
+import { loadProfiles, saveProfiles, addProfile, isValidNewId } from "../lib/savedProfiles.js";
 
 const TH = { padding: "4px 8px", fontWeight: 600, fontSize: "0.91em", borderBottom: "1px solid var(--border)", textAlign: "left" };
 const TD = { padding: "3px 8px", fontSize: "1em" };
 
-export default function PlayerLookup({ outputFolder: defaultFolder = "" }) {
+export default function PlayerLookup({ outputFolder: defaultFolder = "", visible = false }) {
   const [steamId, setSteamId]         = useState("");
   const [mode, setMode]               = useState("level");
   const [levels, setLevels]           = useState([]);
@@ -26,12 +27,15 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "" }) {
   const [totalLevels, setTotalLevels] = useState(0);
   const [sortKey, setSortKey]         = useState("level");
   const [filterKey, setFilterKey]     = useState("all");
+  const [savedProfiles, setSavedProfiles] = useState([]);
+  const [savedOpen, setSavedOpen]         = useState(false);
 
   useEffect(() => {
     const cancelLevels = loadLevelsWithRetry(getLevels, {
       onLevels: ls => { setLevels(ls); setLevelName(ls[0].display); }
     });
     getChapters().then(cs => { setChapters(cs); if (cs.length) setChapterName(cs[0].name); });
+    loadProfiles().then(setSavedProfiles);
     window._nwPlayerEvent = (ev) => {
       if (ev.type === "status") {
         setStatus(ev.message);
@@ -49,6 +53,10 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "" }) {
     };
     return () => { cancelLevels(); window._nwPlayerEvent = null; };
   }, []);
+
+  useEffect(() => {
+    if (visible) loadProfiles().then(setSavedProfiles);
+  }, [visible]);
 
   useEffect(() => {
     if (!folderTouched) setFolder(defaultFolder);
@@ -73,6 +81,20 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "" }) {
     } else {
       setError("Steam not connected. Connect in Settings first.");
     }
+  }
+
+  async function handleQuickSave(id) {
+    const nickname = window.prompt(`Save this profile\nSteam ID: ${id}\n\nEnter a nickname (1–24 chars):`);
+    if (nickname === null) return;
+    const result = addProfile(savedProfiles, { nickname, steam_id: id });
+    if (result.error) { setError(result.error); return; }
+    setSavedProfiles(result.list);
+    await saveProfiles(result.list);
+  }
+
+  function handleLoadProfile(profile) {
+    setSteamId(profile.steam_id);
+    setSavedOpen(false);
   }
 
   async function handleRun() {
@@ -169,9 +191,53 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "" }) {
             <Field label="Steam ID" hint="17-digit number from the player's Steam profile URL.">
               <div style={{ display: "flex", gap: 8 }}>
                 <input className="input" style={{ flex: 1 }} value={steamId}
-                       onChange={e => setSteamId(e.target.value)}
+                       onChange={e => { setSteamId(e.target.value); setSavedOpen(false); }}
                        placeholder="76561198..." disabled={running} />
                 <Btn kind="ghost" size="sm" onClick={handleUseMine} disabled={running}>Mine</Btn>
+                <div style={{ position: "relative", display: "flex" }}>
+                  <Btn kind="ghost" size="sm" disabled={running}
+                       onClick={() => setSavedOpen(v => !v)}>
+                    ▾ Saved
+                  </Btn>
+                  {savedOpen && (
+                    <>
+                      <div style={{ position: "fixed", inset: 0, zIndex: 199 }}
+                           onClick={() => setSavedOpen(false)} />
+                      <div style={{
+                        position: "absolute", top: "100%", right: 0, zIndex: 200,
+                        background: "var(--bg-2)", border: "1px solid var(--border)",
+                        borderRadius: 6, minWidth: 220, boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+                        marginTop: 4,
+                      }}>
+                        {savedProfiles.length === 0 ? (
+                          <div style={{ padding: "10px 12px", fontSize: 11, color: "var(--text-3)" }}>
+                            No saved profiles yet. Use ★ to save a Steam ID.
+                          </div>
+                        ) : savedProfiles.map((p, i) => (
+                          <button key={i} onClick={() => handleLoadProfile(p)}
+                            style={{
+                              display: "block", width: "100%", textAlign: "left",
+                              padding: "7px 12px", background: "none", border: "none",
+                              color: "var(--text)", cursor: "pointer", fontSize: 12,
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.background = "var(--bg-3)"}
+                            onMouseLeave={e => e.currentTarget.style.background = "none"}
+                          >
+                            <span style={{ fontWeight: 600 }}>{p.nickname}</span>
+                            <span style={{ color: "var(--text-3)", marginLeft: 8, fontSize: 10 }}>
+                              {p.steam_id}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+                {isValidNewId(steamId, savedProfiles) && (
+                  <Btn kind="ghost" size="sm" disabled={running}
+                       title="Save this ID as a profile"
+                       onClick={() => handleQuickSave(steamId)}>★</Btn>
+                )}
               </div>
             </Field>
             <Field label="Search mode">

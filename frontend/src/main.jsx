@@ -181,7 +181,8 @@ function App() {
             display: !showWelcome && page === "settings" ? "flex" : "none",
             flexDirection: "column", height: "100%", overflow: "hidden",
           }}>
-            <Settings onSteamConnected={setSteamStatus} onFolderChange={setOutputFolder} />
+            <Settings onSteamConnected={setSteamStatus} onFolderChange={setOutputFolder}
+                      visible={!showWelcome && page === "settings"} />
           </div>
           {/* Post-welcome landing panel */}
           {!showWelcome && page === "welcome" && (
