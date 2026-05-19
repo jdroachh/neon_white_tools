@@ -17,25 +17,31 @@ export default function HelpfulLinks() {
       .finally(() => setLoaded(true));
   }, []);
 
-  // Poll until helpful_links_loaded flips — matches the Guides/RouteVideos/Ghosts pattern.
+  // Self-rearming poll until helpful_links_loaded flips, then re-fetch.
   useEffect(() => {
-    if (linksLoaded || !loaded) return;
-    const id = setTimeout(() => {
+    if (!loaded || linksLoaded) return;
+    let cancelled = false;
+    function poll() {
+      if (cancelled) return;
       getResourcesStatus().then(s => {
+        if (cancelled) return;
         if (s.helpful_links_loaded) {
           getHelpfulLinks()
             .then(r => {
+              if (cancelled) return;
               setLinks(Array.isArray(r?.links) ? r.links : []);
               setLinksLoaded(true);
             })
             .catch(() => {});
-        } else if (!s.error) {
-          setLinksLoaded(false);
+          return;
         }
-      }).catch(() => {});
-    }, 1000);
-    return () => clearTimeout(id);
-  }, [linksLoaded, loaded]);
+        if (s.error) return;
+        setTimeout(poll, 1000);
+      }).catch(() => { if (!cancelled) setTimeout(poll, 1000); });
+    }
+    poll();
+    return () => { cancelled = true; };
+  }, [loaded, linksLoaded]);
 
   async function handleOpen(url) {
     const r = await openExternalUrl(url);

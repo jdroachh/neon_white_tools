@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { PageHead, Field, Seg, Btn, ErrorBanner, MedalBadge, MedalToggle } from "../shared.jsx";
 import { getLevels, getChapters, getSteamStatus, runComparePlayers, stopLeaderboard, pickFolder } from "../api.js";
 import { loadProfiles, saveProfiles, addProfile, isValidNewId } from "../lib/savedProfiles.js";
+import { loadLevelsWithRetry } from "../lib/retryLevels.js";
 
 const TH = { padding: "4px 8px", fontWeight: 600, fontSize: "0.91em", borderBottom: "1px solid var(--border)", textAlign: "left" };
 const TD = { padding: "3px 8px", fontSize: "1em" };
@@ -42,7 +43,9 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
   const [filterKey, setFilterKey]         = useState("all");
 
   useEffect(() => {
-    getLevels().then(ls => { setLevels(ls); if (ls.length) setLevelName(ls[0].display); });
+    const cancelLevels = loadLevelsWithRetry(getLevels, {
+      onLevels: ls => { setLevels(ls); setLevelName(ls[0].display); }
+    });
     getChapters().then(cs => { setChapters(cs); if (cs.length) setChapterName(cs[0].name); });
     loadProfiles().then(setSavedProfiles);
     window._nwCompareEvent = (ev) => {
@@ -60,7 +63,7 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
         setRunning(false);
       }
     };
-    return () => { window._nwCompareEvent = null; };
+    return () => { cancelLevels(); window._nwCompareEvent = null; };
   }, []);
 
 

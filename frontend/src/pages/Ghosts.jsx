@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { PageHead, Field, Seg, Btn } from "../shared.jsx";
 import { getLevels, getGhosts, getResourcesStatus, openExternalUrl, getMedalTimes } from "../api.js";
+import { loadLevelsWithRetry } from "../lib/retryLevels.js";
 
 const TH = { padding: "4px 8px", fontWeight: 600, fontSize: 10, borderBottom: "1px solid var(--border)", textAlign: "left" };
 const TD = { padding: "3px 8px", fontSize: 11 };
@@ -26,38 +27,37 @@ export default function Ghosts() {
   const [medalTimes, setMedalTimes] = useState({});
 
   useEffect(() => {
-    getLevels().then(ls => {
-      setLevels(ls);
-      if (ls.length) setLevel(ls[0].display);
+    const cancelLevels = loadLevelsWithRetry(getLevels, {
+      onLevels: ls => { setLevels(ls); setLevel(ls[0].display); }
     });
     getResourcesStatus().then(setStatus).catch(() => {});
+    return cancelLevels;
   }, []);
 
   useEffect(() => {
-    if (!level) return;
+    if (!level || !status.ghosts_loaded) return;
     setLoading(true);
     getGhosts(level, medal)
       .then(r => setRows(Array.isArray(r) ? r : []))
       .finally(() => setLoading(false));
-  }, [level, medal]);
+  }, [level, medal, status.ghosts_loaded]);
 
-  // Poll until ghosts are loaded, then re-fetch the current selection.
+  // Self-rearming poll until ghosts are loaded. Re-fetch happens via the
+  // [level, medal, status.ghosts_loaded] effect above when status flips.
   useEffect(() => {
-    if (status.ghosts_loaded || status.error || !level) return;
-    const id = setTimeout(() => {
+    let cancelled = false;
+    function poll() {
+      if (cancelled) return;
       getResourcesStatus().then(s => {
+        if (cancelled) return;
         setStatus(s);
-        if (s.ghosts_loaded) {
-          setLoading(true);
-          getGhosts(level, medal)
-            .then(r => setRows(Array.isArray(r) ? r : []))
-            .catch(() => {})
-            .finally(() => setLoading(false));
-        }
-      }).catch(() => {});
-    }, 1000);
-    return () => clearTimeout(id);
-  }, [status.ghosts_loaded, status.error, level, medal]);
+        if (s.ghosts_loaded || s.error) return;
+        setTimeout(poll, 1000);
+      }).catch(() => { if (!cancelled) setTimeout(poll, 1000); });
+    }
+    if (!status.ghosts_loaded && !status.error) poll();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     if (!level) { setMedalTimes({}); return; }

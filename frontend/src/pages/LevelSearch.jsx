@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { PageHead, Field, Seg, Btn, ErrorBanner, MedalBadge, MedalToggle } from "../shared.jsx";
 import { getLevels, runLevelSearch, stopLeaderboard, pickFolder, getCheaterCount } from "../api.js";
+import { loadLevelsWithRetry } from "../lib/retryLevels.js";
 
 const TH = { padding: "4px 8px", fontWeight: 600, fontSize: "0.91em", borderBottom: "1px solid var(--border)", textAlign: "left" };
 const TD = { padding: "3px 8px", fontSize: "1em" };
@@ -23,22 +24,9 @@ export default function LevelSearch({ outputFolder: defaultFolder = "" }) {
   useEffect(() => { getCheaterCount().then(n => { if (n > 0) setCheaterCount(n); }); }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    let attempts = 0;
-    function tryLoad() {
-      getLevels().then(ls => {
-        if (cancelled) return;
-        if (Array.isArray(ls) && ls.length) {
-          setLevels(ls);
-          setLevel(ls[0].display);
-        } else if (attempts++ < 20) {
-          setTimeout(tryLoad, 250);
-        }
-      }).catch(() => {
-        if (!cancelled && attempts++ < 20) setTimeout(tryLoad, 250);
-      });
-    }
-    tryLoad();
+    const cancelLevels = loadLevelsWithRetry(getLevels, {
+      onLevels: ls => { setLevels(ls); setLevel(ls[0].display); }
+    });
     window._nwLevelEvent = (ev) => {
       if (ev.type === "status") {
         setStatus(ev.message);
@@ -53,7 +41,7 @@ export default function LevelSearch({ outputFolder: defaultFolder = "" }) {
         setRunning(false);
       }
     };
-    return () => { cancelled = true; window._nwLevelEvent = null; };
+    return () => { cancelLevels(); window._nwLevelEvent = null; };
   }, []);
 
   useEffect(() => {

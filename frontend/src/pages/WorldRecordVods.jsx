@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { PageHead, Field, Seg, Btn, Icon } from "../shared.jsx";
 import { getLevels, getWorldRecord, getResourcesStatus, openExternalUrl } from "../api.js";
+import { loadLevelsWithRetry } from "../lib/retryLevels.js";
 
 const GOLD = "#ffd700";
 
@@ -25,45 +26,39 @@ export default function WorldRecordVods() {
   const [videoError, setVideoError] = useState(false);
 
   useEffect(() => {
-    getLevels().then(ls => {
-      setLevels(ls);
-      if (ls.length) setLevel(ls[0].display);
+    const cancelLevels = loadLevelsWithRetry(getLevels, {
+      onLevels: ls => { setLevels(ls); setLevel(ls[0].display); }
     });
     getResourcesStatus().then(setStatus).catch(() => {});
+    return cancelLevels;
   }, []);
 
   useEffect(() => {
-    if (!level) return;
+    if (!level || !status.wrs_loaded) return;
     setLoading(true);
     setVideoError(false);
     getWorldRecord(level, PLATFORM_KEY[platform])
-      .then(r => {
-        setWr(r || null);
-        return getResourcesStatus();
-      })
-      .then(setStatus)
+      .then(r => setWr(r || null))
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [level, platform]);
+  }, [level, platform, status.wrs_loaded]);
 
-  // Poll while resources aren't loaded yet; re-fetch WR the moment they become ready
+  // Self-rearming poll until WRs are loaded. Data re-fetch happens via the
+  // [level, platform, status.wrs_loaded] effect above when status flips.
   useEffect(() => {
-    if (status.wrs_loaded || status.error || !level) return;
-    const id = setTimeout(() => {
+    let cancelled = false;
+    function poll() {
+      if (cancelled) return;
       getResourcesStatus().then(s => {
+        if (cancelled) return;
         setStatus(s);
-        if (s.wrs_loaded) {
-          setLoading(true);
-          setVideoError(false);
-          getWorldRecord(level, PLATFORM_KEY[platform])
-            .then(r => setWr(r || null))
-            .catch(() => {})
-            .finally(() => setLoading(false));
-        }
-      }).catch(() => {});
-    }, 1000);
-    return () => clearTimeout(id);
-  }, [status.wrs_loaded, status.error, level, platform]);
+        if (s.wrs_loaded || s.error) return;
+        setTimeout(poll, 1000);
+      }).catch(() => { if (!cancelled) setTimeout(poll, 1000); });
+    }
+    if (!status.wrs_loaded && !status.error) poll();
+    return () => { cancelled = true; };
+  }, []);
 
   // Reset video error when WR changes
   useEffect(() => { setVideoError(false); }, [wr]);

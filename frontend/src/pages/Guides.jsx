@@ -137,25 +137,31 @@ export default function Guides() {
       .finally(() => setLoaded(true));
   }, []);
 
-  // Poll until guides_loaded flips, then re-fetch.
+  // Self-rearming poll until guides_loaded flips, then re-fetch.
   useEffect(() => {
-    if (guidesLoaded || !loaded) return;
-    const id = setTimeout(() => {
+    if (!loaded || guidesLoaded) return;
+    let cancelled = false;
+    function poll() {
+      if (cancelled) return;
       getResourcesStatus().then(s => {
+        if (cancelled) return;
         if (s.guides_loaded) {
           getGuides()
             .then(r => {
+              if (cancelled) return;
               setGuides(Array.isArray(r?.guides) ? r.guides : []);
               setGuidesLoaded(true);
             })
             .catch(() => {});
-        } else if (!s.error) {
-          setGuidesLoaded(false); // keep the effect looping
+          return;
         }
-      }).catch(() => {});
-    }, 1000);
-    return () => clearTimeout(id);
-  }, [guidesLoaded, loaded]);
+        if (s.error) return;
+        setTimeout(poll, 1000);
+      }).catch(() => { if (!cancelled) setTimeout(poll, 1000); });
+    }
+    poll();
+    return () => { cancelled = true; };
+  }, [loaded, guidesLoaded]);
 
   useEffect(() => { setExpanded(null); }, [query, activeCat, level]);
 
