@@ -24,11 +24,24 @@ Edit `SteamScraper/webview_app/bridge.py` line 29:
 APP_VERSION = "1.x.x"
 ```
 
-Commit and push:
+### 2.5. Generate release notes and CHANGELOG draft
 
 ```powershell
-git add SteamScraper/webview_app/bridge.py
-git commit -m "Chore: bump version to 1.x.x"
+python tools/release_notes.py --version 1.x.x
+```
+
+The script reads commits since the most recent tag (override with `--from v1.x.x` if needed) and writes two files at the repo root:
+
+- **`release-notes.md`** — PR-style draft for the GitHub release. Edit prose, then pass to `gh release create --notes-file`.
+- **`CHANGELOG-draft.md`** — a Keep-a-Changelog section block. Paste it into `CHANGELOG.md` above the previous version section, then delete the draft file.
+
+The script groups commits by [prefix convention](#commit-prefix-convention). If it warns on stderr about commits with no recognized prefix, either rewrite the subject line or edit the drafts manually before publishing.
+
+### 2.6. Commit version bump + CHANGELOG
+
+```powershell
+git add SteamScraper/webview_app/bridge.py CHANGELOG.md
+git commit -m "Release: v1.x.x"
 git push origin main
 ```
 
@@ -96,6 +109,32 @@ Go to [Releases](https://github.com/jdroachh/neon_white_tools/releases) → **Dr
 - **Description:** what changed, known issues if any, install instructions link
 - **Asset:** attach `NeonWhiteLeaderboardTool-1.x.x.zip`
 - **Pre-release:** check if it's a beta
+
+---
+
+## Commit prefix convention
+
+`tools/release_notes.py` classifies commits by the prefix before the first colon (case-insensitive). Use these prefixes when committing to `main`:
+
+| Prefix | CHANGELOG section | Release notes section |
+|---|---|---|
+| `Feat:` | `### Added` | "What's new" |
+| `Fix:` | `### Fixed` | "What's fixed" |
+| `Docs:` | `### Docs` | "What's fixed" |
+| `Refactor:` | `### Internal` | *omitted* |
+| `Perf:` | `### Internal` | *omitted* |
+| `Chore:` | *omitted* | *omitted* |
+| `Release:` | *omitted* | *omitted* |
+
+Commits without a recognized prefix land in `### Other` and the script warns on stderr.
+
+Example subjects:
+
+- `Feat: Player Lookup sort/filter dropdowns`
+- `Fix: Sidebar version label drift`
+- `Docs: USAGE.md per-page walkthrough`
+- `Chore: bump pydantic to 2.10`
+- `Release: v1.0.0`
 
 ---
 
