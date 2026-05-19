@@ -8,6 +8,20 @@ All notable changes to Neon White Tools are documented here.
 
 ---
 
+## [1.0.1] — 2026-05-19
+
+### Added
+- Saved profiles dropdown on Player Lookup (87cdb17)
+
+### Fixed
+- Resource pages (Route Videos, WR VODs, Guides, Ghosts, Helpful Links) no longer stay stuck on "Resources not loaded" / "No guides match" when the background fetch takes longer than 1 s (f53341a)
+- Player Lookup and Compare Players Level dropdowns no longer appear empty on first boot due to a `getLevels()` race (f53341a)
+
+### Internal
+- tools/release_notes.py + commit-prefix convention (a417593) — was committed after v1.0.0 was published; listed here for completeness
+
+---
+
 ## [1.0.0] — 2026-05-18
 
 First public stable release. All beta features carry forward; this entry covers what landed since `1.0.0-beta.3`.
