@@ -1,7 +1,7 @@
 import { getConfig, saveConfigField } from "../api.js";
 
 const STEAM_ID_RE = /^\d{17}$/;
-const MAX_PROFILES = 10;
+const MAX_PROFILES = 50;
 
 export function validateProfile(nickname, steam_id) {
   const nick = (nickname || "").trim();
@@ -25,7 +25,7 @@ export function addProfile(list, profile) {
   const err  = validateProfile(nick, id);
   if (err) return { error: err, list };
   if (list.some(p => p.steam_id === id)) return { error: "That Steam ID is already saved.", list };
-  if (list.length >= MAX_PROFILES) return { error: "Limit: 10 profiles.", list };
+  if (list.length >= MAX_PROFILES) return { error: `Limit: ${MAX_PROFILES} profiles.`, list };
   return { error: null, list: [...list, { nickname: nick, steam_id: id }] };
 }
 
@@ -53,3 +53,5 @@ export function moveProfile(list, idx, dir) {
 
 export const isValidNewId = (id, list) =>
   STEAM_ID_RE.test((id || "").trim()) && !list.some(p => p.steam_id === (id || "").trim());
+
+export const MAX = MAX_PROFILES;

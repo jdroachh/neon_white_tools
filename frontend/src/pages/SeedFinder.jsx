@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { startFinder, stopFinder } from "../api.js";
 import { PageHead, Field, Seg, Btn, RushSelect, ErrorBanner, RUSHES } from "../shared.jsx";
+import { loadSeeds, saveSeeds, addSeed, removeSeed, MAX as MAX_SEEDS } from "../lib/savedSeeds.js";
 
 const TOTAL_SEEDS = 2_147_483_647;
 
@@ -25,8 +26,8 @@ function ProgressBar({ pct }) {
   );
 }
 
-function SeedCard({ result, targetNames }) {
-  const [open, setOpen] = useState(false);
+function SeedCard({ result, onSave, defaultOpen = false }) {
+  const [open, setOpen] = useState(defaultOpen);
   const [copied, setCopied] = useState(false);
 
   function handleCopy(e) {
@@ -35,6 +36,11 @@ function SeedCard({ result, targetNames }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     });
+  }
+
+  function handleSaveClick(e) {
+    e.stopPropagation();
+    if (onSave) onSave(result);
   }
 
   return (
@@ -64,6 +70,21 @@ function SeedCard({ result, targetNames }) {
           </span>
         )}
         <span className="muted" style={{ fontSize: 11, flex: 1 }}>{result.summary}</span>
+        {onSave && (
+          <button
+            onClick={handleSaveClick}
+            title="Save this seed to favorites"
+            style={{
+              background: "none", border: "1px solid var(--border)",
+              borderRadius: 2, cursor: "pointer",
+              color: "var(--muted)",
+              fontSize: 12, padding: "2px 6px",
+              lineHeight: 1.2, transition: "color 0.15s",
+            }}
+          >
+            ★
+          </button>
+        )}
         <button
           onClick={handleCopy}
           title="Copy seed number"
@@ -122,7 +143,7 @@ function SeedCard({ result, targetNames }) {
   );
 }
 
-export default function SeedFinder() {
+export default function SeedFinder({ visible = false }) {
   const [rushName, setRushName]     = useState(RUSHES[0].name);
   const [levelsStr, setLevelsStr]   = useState("");
   const [depth, setDepth]           = useState("10");
@@ -142,6 +163,16 @@ export default function SeedFinder() {
   const [results, setResults]       = useState([]);
   const [error, setError]           = useState(null);
   const [expected, setExpected]     = useState(null);
+
+  const [savedSeeds, setSavedSeeds]       = useState([]);
+  const [savedOpen, setSavedOpen]         = useState(false);
+  const [savePrompt, setSavePrompt]       = useState(null); // { result } | null
+  const [saveNickname, setSaveNickname]   = useState("");
+  const [saveError, setSaveError]         = useState("");
+  const [viewedSeed, setViewedSeed]       = useState(null); // saved-seed object or null
+
+  useEffect(() => { loadSeeds().then(setSavedSeeds); }, []);
+  useEffect(() => { if (visible) loadSeeds().then(setSavedSeeds); }, [visible]);
 
   const hellRushRef = useRef(hellRush);
   useEffect(() => { hellRushRef.current = hellRush; }, [hellRush]);
@@ -200,12 +231,84 @@ export default function SeedFinder() {
     }
   }
 
+  function handleSaveOpen(result) {
+    setSaveError("");
+    setSaveNickname(`Seed ${result.seed}`);
+    setSavePrompt({ result });
+  }
+
+  async function handleSaveConfirm() {
+    if (!savePrompt) return;
+    const r = savePrompt.result;
+    const seedObj = {
+      nickname: saveNickname,
+      seed: r.seed,
+      rush: rushName,
+      summary: r.summary,
+      level_order: r.level_order,
+      score: r.score ?? null,
+      search_params: {
+        levels_str: levelsStr,
+        depth, mode, max_seeds: maxSeeds,
+        order_matters: orderMatters,
+        hell_rush: hellRush, hell_rush_min: hellRushMin,
+        force_first: forceFirst, force_first_str: forceFirstStr,
+        excluded_on: excludedOn, excluded_levels: excludedLevels, excluded_window: excludedWindow,
+      },
+    };
+    const { error: err, list } = addSeed(savedSeeds, seedObj);
+    if (err) { setSaveError(err); return; }
+    setSavedSeeds(list);
+    await saveSeeds(list);
+    setSavePrompt(null);
+    setSaveNickname("");
+  }
+
+  function handleSaveCancel() {
+    setSavePrompt(null);
+    setSaveNickname("");
+    setSaveError("");
+  }
+
+  function handleView(seedObj) {
+    setViewedSeed(seedObj);
+    setSavedOpen(false);
+  }
+
+  function handleUseAsSearch(seedObj) {
+    const p = seedObj.search_params || {};
+    setRushName(seedObj.rush);
+    setLevelsStr(p.levels_str ?? "");
+    setDepth(p.depth ?? "10");
+    setMode(p.mode ?? "first");
+    setMaxSeeds(p.max_seeds ?? "5");
+    setOrderMatters(!!p.order_matters);
+    setHellRush(!!p.hell_rush);
+    setHellRushMin(p.hell_rush_min ?? "70");
+    setForceFirst(!!p.force_first);
+    setForceFirstStr(p.force_first_str ?? "");
+    setExcludedOn(!!p.excluded_on);
+    setExcludedLevels(p.excluded_levels ?? "");
+    setExcludedWindow(p.excluded_window ?? "10");
+    setSavedOpen(false);
+    setViewedSeed(null);
+  }
+
+  async function handleDeleteSaved(idx) {
+    const name = savedSeeds[idx]?.nickname ?? "this seed";
+    if (!window.confirm(`Delete saved seed "${name}"?`)) return;
+    const list = removeSeed(savedSeeds, idx);
+    setSavedSeeds(list);
+    await saveSeeds(list);
+  }
+
   async function handleStart() {
     setError(null);
     setResults([]);
     setPct(0);
     setStatus("Starting…");
     setExpected(null);
+    setViewedSeed(null);
 
     if (forceFirst && !forceFirstStr.trim()) {
       setError("Force First Level is enabled but query is empty.");
@@ -257,6 +360,64 @@ export default function SeedFinder() {
       <div className="body">
         <div className="panel-left">
           <div className="form">
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <Btn kind="ghost" size="sm" onClick={() => setSavedOpen(o => !o)}>
+                ★ Saved seeds ({savedSeeds.length}) {savedOpen ? "▲" : "▼"}
+              </Btn>
+              {savedOpen && (
+                <div style={{
+                  border: "1px solid var(--border)", borderRadius: 2,
+                  maxHeight: 240, overflow: "auto",
+                  background: "var(--surface)",
+                }}>
+                  {savedSeeds.length === 0 ? (
+                    <div className="muted" style={{ fontSize: 11, padding: "10px 12px" }}>
+                      No saved seeds yet. Click ★ on a result to save one.
+                    </div>
+                  ) : savedSeeds.map((s, i) => (
+                    <div key={s.seed} style={{
+                      padding: "6px 10px",
+                      borderBottom: i < savedSeeds.length - 1 ? "1px solid var(--border)" : "none",
+                      display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap",
+                    }}>
+                      <div style={{ flex: "1 1 100%", display: "flex", alignItems: "baseline", gap: 8 }}>
+                        <span style={{ fontWeight: 600, fontSize: 11 }}>{s.nickname}</span>
+                        <span className="muted" style={{ fontSize: 10 }}>{s.seed} · {s.rush}</span>
+                      </div>
+                      <Btn kind="ghost" size="sm" onClick={() => handleView(s)}>View</Btn>
+                      <Btn kind="ghost" size="sm" onClick={() => handleUseAsSearch(s)}>Use as search</Btn>
+                      <Btn kind="danger" size="sm" onClick={() => handleDeleteSaved(i)}>✕</Btn>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            {savePrompt && (
+              <div style={{
+                border: "1px solid var(--accent)", borderRadius: 2,
+                padding: 10, background: "rgba(180,255,100,0.06)",
+                display: "flex", flexDirection: "column", gap: 6,
+              }}>
+                <div style={{ fontSize: 11, fontWeight: 600 }}>
+                  Save seed {savePrompt.result.seed}
+                </div>
+                <input
+                  className="input"
+                  value={saveNickname}
+                  onChange={e => { setSaveNickname(e.target.value); setSaveError(""); }}
+                  onKeyDown={e => { if (e.key === "Enter") handleSaveConfirm(); if (e.key === "Escape") handleSaveCancel(); }}
+                  placeholder="Nickname"
+                  autoFocus
+                />
+                {saveError && (
+                  <div style={{ fontSize: 11, color: "var(--bad, #f87171)" }}>{saveError}</div>
+                )}
+                <div style={{ display: "flex", gap: 6 }}>
+                  <Btn kind="primary" size="sm" onClick={handleSaveConfirm}>Save</Btn>
+                  <Btn kind="ghost" size="sm" onClick={handleSaveCancel}>Cancel</Btn>
+                </div>
+              </div>
+            )}
             <Field label="Rush name">
               <RushSelect value={rushName} onChange={handleRushChange} />
             </Field>
@@ -401,26 +562,40 @@ export default function SeedFinder() {
         </div>
 
         <div className="panel-right" style={{ padding: 24, overflow: "auto", display: "flex", flexDirection: "column", gap: 12 }}>
-          {(status || pct > 0) && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <ProgressBar pct={pct} />
-              <span className="muted" style={{ fontSize: 11 }}>{status}</span>
-            </div>
-          )}
-          {results.length > 0 ? (
+          {viewedSeed ? (
             <div>
-              <div className="muted" style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.12, marginBottom: 8 }}>
-                {results.length} seed{results.length !== 1 ? "s" : ""} found — click to expand level order
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+                <Btn kind="ghost" size="sm" onClick={() => setViewedSeed(null)}>← Back to search results</Btn>
+                <span className="muted" style={{ fontSize: 11 }}>
+                  Viewing saved seed: <strong>{viewedSeed.nickname}</strong> · {viewedSeed.rush}
+                </span>
               </div>
-              {results.map((r, i) => (
-                <SeedCard key={i} result={r} />
-              ))}
+              <SeedCard result={viewedSeed} defaultOpen />
             </div>
-          ) : !running && !status ? (
-            <div className="muted" style={{ padding: 32, fontSize: 12, textAlign: "center" }}>
-              Enter desired levels and press Find Seed.
-            </div>
-          ) : null}
+          ) : (
+            <>
+              {(status || pct > 0) && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <ProgressBar pct={pct} />
+                  <span className="muted" style={{ fontSize: 11 }}>{status}</span>
+                </div>
+              )}
+              {results.length > 0 ? (
+                <div>
+                  <div className="muted" style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.12, marginBottom: 8 }}>
+                    {results.length} seed{results.length !== 1 ? "s" : ""} found — click to expand level order
+                  </div>
+                  {results.map((r) => (
+                    <SeedCard key={r.seed} result={r} onSave={handleSaveOpen} />
+                  ))}
+                </div>
+              ) : !running && !status ? (
+                <div className="muted" style={{ padding: 32, fontSize: 12, textAlign: "center" }}>
+                  Enter desired levels and press Find Seed.
+                </div>
+              ) : null}
+            </>
+          )}
         </div>
       </div>
     </>

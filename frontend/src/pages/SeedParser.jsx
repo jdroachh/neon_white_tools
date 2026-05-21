@@ -1,19 +1,27 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { parseSeed } from "../api.js";
 import { PageHead, Field, Btn, RushSelect, ErrorBanner, RUSHES } from "../shared.jsx";
+import { loadSeeds } from "../lib/savedSeeds.js";
 
-export default function SeedParser() {
+export default function SeedParser({ visible = false }) {
   const [rushName, setRushName] = useState(RUSHES[0].name);
   const [seed, setSeed]         = useState("");
   const [result, setResult]     = useState(null);   // {seed, rush_name, level_order}
   const [error, setError]       = useState(null);
   const [loading, setLoading]   = useState(false);
+  const [savedSeeds, setSavedSeeds] = useState([]);
+  const [savedOpen, setSavedOpen]   = useState(false);
 
-  async function handleParse() {
+  useEffect(() => { loadSeeds().then(setSavedSeeds); }, []);
+  useEffect(() => { if (visible) loadSeeds().then(setSavedSeeds); }, [visible]);
+
+  async function handleParse(overrideRush, overrideSeed) {
+    const r = overrideRush ?? rushName;
+    const s = overrideSeed ?? seed;
     setError(null);
     setLoading(true);
     try {
-      const res = await parseSeed(rushName, seed);
+      const res = await parseSeed(r, s);
       if (res.ok) {
         setResult(res);
       } else {
@@ -25,6 +33,13 @@ export default function SeedParser() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function handlePickSaved(s) {
+    setRushName(s.rush);
+    setSeed(String(s.seed));
+    setSavedOpen(false);
+    handleParse(s.rush, String(s.seed));
   }
 
   function handleCopy() {
@@ -50,6 +65,39 @@ export default function SeedParser() {
       <div className="body">
         <div className="panel-left">
           <div className="form">
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <Btn kind="ghost" size="sm" onClick={() => setSavedOpen(o => !o)}>
+                ★ Saved seeds ({savedSeeds.length}) {savedOpen ? "▲" : "▼"}
+              </Btn>
+              {savedOpen && (
+                <div style={{
+                  border: "1px solid var(--border)", borderRadius: 2,
+                  maxHeight: 240, overflow: "auto",
+                  background: "var(--surface)",
+                }}>
+                  {savedSeeds.length === 0 ? (
+                    <div className="muted" style={{ fontSize: 11, padding: "10px 12px" }}>
+                      No saved seeds yet. Save one from the Seed Finder page.
+                    </div>
+                  ) : savedSeeds.map((s, i) => (
+                    <div key={s.seed}
+                      onClick={() => handlePickSaved(s)}
+                      style={{
+                        padding: "6px 10px",
+                        borderBottom: i < savedSeeds.length - 1 ? "1px solid var(--border)" : "none",
+                        display: "flex", alignItems: "baseline", gap: 8,
+                        cursor: "pointer",
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.04)"}
+                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                    >
+                      <span style={{ fontWeight: 600, fontSize: 11 }}>{s.nickname}</span>
+                      <span className="muted" style={{ fontSize: 10 }}>{s.seed} · {s.rush}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
             <Field label="Rush name">
               <RushSelect value={rushName} onChange={setRushName} />
             </Field>
@@ -63,7 +111,7 @@ export default function SeedParser() {
               />
             </Field>
             <ErrorBanner message={error} />
-            <Btn kind="primary" size="lg" icn="play" onClick={handleParse} disabled={loading}>
+            <Btn kind="primary" size="lg" icn="play" onClick={() => handleParse()} disabled={loading}>
               {loading ? "Parsing…" : "Parse"}
             </Btn>
             <div className="muted" style={{ fontSize: 11, lineHeight: 1.5 }}>

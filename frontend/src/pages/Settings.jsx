@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { PageHead, Field, Btn, ErrorBanner } from "../shared.jsx";
+import { PageHead, Field, Btn, ErrorBanner, Seg } from "../shared.jsx";
 import { getConfig, saveConfigField, initSteam, pickDllFile, pickFolder, applyAccent, openLogFolder, getAppVersion, findSteamDll } from "../api.js";
-import { loadProfiles, saveProfiles, addProfile, updateProfile, removeProfile, moveProfile, validateProfile } from "../lib/savedProfiles.js";
+import { loadProfiles, saveProfiles, addProfile, updateProfile, removeProfile, moveProfile, validateProfile, MAX as MAX_PROFILES } from "../lib/savedProfiles.js";
+import { loadSeeds, saveSeeds, removeSeed, moveSeed, updateNickname as updateSeedNickname, MAX as MAX_SEEDS } from "../lib/savedSeeds.js";
 
 const ACCENT_PRESETS = [
   { hex: "#00e09a", label: "Mint"    },
@@ -30,6 +31,9 @@ export default function Settings({ onSteamConnected, onFolderChange, visible = f
   const [logStatus, setLogStatus]       = useState("");
   const [findingDll, setFindingDll]     = useState(false);
   const [findDllError, setFindDllError] = useState("");
+  const [savedSection, setSavedSection] = useState("profiles");
+  const [savedSeeds, setSavedSeeds]     = useState([]);
+  const [seedErrors, setSeedErrors]     = useState({});
 
   useEffect(() => {
     getConfig().then(cfg => {
@@ -38,11 +42,15 @@ export default function Settings({ onSteamConnected, onFolderChange, visible = f
       setAccentColor(cfg.accent_color || "#00e09a");
     });
     loadProfiles().then(setSavedProfiles);
+    loadSeeds().then(setSavedSeeds);
     getAppVersion().then(v => setAppVersion(v || ""));
   }, []);
 
   useEffect(() => {
-    if (visible) loadProfiles().then(setSavedProfiles);
+    if (visible) {
+      loadProfiles().then(setSavedProfiles);
+      loadSeeds().then(setSavedSeeds);
+    }
   }, [visible]);
 
   async function handleOpenLogs() {
@@ -175,6 +183,38 @@ export default function Settings({ onSteamConnected, onFolderChange, visible = f
     await saveProfiles(result.list);
   }
 
+  function handleSeedNicknameChange(idx, value) {
+    const next = savedSeeds.map((s, i) => i === idx ? { ...s, nickname: value } : s);
+    setSavedSeeds(next);
+  }
+
+  async function handleSeedNicknameBlur(idx) {
+    const s = savedSeeds[idx];
+    const result = updateSeedNickname(savedSeeds, idx, s.nickname);
+    if (result.error) {
+      setSeedErrors(prev => ({ ...prev, [idx]: result.error }));
+      return;
+    }
+    setSeedErrors(prev => { const next = { ...prev }; delete next[idx]; return next; });
+    setSavedSeeds(result.list);
+    await saveSeeds(result.list);
+  }
+
+  async function handleSeedDelete(idx) {
+    const name = savedSeeds[idx]?.nickname ?? "this seed";
+    if (!window.confirm(`Delete saved seed "${name}"?`)) return;
+    const next = removeSeed(savedSeeds, idx);
+    setSavedSeeds(next);
+    setSeedErrors(prev => { const e = { ...prev }; delete e[idx]; return e; });
+    await saveSeeds(next);
+  }
+
+  async function handleSeedMove(idx, dir) {
+    const next = moveSeed(savedSeeds, idx, dir);
+    setSavedSeeds(next);
+    await saveSeeds(next);
+  }
+
   return (
     <>
       <PageHead crumb="Settings" title="SETTINGS" />
@@ -248,54 +288,112 @@ export default function Settings({ onSteamConnected, onFolderChange, visible = f
               </div>
             </Field>
             <div style={{ borderTop: "1px solid var(--border)", margin: "4px 0" }} />
-            <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 6 }}>Saved Profiles</div>
-            <div className="muted" style={{ fontSize: 11, marginBottom: 8 }}>
-              Nickname + Steam ID pairs used in Compare Players.
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+              <div style={{ fontWeight: 600, fontSize: 12 }}>Saved items</div>
+              <Seg
+                options={["profiles", "seeds"]}
+                value={savedSection}
+                onChange={setSavedSection}
+              />
             </div>
-            {savedProfiles.map((p, i) => (
-              <div key={i} style={{ marginBottom: 8 }}>
-                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  <input className="input" style={{ width: 110 }}
-                    value={p.nickname}
-                    onChange={e => handleProfileFieldChange(i, "nickname", e.target.value)}
-                    onBlur={() => handleProfileFieldBlur(i)}
-                    placeholder="Nickname" />
-                  <input className="input" style={{ flex: 1, fontSize: 10 }}
-                    value={p.steam_id}
-                    onChange={e => handleProfileFieldChange(i, "steam_id", e.target.value)}
-                    onBlur={() => handleProfileFieldBlur(i)}
-                    placeholder="17-digit Steam ID" />
-                  <Btn kind="ghost" size="sm" disabled={i === 0}
-                       onClick={() => handleProfileMove(i, -1)}>↑</Btn>
-                  <Btn kind="ghost" size="sm" disabled={i === savedProfiles.length - 1}
-                       onClick={() => handleProfileMove(i, 1)}>↓</Btn>
-                  <Btn kind="danger" size="sm"
-                       onClick={() => handleProfileDelete(i)}>✕</Btn>
+
+            {savedSection === "profiles" && (
+              <>
+                <div className="muted" style={{ fontSize: 11, marginBottom: 8 }}>
+                  Nickname + Steam ID pairs used in Player Lookup and Compare Players.
                 </div>
-                {profileErrors[i] && (
-                  <div style={{ fontSize: 11, color: "var(--bad, #f87171)", marginTop: 3 }}>
-                    {profileErrors[i]}
+                <div style={{ maxHeight: 400, overflow: "auto", paddingRight: 4 }}>
+                  {savedProfiles.map((p, i) => (
+                    <div key={i} style={{ marginBottom: 8 }}>
+                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        <input className="input" style={{ width: 110 }}
+                          value={p.nickname}
+                          onChange={e => handleProfileFieldChange(i, "nickname", e.target.value)}
+                          onBlur={() => handleProfileFieldBlur(i)}
+                          placeholder="Nickname" />
+                        <input className="input" style={{ flex: 1, fontSize: 10 }}
+                          value={p.steam_id}
+                          onChange={e => handleProfileFieldChange(i, "steam_id", e.target.value)}
+                          onBlur={() => handleProfileFieldBlur(i)}
+                          placeholder="17-digit Steam ID" />
+                        <Btn kind="ghost" size="sm" disabled={i === 0}
+                             onClick={() => handleProfileMove(i, -1)}>↑</Btn>
+                        <Btn kind="ghost" size="sm" disabled={i === savedProfiles.length - 1}
+                             onClick={() => handleProfileMove(i, 1)}>↓</Btn>
+                        <Btn kind="danger" size="sm"
+                             onClick={() => handleProfileDelete(i)}>✕</Btn>
+                      </div>
+                      {profileErrors[i] && (
+                        <div style={{ fontSize: 11, color: "var(--bad, #f87171)", marginTop: 3 }}>
+                          {profileErrors[i]}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {savedProfiles.length < MAX_PROFILES ? (
+                  <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 4 }}>
+                    <input className="input" style={{ width: 110 }}
+                      value={newNickname}
+                      onChange={e => { setNewNickname(e.target.value); setAddError(""); }}
+                      placeholder="Nickname" />
+                    <input className="input" style={{ flex: 1, fontSize: 10 }}
+                      value={newSteamId}
+                      onChange={e => { setNewSteamId(e.target.value); setAddError(""); }}
+                      placeholder="17-digit Steam ID" />
+                    <Btn kind="ghost" size="sm" onClick={handleAddProfile}>+ Add</Btn>
+                  </div>
+                ) : (
+                  <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>Limit: {MAX_PROFILES} profiles.</div>
+                )}
+                {addError && (
+                  <div style={{ fontSize: 11, color: "var(--bad, #f87171)", marginTop: 4 }}>{addError}</div>
+                )}
+              </>
+            )}
+
+            {savedSection === "seeds" && (
+              <>
+                <div className="muted" style={{ fontSize: 11, marginBottom: 8 }}>
+                  Favorited seeds from Seed Finder. New seeds are saved with the ★ button on result cards.
+                </div>
+                {savedSeeds.length === 0 ? (
+                  <div className="muted" style={{ fontSize: 11, padding: "8px 0" }}>
+                    No saved seeds yet.
+                  </div>
+                ) : (
+                  <div style={{ maxHeight: 400, overflow: "auto", paddingRight: 4 }}>
+                    {savedSeeds.map((s, i) => (
+                      <div key={s.seed} style={{ marginBottom: 8 }}>
+                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                          <input className="input" style={{ flex: 1, minWidth: 0 }}
+                            value={s.nickname}
+                            onChange={e => handleSeedNicknameChange(i, e.target.value)}
+                            onBlur={() => handleSeedNicknameBlur(i)}
+                            placeholder="Nickname" />
+                          <Btn kind="ghost" size="sm" disabled={i === 0}
+                               onClick={() => handleSeedMove(i, -1)}>↑</Btn>
+                          <Btn kind="ghost" size="sm" disabled={i === savedSeeds.length - 1}
+                               onClick={() => handleSeedMove(i, 1)}>↓</Btn>
+                          <Btn kind="danger" size="sm"
+                               onClick={() => handleSeedDelete(i)}>✕</Btn>
+                        </div>
+                        <div className="muted data" style={{ fontSize: 10, marginTop: 2, paddingLeft: 2 }}>
+                          {s.seed} · {s.rush}
+                        </div>
+                        {seedErrors[i] && (
+                          <div style={{ fontSize: 11, color: "var(--bad, #f87171)", marginTop: 3 }}>
+                            {seedErrors[i]}
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 )}
-              </div>
-            ))}
-            {savedProfiles.length < 10 ? (
-              <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 4 }}>
-                <input className="input" style={{ width: 110 }}
-                  value={newNickname}
-                  onChange={e => { setNewNickname(e.target.value); setAddError(""); }}
-                  placeholder="Nickname" />
-                <input className="input" style={{ flex: 1, fontSize: 10 }}
-                  value={newSteamId}
-                  onChange={e => { setNewSteamId(e.target.value); setAddError(""); }}
-                  placeholder="17-digit Steam ID" />
-                <Btn kind="ghost" size="sm" onClick={handleAddProfile}>+ Add</Btn>
-              </div>
-            ) : (
-              <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>Limit: 10 profiles.</div>
-            )}
-            {addError && (
-              <div style={{ fontSize: 11, color: "var(--bad, #f87171)", marginTop: 4 }}>{addError}</div>
+                <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>
+                  {savedSeeds.length} / {MAX_SEEDS} saved.
+                </div>
+              </>
             )}
             <div style={{ borderTop: "1px solid var(--border)", margin: "4px 0" }} />
             <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 6 }}>Diagnostics</div>
