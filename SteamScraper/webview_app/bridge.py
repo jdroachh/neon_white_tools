@@ -1283,9 +1283,14 @@ class JsApi:
             "https://youtube.com/",
             "https://youtu.be/",
             "https://discord.gg/",
+            "https://discord.com/",
+            "https://www.discord.com/",
             "https://www.speedrun.com/",
             "https://speedrun.com/",
             "https://bit.ly/",
+            "https://github.com/",
+            "https://www.github.com/",
+            "https://raw.githubusercontent.com/",
         )
         if not any(u.startswith(p) for p in allowed_prefixes):
             try:
