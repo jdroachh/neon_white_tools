@@ -370,7 +370,7 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "", visible
                   </thead>
                   <tbody>
                     {displayRows.map((r, i) => (
-                      <tr key={i} style={{ borderBottom: "1px solid var(--border)" }}>
+                      <tr key={r.level} style={{ borderBottom: "1px solid var(--border)" }}>
                         <td style={TD}>{r.level}</td>
                         <td style={TD}>#{r.rank}</td>
                         <td style={TD}>{r.time}</td>

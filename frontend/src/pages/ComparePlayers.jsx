@@ -501,7 +501,7 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
                       const dColor  = r.faster === "p1" ? P1_COLOR : r.faster === "p2" ? P2_COLOR : undefined;
                       const delta   = r.delta_ms != null ? formatDelta(r.delta_ms) : "—";
                       return (
-                        <tr key={i} style={{ borderBottom: "1px solid var(--border)" }}>
+                        <tr key={r.level} style={{ borderBottom: "1px solid var(--border)" }}>
                           <td style={TD}>{r.level}</td>
                           <td style={TD}>{r.p1 ? `#${r.p1.rank}` : "—"}</td>
                           <td style={{ ...TD, backgroundColor: p1bg }}>{r.p1 ? r.p1.time : "—"}</td>

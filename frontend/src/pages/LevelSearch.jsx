@@ -147,7 +147,7 @@ export default function LevelSearch({ outputFolder: defaultFolder = "" }) {
                   </thead>
                   <tbody>
                     {rows.map((r, i) => (
-                      <tr key={i} style={{ borderBottom: "1px solid var(--border)" }}>
+                      <tr key={r.rank} style={{ borderBottom: "1px solid var(--border)" }}>
                         <td style={TD}>{r.rank}</td>
                         <td style={TD}>{r.name}</td>
                         <td style={TD}>{r.time}</td>
