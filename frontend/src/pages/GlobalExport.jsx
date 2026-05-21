@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { PageHead, Field, Seg, Btn, ErrorBanner, MedalBadge, MedalToggle } from "../shared.jsx";
 import { runGlobalExport, stopLeaderboard, pickFolder, getCheaterCount } from "../api.js";
 
@@ -17,6 +17,13 @@ export default function GlobalExport({ outputFolder: defaultFolder = "" }) {
   const [showMedals, setShowMedals]     = useState(false);
   const [largeText, setLargeText]       = useState(false);
   const [cheaterCount, setCheaterCount] = useState(0);
+  const [nameFilter, setNameFilter]     = useState("");
+
+  const filteredRows = useMemo(() => {
+    const q = nameFilter.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter(r => r.name.toLowerCase().includes(q));
+  }, [rows, nameFilter]);
 
   // Sync folder when the app-level default changes (e.g. updated in Settings),
   // but only if the user hasn't manually overridden it this session.
@@ -54,7 +61,7 @@ export default function GlobalExport({ outputFolder: defaultFolder = "" }) {
   }
 
   async function handleRun() {
-    setError(""); setStatus("Starting..."); setRows([]); setProgress(null);
+    setError(""); setStatus("Starting..."); setRows([]); setProgress(null); setNameFilter("");
     const r = await runGlobalExport(count, outMode, folder);
     if (!r.ok) { setError(r.error); return; }
     setRunning(true);
@@ -66,7 +73,7 @@ export default function GlobalExport({ outputFolder: defaultFolder = "" }) {
   }
 
   function handleCopy() {
-    const text = rows.map(r => `${r.rank}\t${r.level}\t${r.name}\t${r.time}`).join("\n");
+    const text = filteredRows.map(r => `${r.rank}\t${r.level}\t${r.name}\t${r.time}`).join("\n");
     navigator.clipboard.writeText(text).catch(() => {});
   }
 
@@ -76,7 +83,7 @@ export default function GlobalExport({ outputFolder: defaultFolder = "" }) {
     <>
       <PageHead crumb="Leaderboard Tools" title="GLOBAL" accentWord="EXPORT"
         actions={<>
-          {rows.length > 0 && !running && outMode !== "csv" &&
+          {filteredRows.length > 0 && !running && outMode !== "csv" &&
             <Btn kind="ghost" size="sm" icn="copy" onClick={handleCopy}>Copy</Btn>}
         </>}
       />
@@ -137,9 +144,18 @@ export default function GlobalExport({ outputFolder: defaultFolder = "" }) {
           ) : rows.length > 0 ? (
             <>
               <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px 6px", flexShrink: 0 }}>
-                <span style={{ fontSize: 12, fontWeight: 600, flex: 1 }}>
-                  {rows.length.toLocaleString()} entries
+                <span style={{ fontSize: 12, fontWeight: 600 }}>
+                  {nameFilter.trim()
+                    ? `${filteredRows.length.toLocaleString()} of ${rows.length.toLocaleString()} entries`
+                    : `${rows.length.toLocaleString()} entries`}
                 </span>
+                <input
+                  className="input"
+                  value={nameFilter}
+                  onChange={e => setNameFilter(e.target.value)}
+                  placeholder="Filter by player name…"
+                  style={{ width: 200, fontSize: 11 }}
+                />
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginLeft: "auto" }}>
                   {cheaterCount > 0 && <span style={{ fontSize: 10, color: "var(--accent)" }}>{cheaterCount} cheaters filtered</span>}
                   <MedalToggle value={showMedals} onChange={setShowMedals} />
@@ -159,8 +175,8 @@ export default function GlobalExport({ outputFolder: defaultFolder = "" }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map((r, i) => (
-                      <tr key={i} style={{ borderBottom: "1px solid var(--border)" }}>
+                    {filteredRows.map((r, i) => (
+                      <tr key={`${r.level}-${r.rank}`} style={{ borderBottom: "1px solid var(--border)" }}>
                         <td style={TD}>{r.rank}</td>
                         <td style={TD}>{r.level}</td>
                         <td style={TD}>{r.name}</td>
