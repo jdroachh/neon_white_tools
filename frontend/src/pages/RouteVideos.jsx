@@ -3,9 +3,6 @@ import { PageHead, Field, Seg, Btn } from "../shared.jsx";
 import { getLevels, getVideos, getResourcesStatus, openExternalUrl, getMedalTimes } from "../api.js";
 import { loadLevelsWithRetry } from "../lib/retryLevels.js";
 
-const TH = { padding: "4px 8px", fontWeight: 600, fontSize: 10, borderBottom: "1px solid var(--border)", textAlign: "left" };
-const TD = { padding: "3px 8px", fontSize: 11 };
-
 const MEDALS = ["Emerald", "Amethyst", "Sapphire"];
 const MEDAL_COLOR = { Emerald: "#54d09a", Amethyst: "#b886ff", Sapphire: "#5db1ff" };
 
@@ -134,48 +131,48 @@ export default function RouteVideos() {
                 {formatSeconds(displayTarget)}
               </div>
             </Field>
+            {rows.length > 0 && (
+              <Field label="Routes">
+                <div style={{
+                  maxHeight: 240,
+                  overflowY: "auto",
+                  border: "1px solid var(--border)",
+                  borderRadius: 4,
+                }}>
+                  {rows.map((r, i) => {
+                    const isActive = i === selectedIdx;
+                    return (
+                      <div
+                        key={i}
+                        onClick={() => setSelectedIdx(i)}
+                        style={{
+                          padding: "4px 8px",
+                          fontSize: 11,
+                          borderBottom: i < rows.length - 1 ? "1px solid var(--border)" : "none",
+                          cursor: "pointer",
+                          background: isActive ? "var(--bg-2)" : "transparent",
+                          color: isActive ? "var(--accent)" : undefined,
+                          fontWeight: isActive ? 600 : undefined,
+                        }}
+                      >
+                        {isActive ? "▶ " : ""}{r.title || "(untitled)"}
+                      </div>
+                    );
+                  })}
+                </div>
+                {selected && (
+                  <div style={{ marginTop: 6 }}>
+                    <Btn kind="ghost" size="sm" onClick={() => handleOpen(selected.youtube_url)}>
+                      Open in YouTube
+                    </Btn>
+                  </div>
+                )}
+              </Field>
+            )}
             {headerNote && <div className="muted" style={{ fontSize: 11 }}>{headerNote}</div>}
           </div>
         </div>
         <div className="panel-right" style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
-          <div style={{ maxHeight: "40%", overflow: "auto", borderBottom: "1px solid var(--border)" }}>
-            {rows.length > 0 && (
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead style={{ position: "sticky", top: 0, background: "var(--bg-2)" }}>
-                  <tr>
-                    <th style={{ ...TH, width: "100%" }}>Route</th>
-                    <th style={{ ...TH, whiteSpace: "nowrap", textAlign: "right" }}></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((r, i) => {
-                    const isActive = i === selectedIdx;
-                    return (
-                      <tr key={i}
-                          onClick={() => setSelectedIdx(i)}
-                          style={{
-                            borderBottom: "1px solid var(--border)",
-                            cursor: "pointer",
-                            background: isActive ? "var(--bg-2)" : "transparent",
-                          }}>
-                        <td style={{ ...TD, width: "100%",
-                                     color: isActive ? "var(--accent)" : undefined,
-                                     fontWeight: isActive ? 600 : undefined }}>
-                          {isActive ? "▶ " : ""}{r.title || "(untitled)"}
-                        </td>
-                        <td style={{ ...TD, whiteSpace: "nowrap", textAlign: "right" }}
-                            onClick={e => e.stopPropagation()}>
-                          <Btn kind="ghost" size="sm" onClick={() => handleOpen(r.youtube_url)}>
-                            Open in YouTube
-                          </Btn>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
           {videoId ? (
             <div style={{
               position: "relative", width: "100%", paddingTop: "56.25%",

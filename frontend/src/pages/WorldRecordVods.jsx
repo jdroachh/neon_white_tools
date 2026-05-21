@@ -5,9 +5,6 @@ import { loadLevelsWithRetry } from "../lib/retryLevels.js";
 
 const GOLD = "#ffd700";
 
-const TH = { padding: "4px 8px", fontSize: 9, fontWeight: 700, letterSpacing: 0.8, color: "var(--text-3)", textTransform: "uppercase", textAlign: "left", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" };
-const TD = { padding: "3px 8px", fontSize: 11 };
-
 const PLATFORMS = ["PC", "Switch", "PlayStation"];
 const PLATFORM_KEY = { "PC": "pc", "Switch": "switch", "PlayStation": "playstation" };
 
@@ -102,21 +99,39 @@ export default function WorldRecordVods() {
               <Seg options={PLATFORMS} value={platform} onChange={setPlatform} />
             </Field>
             {wr && (
-              <Field label="World Record time">
-                <div style={{
-                  display: "inline-flex", alignItems: "center", gap: 8,
-                  padding: "6px 12px",
-                  border: `1px solid ${GOLD}`,
-                  borderRadius: 4,
-                  color: GOLD,
-                  fontFamily: "var(--mono-font)",
-                  fontSize: 13,
-                  fontWeight: 600,
-                }}>
-                  <Icon name="trophy" size={14} />
-                  {wr.time_formatted}
+              <>
+                <Field label="World Record time">
+                  <div style={{
+                    display: "inline-flex", alignItems: "center", gap: 8,
+                    padding: "6px 12px",
+                    border: `1px solid ${GOLD}`,
+                    borderRadius: 4,
+                    color: GOLD,
+                    fontFamily: "var(--mono-font)",
+                    fontSize: 13,
+                    fontWeight: 600,
+                  }}>
+                    <Icon name="trophy" size={14} />
+                    {wr.time_formatted}
+                  </div>
+                </Field>
+                <Field label="Runner">
+                  <div style={{ fontSize: 12, fontWeight: 600 }}>{wr.player}</div>
+                </Field>
+                {wr.date && (
+                  <Field label="Date">
+                    <div style={{ fontSize: 12, color: "var(--muted)", fontFamily: "var(--mono-font)" }}>{wr.date}</div>
+                  </Field>
+                )}
+                {wr.title && (
+                  <Field label="Title">
+                    <div style={{ fontSize: 11, color: "var(--muted)", wordBreak: "break-word" }}>{wr.title}</div>
+                  </Field>
+                )}
+                <div style={{ marginTop: 4 }}>
+                  <Btn kind="ghost" size="sm" onClick={() => handleOpen(wr.youtube_url)}>Open in YouTube</Btn>
                 </div>
-              </Field>
+              </>
             )}
             {headerNote && <div className="muted" style={{ fontSize: 11 }}>{headerNote}</div>}
           </div>
@@ -125,7 +140,7 @@ export default function WorldRecordVods() {
           {videoId ? (
             <div style={{
               position: "relative", width: "100%", paddingTop: "56.25%",
-              background: "#000", borderBottom: "1px solid var(--border)",
+              background: "#000",
             }}>
               {videoError ? (
                 <div style={{
@@ -151,41 +166,12 @@ export default function WorldRecordVods() {
               )}
             </div>
           ) : (
-            <div className="muted" style={{
-              padding: 32, fontSize: 12, textAlign: "center",
-              borderBottom: "1px solid var(--border)",
-            }}>
+            <div className="muted" style={{ padding: 32, fontSize: 12, textAlign: "center" }}>
               {loading ? "Loading…"
                 : status.wrs_loaded
                   ? `No WR video listed for ${level || "this stage"} on ${platform} yet.`
                   : "Resources not loaded."}
             </div>
-          )}
-          {wr && (
-            <table style={{ width: "100%", borderCollapse: "collapse", borderBottom: "1px solid var(--border)", background: "var(--bg-1)" }}>
-              <thead style={{ background: "var(--bg-2)" }}>
-                <tr>
-                  <th style={TH}>Runner</th>
-                  <th style={TH}>Time</th>
-                  <th style={TH}>Date (YYYY-MM-DD)</th>
-                  <th style={{ ...TH, width: "100%" }}>Title</th>
-                  <th style={TH} />
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td style={{ ...TD, fontWeight: 600, whiteSpace: "nowrap" }}>{wr.player}</td>
-                  <td style={{ ...TD, fontFamily: "var(--mono-font)", whiteSpace: "nowrap" }}>{wr.time_formatted}</td>
-                  <td style={{ ...TD, color: "var(--muted)", whiteSpace: "nowrap" }}>{wr.date}</td>
-                  <td style={{ ...TD, color: "var(--muted)", fontSize: 10, maxWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {wr.title}
-                  </td>
-                  <td style={{ ...TD, textAlign: "right", whiteSpace: "nowrap" }}>
-                    <Btn kind="ghost" size="sm" onClick={() => handleOpen(wr.youtube_url)}>Open in YouTube</Btn>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
           )}
         </div>
       </div>
