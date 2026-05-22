@@ -88,6 +88,9 @@ def classify(subject: str) -> tuple[str, str | None, str]:
     if not sep:
         return ("", None, "Other")
     p = prefix_token.strip().lower()
+    # Strip optional (scope) so "feat(bingo-proto)" matches "feat".
+    if "(" in p:
+        p = p.split("(", 1)[0].strip()
     if p in PREFIX_MAP:
         section, _ = PREFIX_MAP[p]
         return (p, body.strip(), section if section is not None else "")
