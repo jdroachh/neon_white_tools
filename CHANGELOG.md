@@ -8,6 +8,26 @@ All notable changes to Neon White Tools are documented here.
 
 ---
 
+## [1.1.0] — 2026-05-22
+
+### Added
+- Save/favorite seeds in Seed Finder + Seed Parser. Star button on each result card opens a save prompt; saved-seeds dropdown surfaces on both Seed Finder (View / Use-as-search / Delete) and Seed Parser (auto-parse on click); Settings page got a `profiles | seeds` toggle for managing both lists. Cap raised to 50 for each. (dbb27bf)
+- Name filter on Global Export results — case-insensitive live filter; counter and Copy button reflect the filtered subset. (724ea22)
+- Resources pages (Route Videos, WR VODs, Community Guides, Ghosts, Helpful Links) consolidated into the left-pane layout. (aa8c227)
+
+### Changed
+- `open_external_url` allow-list expanded to include `github.com` and `discord.com` (plus `www` and `raw.githubusercontent.com`), so deep-link Discord channels and GitHub repo links from Helpful Links resolve. (c522279)
+
+### Fixed
+- Medal gradient text (BLOOD DIAMOND, TOPAZ, etc) no longer disappears after sort/filter changes on Player Lookup, Compare Players, Level Search, and Global Export. Root cause was WebView2 failing to repaint `background-clip: text` on recycled DOM nodes; fixed with stable keys. (df25ce0)
+
+### Internal
+- Bingo Mode Phase 0 Steam Lobbies smoke-test sandbox under `SteamScraper/bingo_proto/`. Not bundled in the shipping EXE. (0f0cc5d)
+- `tools/audit_leaderboards.py` — one-shot script to audit which `rush_data.LEVELS` have Steam leaderboards (used for Bingo Mode pool sizing). (5d3e942)
+- `tools/release_notes.py` — `classify()` now strips a trailing `(scope)` from commit prefixes, so `Feat(bingo-proto):` and similar bucket correctly. (cf159a0)
+
+---
+
 ## [1.0.1] — 2026-05-19
 
 ### Added
