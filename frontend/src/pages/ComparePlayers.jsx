@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { PageHead, Field, Seg, Btn, ErrorBanner, MedalBadge, MedalToggle } from "../shared.jsx";
 import { getLevels, getChapters, getSteamStatus, runComparePlayers, stopLeaderboard, pickFolder } from "../api.js";
 import { loadProfiles, saveProfiles, addProfile, isValidNewId } from "../lib/savedProfiles.js";
+import SavedProfilesDropdown from "../components/SavedProfilesDropdown.jsx";
 import { loadLevelsWithRetry } from "../lib/retryLevels.js";
 
 const TH = { padding: "4px 8px", fontWeight: 600, fontSize: "0.91em", borderBottom: "1px solid var(--border)", textAlign: "left" };
@@ -38,7 +39,6 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
   const [showMedals, setShowMedals]       = useState(false);
   const [largeText, setLargeText]         = useState(false);
   const [savedProfiles, setSavedProfiles] = useState([]);
-  const [openDropdown, setOpenDropdown]   = useState(null); // "p1" | "p2" | null
   const [sortKey, setSortKey]             = useState("level");
   const [filterKey, setFilterKey]         = useState("all");
 
@@ -117,7 +117,6 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
   function handleLoadProfile(profile, slot) {
     if (slot === "p1") setSteamId1(profile.steam_id);
     else setSteamId2(profile.steam_id);
-    setOpenDropdown(null);
   }
 
   async function handleRun() {
@@ -225,48 +224,14 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
             <Field label="Player 1 Steam ID" hint="17-digit number from the player's Steam profile URL.">
               <div style={{ display: "flex", gap: 8 }}>
                 <input className="input" style={{ flex: 1 }} value={steamId1}
-                       onChange={e => { setSteamId1(e.target.value); setOpenDropdown(null); }}
+                       onChange={e => setSteamId1(e.target.value)}
                        placeholder="76561198..." disabled={running} />
                 <Btn kind="ghost" size="sm" onClick={handleUseMine1} disabled={running}>Mine</Btn>
-                <div style={{ position: "relative", display: "flex" }}>
-                  <Btn kind="ghost" size="sm" disabled={running}
-                       onClick={() => setOpenDropdown(openDropdown === "p1" ? null : "p1")}>
-                    ▾ Saved
-                  </Btn>
-                  {openDropdown === "p1" && (
-                    <>
-                      <div style={{ position: "fixed", inset: 0, zIndex: 199 }}
-                           onClick={() => setOpenDropdown(null)} />
-                      <div style={{
-                        position: "absolute", top: "100%", right: 0, zIndex: 200,
-                        background: "var(--bg-2)", border: "1px solid var(--border)",
-                        borderRadius: 6, minWidth: 220, boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
-                        marginTop: 4,
-                      }}>
-                        {savedProfiles.length === 0 ? (
-                          <div style={{ padding: "10px 12px", fontSize: 11, color: "var(--text-3)" }}>
-                            No saved profiles yet. Use ★ to save a Steam ID.
-                          </div>
-                        ) : savedProfiles.map((p, i) => (
-                          <button key={i} onClick={() => handleLoadProfile(p, "p1")}
-                            style={{
-                              display: "block", width: "100%", textAlign: "left",
-                              padding: "7px 12px", background: "none", border: "none",
-                              color: "var(--text)", cursor: "pointer", fontSize: 12,
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.background = "var(--bg-3)"}
-                            onMouseLeave={e => e.currentTarget.style.background = "none"}
-                          >
-                            <span style={{ fontWeight: 600 }}>{p.nickname}</span>
-                            <span style={{ color: "var(--text-3)", marginLeft: 8, fontSize: 10 }}>
-                              {p.steam_id}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
+                <SavedProfilesDropdown
+                  profiles={savedProfiles}
+                  onSelect={(p) => handleLoadProfile(p, "p1")}
+                  disabled={running}
+                />
                 {isValidNewId(steamId1, savedProfiles) && (
                   <Btn kind="ghost" size="sm" disabled={running}
                        title="Save this ID as a profile"
@@ -277,48 +242,14 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
             <Field label="Player 2 Steam ID" hint="17-digit number from the player's Steam profile URL.">
               <div style={{ display: "flex", gap: 8 }}>
                 <input className="input" style={{ flex: 1 }} value={steamId2}
-                       onChange={e => { setSteamId2(e.target.value); setOpenDropdown(null); }}
+                       onChange={e => setSteamId2(e.target.value)}
                        placeholder="76561198..." disabled={running} />
                 <Btn kind="ghost" size="sm" onClick={handleUseMine2} disabled={running}>Mine</Btn>
-                <div style={{ position: "relative", display: "flex" }}>
-                  <Btn kind="ghost" size="sm" disabled={running}
-                       onClick={() => setOpenDropdown(openDropdown === "p2" ? null : "p2")}>
-                    ▾ Saved
-                  </Btn>
-                  {openDropdown === "p2" && (
-                    <>
-                      <div style={{ position: "fixed", inset: 0, zIndex: 199 }}
-                           onClick={() => setOpenDropdown(null)} />
-                      <div style={{
-                        position: "absolute", top: "100%", right: 0, zIndex: 200,
-                        background: "var(--bg-2)", border: "1px solid var(--border)",
-                        borderRadius: 6, minWidth: 220, boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
-                        marginTop: 4,
-                      }}>
-                        {savedProfiles.length === 0 ? (
-                          <div style={{ padding: "10px 12px", fontSize: 11, color: "var(--text-3)" }}>
-                            No saved profiles yet. Use ★ to save a Steam ID.
-                          </div>
-                        ) : savedProfiles.map((p, i) => (
-                          <button key={i} onClick={() => handleLoadProfile(p, "p2")}
-                            style={{
-                              display: "block", width: "100%", textAlign: "left",
-                              padding: "7px 12px", background: "none", border: "none",
-                              color: "var(--text)", cursor: "pointer", fontSize: 12,
-                          }}
-                          onMouseEnter={e => e.currentTarget.style.background = "var(--bg-3)"}
-                          onMouseLeave={e => e.currentTarget.style.background = "none"}
-                        >
-                          <span style={{ fontWeight: 600 }}>{p.nickname}</span>
-                          <span style={{ color: "var(--text-3)", marginLeft: 8, fontSize: 10 }}>
-                            {p.steam_id}
-                          </span>
-                        </button>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
+                <SavedProfilesDropdown
+                  profiles={savedProfiles}
+                  onSelect={(p) => handleLoadProfile(p, "p2")}
+                  disabled={running}
+                />
                 {isValidNewId(steamId2, savedProfiles) && (
                   <Btn kind="ghost" size="sm" disabled={running}
                        title="Save this ID as a profile"
