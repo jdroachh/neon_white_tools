@@ -39,6 +39,7 @@ class MultiCompareRowEvent(BaseModel):
     time_us: Optional[int]   # None when missing=True
     rank: Optional[int]      # None when missing=True
     missing: bool
+    medal: Optional[str] = None  # e.g. "AMETHYST", "GOLD", "BLOOD DIAMOND"; None when missing or unknown
 
 
 class MultiCompareProgressEvent(BaseModel):

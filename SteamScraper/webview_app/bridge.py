@@ -1277,6 +1277,7 @@ class JsApi:
                             "time_us": val["time_us"],
                             "rank": val["rank"],
                             "missing": False,
+                            "medal": _get_medal(display, val["time_us"] / 1_000_000.0),
                         })
                     done += 1
                     if done % 10 == 0 or done == total:
