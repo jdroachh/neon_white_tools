@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 
-import { MedalBadge, Seg, PageHead, Btn } from "../shared.jsx";
+import { MedalBadge, Seg, PageHead, Btn, MedalToggle } from "../shared.jsx";
 import { loadProfiles } from "../lib/savedProfiles.js";
 import SavedProfilesDropdown from "../components/SavedProfilesDropdown.jsx";
 import {
@@ -71,7 +71,7 @@ function makeEmptyRow(usedColors, rowIndex) {
   };
 }
 // ── Main page ────────────────────────────────────────────────────────────
-export default function MultiCompare({ visible = false, showMedals = true } = {}) {
+export default function MultiCompare({ visible = false, showMedals = true, setShowMedals } = {}) {
   const [roster, setRoster] = useState(() => {
     const rows = [];
     for (let i = 0; i < DEFAULT_ROWS; i++) rows.push(makeEmptyRow(rows.map(r => r.color), i));
@@ -334,7 +334,14 @@ export default function MultiCompare({ visible = false, showMedals = true } = {}
   }, [rosterById, winsPerPlayer]);
 
   const anyResults = Object.keys(results).length > 0;
-  const drillVisible = !!drill;
+  // Drill panel is only meaningful outside Level mode (which already shows the
+  // detailed rank table inline). Tying `drillVisible` to mode ensures the main
+  // padding-right offset clears when mode flips to level.
+  const drillVisible = !!drill && mode !== "level";
+
+  // Close the drill whenever mode changes, so stale selection from a previous
+  // mode doesn't linger as a blank rail.
+  useEffect(() => { setDrill(null); }, [mode]);
 
   function handleCellClick(chapterKey, levelDisplay, cellKey) {
     setDrill({ chapterKey, levelDisplay, cellKey });
@@ -406,6 +413,7 @@ export default function MultiCompare({ visible = false, showMedals = true } = {}
           accentWord="COMPARE"
           subtitle={totalsTag}
           actions={<>
+            {anyResults && setShowMedals && <MedalToggle value={showMedals} onChange={setShowMedals} />}
             {anyResults && <Btn kind="ghost" size="sm" icn="copy" onClick={handleCopy}>Copy</Btn>}
             {anyResults && <Btn kind="ghost" size="sm" icn="export" onClick={handleExportCsv}>Export CSV</Btn>}
           </>}
@@ -876,39 +884,41 @@ function ResultsGrid({
     : `Result · all ${scopeLevelCount || Object.values(chapters).reduce((a, l) => a + l.length, 0) || 121} levels`;
   return (
     <div className="nwt-grid-wrap">
+      {/* Row 1 — title + descriptive hint */}
       <div className="nwt-grid-toolbar">
         <span className="title">{titleText}</span>
         <span className="hint">cells coloured by winner — click a cell for the breakdown</span>
-        <span className="right">
-          <span className="ctrl-label">Show only</span>
-          <span
-            className={"nwt-fchip" + (filterPlayer === null ? " on" : "")}
-            onClick={() => onFilterPlayer(null)}
-          >
-            all
-          </span>
-          {rosterEntries.map(([sid, p]) => (
-            <span
-              key={sid}
-              className={"nwt-fchip" + (filterPlayer === sid ? " on" : (filterPlayer ? " dim" : ""))}
-              onClick={() => onFilterPlayer(filterPlayer === sid ? null : sid)}
-            >
-              <span className="sw" style={{ background: hexFor(p.color) }} />
-              <span>{p.name || truncateSid(sid)}</span>
-            </span>
-          ))}
-          {showSort && (
-            <>
-              <span className="div" />
-              <span className="ctrl-label">Sort</span>
-              <Seg
-                options={["chapter", "most contested", "biggest Δ"]}
-                value={sortMode}
-                onChange={onSortMode}
-              />
-            </>
-          )}
+      </div>
+      {/* Row 2 — filter chips + sort segmented. Kept on its own row so the long
+          chapter-mode title can't push the chips off-screen via flex wrap. */}
+      <div className="nwt-grid-toolbar" style={{ paddingTop: 10 }}>
+        <span className="ctrl-label">Show only</span>
+        <span
+          className={"nwt-fchip" + (filterPlayer === null ? " on" : "")}
+          onClick={() => onFilterPlayer(null)}
+        >
+          all
         </span>
+        {rosterEntries.map(([sid, p]) => (
+          <span
+            key={sid}
+            className={"nwt-fchip" + (filterPlayer === sid ? " on" : (filterPlayer ? " dim" : ""))}
+            onClick={() => onFilterPlayer(filterPlayer === sid ? null : sid)}
+          >
+            <span className="sw" style={{ background: hexFor(p.color) }} />
+            <span>{p.name || truncateSid(sid)}</span>
+          </span>
+        ))}
+        {showSort && (
+          <span className="right">
+            <span className="ctrl-label">Sort</span>
+            <Seg
+              options={["chapter", "most contested", "biggest Δ"]}
+              value={sortMode}
+              onChange={onSortMode}
+            />
+          </span>
+        )}
       </div>
 
       {!anyResults && (
