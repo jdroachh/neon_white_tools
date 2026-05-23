@@ -8,6 +8,31 @@ All notable changes to Neon White Tools are documented here.
 
 ---
 
+## [1.3.0] — 2026-05-23
+
+### Added
+- **Multi Compare drill panel** — click any cell in Chapter or Whole Game mode to open a 520px breakdown rail showing winner, winning time, lead Δ vs 2nd, top medal, top global rank, and the full 7-column rank table. Replaces the previous side drawer.
+- **Multi Compare medals** — medal column in the drill panel + "Top medal" item in the meta strip, gated on the existing **Settings → Show medals** toggle. Same medal labels Compare Players and Player Lookup use (community tiers from NeonLite's `communitymedals.json`).
+- **Filter-by-player chips** — `Show only` chip row above the result grid dims all cells whose winner isn't the chosen player to 12% opacity. Click `all` or re-click the active chip to clear.
+- **Sort modes** — `chapter / most contested / biggest Δ` segmented control. "Most contested" surfaces chapters where the leading player has the lowest share of wins; "biggest Δ" sorts by the largest winner-to-2nd gap per chapter.
+- **`link` icon** — new icon glyph in the shared `Icon` component, now used by Helpful Links in the sidebar (was a placeholder `copy` glyph).
+
+### Changed
+- **Multi Compare visual redesign (V2 Balanced)** — page header matches the rest of the app (shared `PageHead` with totals subtitle), all buttons swapped to the shared `<Btn>` component, search-mode + sort use the shared `<Seg>` control, roster pills rendered above an expand-to-edit inline editor.
+- **Level mode** now shows the rank table inline instead of a 1-cell grid + drill drawer. No drill panel in Level mode — the whole page is the level detail.
+- **Chapter mode** shows only the chosen chapter's row (10 cells) instead of the full whole-game grid. Sort segment hidden in this mode (nothing to reorder); filter chips still work.
+- **Standings strip** above the grid is now scope-aware — `/N` reflects the actual run scope (chapter level count, 1 in level mode, 121 in game mode), not always 121.
+- **Multi Compare Run button** uses the multicompare 3-silhouette icon to match the sidebar nav.
+
+### Internal
+- `MultiCompareRowEvent` gained a `medal: Optional[str]` field populated via `_get_medal(display, time_seconds)` in `run_multi_compare`. Same helper Compare Players + Player Lookup use.
+- New `frontend/src/mc-styles.css` — design-handoff tokens + component CSS scoped under `.mc-scope` so the design's `nwt-*` classes can't leak into the rest of the app. `--mc-accent` aliases `var(--accent)` so the user's accent picker still drives the page.
+- Extracted `<MetaStrip>` and `<RankTable>` shared by the drill panel and the Level-mode result.
+- Per-row "▾ Saved" picker now uses the shared `<SavedProfilesDropdown>` (right-anchored — no more viewport clipping at 10 players in fullscreen).
+- Dropped the unused `lastRunAt` / `lastEntryCount` state + `formatRelativeTime` helper that powered the "last run Xm ago" hint (cut from the design).
+
+---
+
 ## [1.2.0] — 2026-05-22
 
 ### Added
