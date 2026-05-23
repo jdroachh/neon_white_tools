@@ -909,16 +909,30 @@ function ResultsGrid({
             <span>{p.name || truncateSid(sid)}</span>
           </span>
         ))}
-        {showSort && (
-          <span className="right">
-            <span className="ctrl-label">Sort</span>
+        <span className="right">
+          <span className="ctrl-label">Sort</span>
+          {showSort ? (
             <Seg
               options={["chapter", "most contested", "biggest Δ"]}
               value={sortMode}
               onChange={onSortMode}
             />
-          </span>
-        )}
+          ) : (
+            // Chapter mode has one chapter to "sort" — nothing to reorder. Show the
+            // seg disabled instead of hiding it so cell positioning stays consistent
+            // with Game mode (the seg height is what pads the toolbar row).
+            <div
+              style={{ opacity: 0.35, pointerEvents: "none" }}
+              title="Sort only applies when comparing multiple chapters"
+            >
+              <Seg
+                options={["chapter", "most contested", "biggest Δ"]}
+                value={sortMode}
+                onChange={() => {}}
+              />
+            </div>
+          )}
+        </span>
       </div>
 
       {!anyResults && (
