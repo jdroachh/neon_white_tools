@@ -42,6 +42,7 @@ export const Icon = ({ name, size = 14 }) => {
     case "ghost":    return <svg viewBox="0 0 16 16" style={s}><g {...sp}><path d="M3 13V7a5 5 0 0110 0v6l-2-1.5L9 13l-2-1.5L5 13l-2-1.5z"/><circle cx="6" cy="7" r="0.7" fill="currentColor"/><circle cx="10" cy="7" r="0.7" fill="currentColor"/></g></svg>;
     case "video":    return <svg viewBox="0 0 16 16" style={s}><g {...sp}><rect x="2" y="4" width="9" height="8" rx="1"/><path d="M11 7l3-2v6l-3-2z"/></g></svg>;
     case "trophy":   return <svg viewBox="0 0 16 16" style={s}><g {...sp}><path d="M5 2h6v5a3 3 0 01-6 0z"/><path d="M2 3h3M11 3h3"/><path d="M8 9v3M5 13h6"/></g></svg>;
+    case "link":     return <svg viewBox="0 0 16 16" style={s}><g {...sp}><path d="M6 10l4-4M7 4l1-1a3 3 0 014 4l-1 1M9 12l-1 1a3 3 0 01-4-4l1-1"/></g></svg>;
     default: return null;
   }
 };
@@ -78,7 +79,7 @@ const NAV_ITEMS = {
     { key: "videos",  label: "Route Videos",       icn: "video"  },
     { key: "wrs",     label: "World Record VODs",  icn: "trophy" },
     { key: "guides",  label: "Guides",             icn: "copy"   },
-    { key: "links",   label: "Helpful Links",      icn: "copy"   },
+    { key: "links",   label: "Helpful Links",      icn: "link"   },
   ],
 };
 
