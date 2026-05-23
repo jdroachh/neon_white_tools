@@ -1,0 +1,34 @@
+# Win32 VS_VERSION_INFO for NeonWhiteLeaderboardTool.exe.
+# Bump the version quads AND the StringStruct version strings alongside
+# webview_app/bridge.py APP_VERSION on each release.
+VSVersionInfo(
+  ffi=FixedFileInfo(
+    filevers=(1, 3, 0, 0),
+    prodvers=(1, 3, 0, 0),
+    mask=0x3f,
+    flags=0x0,
+    OS=0x40004,
+    fileType=0x1,
+    subtype=0x0,
+    date=(0, 0),
+  ),
+  kids=[
+    StringFileInfo(
+      [
+        StringTable(
+          u'040904B0',
+          [
+            StringStruct(u'CompanyName', u'jdroachh'),
+            StringStruct(u'FileDescription', u'Neon White Leaderboard Tool'),
+            StringStruct(u'FileVersion', u'1.3.0.0'),
+            StringStruct(u'InternalName', u'NeonWhiteLeaderboardTool'),
+            StringStruct(u'OriginalFilename', u'NeonWhiteLeaderboardTool.exe'),
+            StringStruct(u'ProductName', u'Neon White Leaderboard Tool'),
+            StringStruct(u'ProductVersion', u'1.3.0.0'),
+          ],
+        ),
+      ]
+    ),
+    VarFileInfo([VarStruct(u'Translation', [0x0409, 1200])]),
+  ],
+)
