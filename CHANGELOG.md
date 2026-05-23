@@ -8,6 +8,30 @@ All notable changes to Neon White Tools are documented here.
 
 ---
 
+## [1.2.0] — 2026-05-22
+
+### Added
+- **Multi Compare page** — new leaderboard tool that compares up to 10 players' Neon White times side-by-side. Roster supports 1–10 players (each with a color, name, initial, and 17-digit Steam ID). Three render modes: **Level** (rank table with rolling and total gaps), **Chapter** (10-cell color-coded strip showing who has the fastest time on each level), **Whole Game** (15 stacked chapter rows across all 121 levels). Clicking any cell in Chapter or Whole Game mode opens a side drawer with that level's full rank breakdown. Per-session in-memory cache means mode-switching after a run is instant. Saved profiles dropdown on each roster row pulls from the existing `saved_profiles` config and greys out players already in the roster.
+- **Saved rosters** for Multi Compare — `saved_rosters` config key (cap 25). New "★ save roster" button on Multi Compare opens an inline name prompt; saved rosters surface via the `▾ saved rosters` button at the top of the roster section and fill all rows in one click. Manage saved rosters from Settings via the new third tab on the `profiles | seeds | rosters` toggle (rename, reorder, delete). Loading a saved roster replaces the current roster contents entirely.
+- **Shared `SavedProfilesDropdown` component** in `frontend/src/components/` (first component in that directory). Used by Player Lookup, Compare Players, and Multi Compare. Multi Compare additionally uses the `disabledIds` prop to grey out profiles already in the roster.
+
+### Changed
+- **Player Lookup and Compare Players use the shared `SavedProfilesDropdown`** instead of their own inlined versions. Visual behavior is identical; ~130 LOC of duplicated dropdown code removed across the two pages.
+- **Multi Compare uses batched `DownloadLeaderboardEntriesForUsers`** via the new `steam_api.get_player_entries(lb_handle, [steam_ids])` helper — one Steam round-trip per level instead of one per (level, player). For a 10-player Whole Game compare this cuts round-trips from ~1,331 to ~242. Falls back to per-Steam-ID calls if the batched call returns 0 entries (handles the case where one invalid Steam ID poisons the batch — verified via smoke test).
+
+### Fixed
+- **Compare Players also uses batched fetches now** — a single `get_player_entries(lb, [sid1, sid2])` call replaces the previous two `get_player_entry` calls per level. Whole Game compare drops from ~363 to ~242 Steam round-trips (~33% reduction). No behavior change visible to users; just faster.
+
+### Internal
+- New `steam_api.get_player_entries(lb_handle, steam_ids)` helper. Accepts up to 100 Steam IDs per call (Valve's documented cap on `DownloadLeaderboardEntriesForUsers`). Returns `{sid: entry_or_None}` keyed by every requested Steam ID. Fall-back per-Steam-ID retry on empty batch result.
+- `webview_app/models/multi_compare.py` — Pydantic request + event types (`MultiCompareRequest`, `MultiCompareRowEvent`, `MultiCompareProgressEvent`, `MultiCompareDoneEvent`). Frozen wire shapes; events stream to `window._nwMultiCompareEvent`.
+- `webview_app/multi_compare_cache.py` — thread-safe in-memory `(steam_id, level_code) → entry` cache. Lifetime is the pywebview window. Designed to be swapped to a disk-backed implementation later without changing callers.
+- `frontend/src/lib/playerColors.js` — neutrally-named 10-color palette (red, orange, yellow, green, blue, navy, violet, pink, cyan, white). Replaces the Tailwind 500-shade indigo with a darker navy `#1e3a8a` so it pairs with blue by lightness rather than competing on hue. Bingo Mode (Phase 2) will reuse this palette for team colors.
+- `frontend/src/lib/savedRosters.js` — load/save/add/remove/move/rename helpers for `saved_rosters`. Mirrors `savedProfiles.js` / `savedSeeds.js` patterns.
+- `heatmap_prototype/` directory deleted. All functional code graduated into the main app.
+
+---
+
 ## [1.1.0] — 2026-05-22
 
 ### Added

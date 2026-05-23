@@ -28,7 +28,7 @@ from . import multi_compare_cache
 
 _resources.start_background_fetch()
 
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.2.0"
 
 # Community medal data — fetched once at module init in background threads.
 # communitymedals.json: {code: [emerald_us, amethyst_us, sapphire_us]}
