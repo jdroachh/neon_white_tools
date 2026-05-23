@@ -288,3 +288,53 @@ def get_player_entry(lb_handle, steam_id):
         ctypes.byref(entry), None, 0
     )
     return entry if (ok and entry.steam_id_user == steam_id) else None
+
+
+def get_player_entries(lb_handle, steam_ids):
+    """
+    Batched variant of get_player_entry. Single Steamworks round-trip for up
+    to 100 steam_ids (Valve's documented cap on DownloadLeaderboardEntriesForUsers).
+
+    Returns {sid: LeaderboardEntry or None} — every requested sid is keyed,
+    with None for players who have no entry on this board (or for whom the
+    batched lookup couldn't be confirmed via the per-sid fallback).
+
+    Fallback behavior: Steamworks fails the entire batched call (entry_count=0)
+    if any sid in the array is invalid (e.g. malformed or non-existent account).
+    When that happens — or when the batched call errors out — we retry one sid
+    at a time so valid sids still return their entries. This pays an N-call
+    penalty in the rare "everyone missing this level" case too, but correctness
+    matters more than perf at the edge.
+    """
+    if not steam_ids:
+        return {}
+    if len(steam_ids) == 1:
+        return {steam_ids[0]: get_player_entry(lb_handle, steam_ids[0])}
+
+    n = len(steam_ids)
+    id_array = (ctypes.c_uint64 * n)(*steam_ids)
+    call = steam.SteamAPI_ISteamUserStats_DownloadLeaderboardEntriesForUsers(
+        user_stats, lb_handle, id_array, n
+    )
+    result = LeaderboardScoresDownloaded()
+    if not wait_for_call(call, result, LEADERBOARD_SCORES_CALLBACK):
+        # Whole call failed — retry per-sid so any valid ones still resolve.
+        return {sid: get_player_entry(lb_handle, sid) for sid in steam_ids}
+
+    if result.entry_count == 0:
+        # Batched call succeeded but returned no entries. Two possibilities:
+        #   (a) an invalid sid poisoned the batch (verified via smoke test),
+        #   (b) genuinely no entries for any sid on this leaderboard.
+        # Per-sid retry covers (a) and produces the same result for (b).
+        return {sid: get_player_entry(lb_handle, sid) for sid in steam_ids}
+
+    out = {sid: None for sid in steam_ids}
+    for i in range(result.entry_count):
+        entry = LeaderboardEntry()
+        ok = steam.SteamAPI_ISteamUserStats_GetDownloadedLeaderboardEntry(
+            user_stats, result.leaderboard_entries_handle, i,
+            ctypes.byref(entry), None, 0
+        )
+        if ok and entry.steam_id_user in out:
+            out[entry.steam_id_user] = entry
+    return out

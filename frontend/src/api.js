@@ -186,6 +186,16 @@ export async function runComparePlayers(steamId1, steamId2, mode, target, outMod
   return api.run_compare_players(String(steamId1), String(steamId2), mode, String(target), outMode, folder);
 }
 
+export async function runMultiCompare(steamIds, mode, target = "") {
+  const api = await waitForApi();
+  return api.run_multi_compare(steamIds.map(String), mode, String(target));
+}
+
+export async function stopMultiCompare() {
+  const api = await waitForApi();
+  return api.stop_multi_compare();
+}
+
 export async function stopLeaderboard() {
   const api = await waitForApi();
   return api.stop_leaderboard();

@@ -14,6 +14,7 @@ import GlobalExport  from "./pages/GlobalExport.jsx";
 import LevelSearch   from "./pages/LevelSearch.jsx";
 import PlayerLookup   from "./pages/PlayerLookup.jsx";
 import ComparePlayers from "./pages/ComparePlayers.jsx";
+import MultiCompare   from "./pages/MultiCompare.jsx";
 import Ghosts           from "./pages/Ghosts.jsx";
 import RouteVideos      from "./pages/RouteVideos.jsx";
 import WorldRecordVods  from "./pages/WorldRecordVods.jsx";
@@ -32,6 +33,7 @@ const PAGE_TITLES = {
   levelsearch: "Level Search",
   lookup:      "Player Lookup",
   compare:     "Compare Players",
+  multicompare: "Multi Compare",
   ghosts:      "Ghosts",
   videos:      "Route Videos",
   wrs:         "World Record VODs",
@@ -54,6 +56,7 @@ const LB_PAGES = [
   { key: "levelsearch", Component: LevelSearch    },
   { key: "lookup",      Component: PlayerLookup   },
   { key: "compare",     Component: ComparePlayers },
+  { key: "multicompare", Component: MultiCompare   },
 ];
 const RES_PAGES = [
   { key: "ghosts",  Component: Ghosts          },
@@ -79,7 +82,7 @@ function Placeholder({ pageName }) {
 
 const VALID_LAST_TABS = new Set([
   "parse", "splits", "std", "find", "timer",
-  "global", "levelsearch", "lookup", "compare",
+  "global", "levelsearch", "lookup", "compare", "multicompare",
   "ghosts", "videos", "wrs", "guides", "links",
 ]);
 

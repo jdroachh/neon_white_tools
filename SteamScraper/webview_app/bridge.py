@@ -22,7 +22,9 @@ from rush_data import (LEVELS, LEVEL_LOOKUP, RUSH_LEVELS, RUSH_ALIASES, STANDARD
                        CHAPTERS, WHOLE_GAME_LEVELS)
 from seed_search import _seed_search_worker, _expected_match_count
 from .models.resources import GuidesResponse, HelpfulLinksResponse
+from .models.multi_compare import MultiCompareRequest
 from . import resources as _resources
+from . import multi_compare_cache
 
 _resources.start_background_fetch()
 
@@ -94,6 +96,7 @@ _DEFAULT_CONFIG = {
     "entry_count":     1000,
     "accent_color":    "#00e09a",
     "saved_profiles":  [],
+    "saved_rosters":   [],
     "guide_watchlist":     [],
     "guide_watched":       [],
     "guide_hide_watched":  False,
@@ -1169,6 +1172,126 @@ class JsApi:
             self._lb_running = False
 
         threading.Thread(target=worker, daemon=True).start()
+        return {"ok": True}
+
+    def run_multi_compare(self, steam_ids: list, mode: str, target: str = "") -> dict:
+        """
+        Up to 10 players × Level/Chapter/Whole-Game compare. Batches Steam
+        calls per level (one DownloadLeaderboardEntriesForUsers round-trip
+        for whoever's not in cache). Streams row/progress/done events via
+        window._nwMultiCompareEvent.
+        """
+        try:
+            req = MultiCompareRequest(steam_ids=steam_ids, mode=mode, target=target)
+        except Exception as exc:
+            return {"ok": False, "error": str(exc)}
+
+        import steam_api
+        if not steam_api.steam_ready:
+            return {"ok": False, "error": "Steam not connected. Connect in Settings first."}
+        if getattr(self, "_lb_running", False):
+            return {"ok": False, "error": "An operation is already running."}
+
+        levels_to_search = []
+        if req.mode == "level":
+            match = LEVEL_LOOKUP.get(req.target.strip().lower())
+            if not match:
+                return {"ok": False, "error": f"Level '{req.target}' not found."}
+            levels_to_search = [match]
+        elif req.mode == "chapter":
+            chap = req.target.strip()
+            if chap not in CHAPTERS:
+                return {"ok": False, "error": f"Chapter '{chap}' not found."}
+            for dn in CHAPTERS[chap]:
+                m = LEVEL_LOOKUP.get(dn.lower())
+                if m:
+                    levels_to_search.append(m)
+        elif req.mode == "game":
+            levels_to_search = list(WHOLE_GAME_LEVELS)
+        else:
+            return {"ok": False, "error": f"Unknown mode '{req.mode}'."}
+
+        sid_ints = [int(s) for s in req.steam_ids]
+        sid_pairs = list(zip(req.steam_ids, sid_ints))  # (display_str, int) for emit + lookup
+
+        self._lb_stop_event = threading.Event()
+        self._lb_running = True
+
+        def worker():
+            total = len(sid_ints) * len(levels_to_search)
+            done = 0
+            for display, internal in levels_to_search:
+                if self._lb_stop_event.is_set():
+                    _emit_to("_nwMultiCompareEvent", {"type": "done", "message": "stopped"})
+                    self._lb_running = False
+                    return
+
+                # Cache lookup per sid; collect misses for a single batched fetch.
+                cached: dict = {}
+                missing: list = []
+                for sid in sid_ints:
+                    hit, val = multi_compare_cache.get(sid, internal)
+                    if hit:
+                        cached[sid] = val
+                    else:
+                        missing.append(sid)
+
+                if missing:
+                    lb = steam_api.find_leaderboard(internal)
+                    if lb:
+                        fetched = steam_api.get_player_entries(lb, missing)
+                        for sid, entry in fetched.items():
+                            cache_val = None
+                            if entry is not None:
+                                cache_val = {
+                                    "time_us": entry.score * 1000,  # ms → us
+                                    "rank": entry.global_rank,
+                                }
+                            multi_compare_cache.put(sid, internal, cache_val)
+                            cached[sid] = cache_val
+                    else:
+                        # Leaderboard not found / call failed — cache as missing
+                        for sid in missing:
+                            multi_compare_cache.put(sid, internal, None)
+                            cached[sid] = None
+
+                for sid_str, sid_int in sid_pairs:
+                    val = cached.get(sid_int)
+                    if val is None:
+                        _emit_to("_nwMultiCompareEvent", {
+                            "type": "row",
+                            "steam_id": sid_str,
+                            "level_code": internal,
+                            "level_display": display,
+                            "time_us": None,
+                            "rank": None,
+                            "missing": True,
+                        })
+                    else:
+                        _emit_to("_nwMultiCompareEvent", {
+                            "type": "row",
+                            "steam_id": sid_str,
+                            "level_code": internal,
+                            "level_display": display,
+                            "time_us": val["time_us"],
+                            "rank": val["rank"],
+                            "missing": False,
+                        })
+                    done += 1
+                    if done % 10 == 0 or done == total:
+                        _emit_to("_nwMultiCompareEvent", {
+                            "type": "progress", "done": done, "total": total,
+                        })
+
+            _emit_to("_nwMultiCompareEvent", {"type": "done", "message": "ok"})
+            self._lb_running = False
+
+        threading.Thread(target=worker, daemon=True).start()
+        return {"ok": True}
+
+    def stop_multi_compare(self) -> dict:
+        if hasattr(self, "_lb_stop_event"):
+            self._lb_stop_event.set()
         return {"ok": True}
 
     def stop_leaderboard(self) -> dict:

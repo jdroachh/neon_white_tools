@@ -3,6 +3,7 @@ import { PageHead, Field, Btn, ErrorBanner, Seg } from "../shared.jsx";
 import { getConfig, saveConfigField, initSteam, pickDllFile, pickFolder, applyAccent, openLogFolder, getAppVersion, findSteamDll } from "../api.js";
 import { loadProfiles, saveProfiles, addProfile, updateProfile, removeProfile, moveProfile, validateProfile, MAX as MAX_PROFILES } from "../lib/savedProfiles.js";
 import { loadSeeds, saveSeeds, removeSeed, moveSeed, updateNickname as updateSeedNickname, MAX as MAX_SEEDS } from "../lib/savedSeeds.js";
+import { loadRosters, saveRosters, removeRoster, moveRoster, updateNickname as updateRosterNickname, MAX as MAX_ROSTERS } from "../lib/savedRosters.js";
 
 const ACCENT_PRESETS = [
   { hex: "#00e09a", label: "Mint"    },
@@ -34,6 +35,8 @@ export default function Settings({ onSteamConnected, onFolderChange, visible = f
   const [savedSection, setSavedSection] = useState("profiles");
   const [savedSeeds, setSavedSeeds]     = useState([]);
   const [seedErrors, setSeedErrors]     = useState({});
+  const [savedRosters, setSavedRosters] = useState([]);
+  const [rosterErrors, setRosterErrors] = useState({});
 
   useEffect(() => {
     getConfig().then(cfg => {
@@ -43,6 +46,7 @@ export default function Settings({ onSteamConnected, onFolderChange, visible = f
     });
     loadProfiles().then(setSavedProfiles);
     loadSeeds().then(setSavedSeeds);
+    loadRosters().then(setSavedRosters);
     getAppVersion().then(v => setAppVersion(v || ""));
   }, []);
 
@@ -50,6 +54,7 @@ export default function Settings({ onSteamConnected, onFolderChange, visible = f
     if (visible) {
       loadProfiles().then(setSavedProfiles);
       loadSeeds().then(setSavedSeeds);
+      loadRosters().then(setSavedRosters);
     }
   }, [visible]);
 
@@ -209,6 +214,38 @@ export default function Settings({ onSteamConnected, onFolderChange, visible = f
     await saveSeeds(next);
   }
 
+  function handleRosterNicknameChange(idx, value) {
+    const next = savedRosters.map((r, i) => i === idx ? { ...r, nickname: value } : r);
+    setSavedRosters(next);
+  }
+
+  async function handleRosterNicknameBlur(idx) {
+    const r = savedRosters[idx];
+    const result = updateRosterNickname(savedRosters, idx, r.nickname);
+    if (result.error) {
+      setRosterErrors(prev => ({ ...prev, [idx]: result.error }));
+      return;
+    }
+    setRosterErrors(prev => { const next = { ...prev }; delete next[idx]; return next; });
+    setSavedRosters(result.list);
+    await saveRosters(result.list);
+  }
+
+  async function handleRosterDelete(idx) {
+    const name = savedRosters[idx]?.nickname ?? "this roster";
+    if (!window.confirm(`Delete saved roster "${name}"?`)) return;
+    const next = removeRoster(savedRosters, idx);
+    setSavedRosters(next);
+    setRosterErrors(prev => { const e = { ...prev }; delete e[idx]; return e; });
+    await saveRosters(next);
+  }
+
+  async function handleRosterMove(idx, dir) {
+    const next = moveRoster(savedRosters, idx, dir);
+    setSavedRosters(next);
+    await saveRosters(next);
+  }
+
   async function handleSeedMove(idx, dir) {
     const next = moveSeed(savedSeeds, idx, dir);
     setSavedSeeds(next);
@@ -291,7 +328,7 @@ export default function Settings({ onSteamConnected, onFolderChange, visible = f
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
               <div style={{ fontWeight: 600, fontSize: 12 }}>Saved items</div>
               <Seg
-                options={["profiles", "seeds"]}
+                options={["profiles", "seeds", "rosters"]}
                 value={savedSection}
                 onChange={setSavedSection}
               />
@@ -392,6 +429,56 @@ export default function Settings({ onSteamConnected, onFolderChange, visible = f
                 )}
                 <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>
                   {savedSeeds.length} / {MAX_SEEDS} saved.
+                </div>
+              </>
+            )}
+
+            {savedSection === "rosters" && (
+              <>
+                <div className="muted" style={{ fontSize: 11, marginBottom: 8 }}>
+                  Player rosters from Multi-Compare. New rosters are saved with the ★ button on the Multi-Compare page.
+                </div>
+                {savedRosters.length === 0 ? (
+                  <div className="muted" style={{ fontSize: 11, padding: "8px 0" }}>
+                    No saved rosters yet.
+                  </div>
+                ) : (
+                  <div style={{ maxHeight: 400, overflow: "auto", paddingRight: 4 }}>
+                    {savedRosters.map((r, i) => (
+                      <div key={i} style={{ marginBottom: 8 }}>
+                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                          <input className="input" style={{ flex: 1, minWidth: 0 }}
+                            value={r.nickname}
+                            onChange={e => handleRosterNicknameChange(i, e.target.value)}
+                            onBlur={() => handleRosterNicknameBlur(i)}
+                            placeholder="Roster name" />
+                          <Btn kind="ghost" size="sm" disabled={i === 0}
+                               onClick={() => handleRosterMove(i, -1)}>↑</Btn>
+                          <Btn kind="ghost" size="sm" disabled={i === savedRosters.length - 1}
+                               onClick={() => handleRosterMove(i, 1)}>↓</Btn>
+                          <Btn kind="danger" size="sm"
+                               onClick={() => handleRosterDelete(i)}>✕</Btn>
+                        </div>
+                        <div className="muted data" style={{ fontSize: 10, marginTop: 2, paddingLeft: 2 }}>
+                          {(r.members || []).length} player{(r.members || []).length === 1 ? "" : "s"}
+                          {(r.members || []).length > 0 && (
+                            <>
+                              {" · "}
+                              {(r.members || []).map(m => m.name || `(${(m.steam_id || "").slice(-4)})`).join(", ")}
+                            </>
+                          )}
+                        </div>
+                        {rosterErrors[i] && (
+                          <div style={{ fontSize: 11, color: "var(--bad, #f87171)", marginTop: 3 }}>
+                            {rosterErrors[i]}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>
+                  {savedRosters.length} / {MAX_ROSTERS} saved.
                 </div>
               </>
             )}

@@ -974,3 +974,55 @@
 .hifi.dark ::-webkit-scrollbar-track { background: var(--bg); }
 .hifi.dark ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 0; }
 .hifi.dark ::-webkit-scrollbar-thumb:hover { background: #3a3a3a; }
+
+/* Multi-Compare cell hover + tooltip — CSS-driven so it's instant (no React rerender) */
+.heatmap-cell {
+  position: relative;
+  transition: transform 100ms ease, box-shadow 100ms ease, filter 100ms ease;
+}
+.heatmap-cell:hover {
+  transform: scale(1.06);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+  filter: brightness(1.12);
+  z-index: 5;
+}
+.heatmap-cell .heatmap-tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #111;
+  color: #e0e0e0;
+  border: 1px solid var(--border);
+  padding: 5px 9px;
+  font-size: 11px;
+  font-family: var(--data-font);
+  white-space: nowrap;
+  border-radius: 3px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 120ms ease;
+  z-index: 50;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+.heatmap-cell:hover .heatmap-tooltip {
+  opacity: 1;
+}
+.heatmap-tooltip::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 5px solid #111;
+}
+.heatmap-tooltip .ht-name {
+  color: var(--accent);
+  font-weight: 600;
+}
+.heatmap-tooltip .ht-sub {
+  color: var(--text-3, var(--text-2));
+  margin-left: 6px;
+}
