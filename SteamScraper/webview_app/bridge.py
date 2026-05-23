@@ -1093,8 +1093,9 @@ class JsApi:
                     continue
                 total_lb = steam_api.steam.SteamAPI_ISteamUserStats_GetLeaderboardEntryCount(
                     steam_api.user_stats, lb)
-                entry1 = steam_api.get_player_entry(lb, sid1)
-                entry2 = steam_api.get_player_entry(lb, sid2)
+                entries = steam_api.get_player_entries(lb, [sid1, sid2])
+                entry1 = entries.get(sid1)
+                entry2 = entries.get(sid2)
                 p1_data = None
                 if entry1:
                     p1_data = {
