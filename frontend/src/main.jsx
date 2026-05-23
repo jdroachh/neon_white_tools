@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
+import "./mc-styles.css";
 
 import { Sidebar } from "./shared.jsx";
 import { getSteamStatus, getConfig, applyAccent, saveConfigFields, initSteam } from "./api.js";

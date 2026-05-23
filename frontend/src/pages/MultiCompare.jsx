@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 
-import { PageHead, Seg, Btn } from "../shared.jsx";
+import { MedalBadge, Seg, PageHead, Btn } from "../shared.jsx";
 import { loadProfiles } from "../lib/savedProfiles.js";
 import SavedProfilesDropdown from "../components/SavedProfilesDropdown.jsx";
 import {
@@ -14,7 +14,23 @@ const MIN_ROWS = 1;
 const DEFAULT_ROWS = 3;
 const MAX_ROWS = 10;
 
-// ── Time formatting (microseconds → display) ──────────────────────────────
+// ── Icons (verbatim from handoff multi-compare.jsx) ──────────────────────
+function McIcon({ name, size = 14 }) {
+  const s = { width: size, height: size, display: "inline-block", verticalAlign: "middle" };
+  const sp = { fill: "none", stroke: "currentColor", strokeWidth: 1.6, strokeLinecap: "round", strokeLinejoin: "round" };
+  switch (name) {
+    case "export":   return <svg viewBox="0 0 16 16" style={s}><g {...sp}><path d="M8 11V2"/><path d="M5 5l3-3 3 3"/><path d="M3 11v3h10v-3"/></g></svg>;
+    case "run":      return <svg viewBox="0 0 16 16" style={s}><g {...sp}><path d="M9 2.5l-2 4h3l-2 4M5 11l-1.5 2M11 11l-1 2"/></g></svg>;
+    case "caret":    return <svg viewBox="0 0 16 16" style={s}><path d="M5 6l3 3 3-3" {...sp} /></svg>;
+    case "close":    return <svg viewBox="0 0 16 16" style={s}><path d="M3 3l10 10M13 3l-10 10" {...sp} strokeWidth="1.4"/></svg>;
+    case "copy":     return <svg viewBox="0 0 16 16" style={s}><g {...sp}><rect x="5" y="5" width="9" height="9"/><path d="M3 11V3a1 1 0 011-1h7"/></g></svg>;
+    case "ghost":    return <svg viewBox="0 0 16 16" style={s}><g {...sp}><path d="M3 13V8a5 5 0 0110 0v5l-1.5-1L10 13l-2-1-2 1-1.5-1L3 13z"/></g></svg>;
+    case "video":    return <svg viewBox="0 0 16 16" style={s}><g {...sp}><rect x="2" y="4" width="9" height="8" rx="1"/><path d="M11 7l3-2v6l-3-2z"/></g></svg>;
+    default: return null;
+  }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────
 function formatTimeUs(us) {
   if (us == null) return "—";
   const totalSec = us / 1_000_000;
@@ -23,7 +39,6 @@ function formatTimeUs(us) {
   if (min > 0) return `${min}:${sec.toFixed(3).padStart(6, "0")}`;
   return `${sec.toFixed(3)}s`;
 }
-
 function formatGapUs(deltaUs) {
   if (deltaUs == null) return "—";
   if (deltaUs === 0) return "tie";
@@ -33,7 +48,19 @@ function formatGapUs(deltaUs) {
   if (min > 0) return `+${min}:${sec.toFixed(3).padStart(6, "0")}`;
   return `+${sec.toFixed(3)}s`;
 }
-
+function deriveInitial(name) {
+  return (name || "").trim().charAt(0).toUpperCase();
+}
+function truncateSid(sid) {
+  if (!sid || sid.length < 8) return sid || "";
+  return `${sid.slice(0, 4)}…${sid.slice(-4)}`;
+}
+function chapterShortLabel(key) {
+  const [head, tail] = (key || "").split(/\s*-\s*/, 2);
+  if (/^\d+$/.test(head)) return `CH ${head}`;
+  if ((head || "").toLowerCase().startsWith("sidequest")) return (tail || "").trim().toUpperCase();
+  return key || "";
+}
 function makeEmptyRow(usedColors, rowIndex) {
   const playerNum = (rowIndex ?? usedColors.length) + 1;
   return {
@@ -43,56 +70,35 @@ function makeEmptyRow(usedColors, rowIndex) {
     steam_id: "",
   };
 }
-
-function deriveInitial(name) {
-  return (name || "").trim().charAt(0).toUpperCase();
-}
-
-export default function MultiCompare({ visible = false } = {}) {
-  // ── Roster ──────────────────────────────────────────────────────────────
+// ── Main page ────────────────────────────────────────────────────────────
+export default function MultiCompare({ visible = false, showMedals = true } = {}) {
   const [roster, setRoster] = useState(() => {
     const rows = [];
-    for (let i = 0; i < DEFAULT_ROWS; i++) {
-      rows.push(makeEmptyRow(rows.map(r => r.color), i));
-    }
+    for (let i = 0; i < DEFAULT_ROWS; i++) rows.push(makeEmptyRow(rows.map(r => r.color), i));
     return rows;
   });
 
-  // ── Bridge data ─────────────────────────────────────────────────────────
-  const [levels, setLevels] = useState([]);              // [{display, internal}]
-  const [chapters, setChapters] = useState({});          // { chapterKey: [displayNames] }
-  const [savedProfiles, setSavedProfiles] = useState([]); // [{nickname, steam_id}]
-  const [savedRosters, setSavedRosters] = useState([]);   // [{nickname, members, saved_at}]
+  const [levels, setLevels] = useState([]);
+  const [chapters, setChapters] = useState({});  // {chapterKey: [displayNames]}
+  const [savedProfiles, setSavedProfiles] = useState([]);
+  const [savedRosters, setSavedRosters] = useState([]);
 
-  // ── Save-roster inline prompt ───────────────────────────────────────────
   const [savePromptOpen, setSavePromptOpen] = useState(false);
   const [savePromptNickname, setSavePromptNickname] = useState("");
   const [savePromptError, setSavePromptError] = useState("");
 
-  // ── View / run state ───────────────────────────────────────────────────
-  const [mode, setMode] = useState("level"); // "level" | "chapter" | "game"
-  const [levelTarget, setLevelTarget] = useState("");      // level display name
-  const [chapterTarget, setChapterTarget] = useState("");  // chapter key
+  const [mode, setMode] = useState("game");
+  const [levelTarget, setLevelTarget] = useState("");
+  const [chapterTarget, setChapterTarget] = useState("");
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
-  // Streamed results, keyed by `${steam_id}::${level_code}` -> row payload
   const [results, setResults] = useState({});
-  // Drill-down drawer: level display name when open, null when closed.
-  // Independent of `mode` so the underlying view stays put behind the drawer.
-  const [drilldownLevel, setDrilldownLevel] = useState(null);
-  // Roster auto-collapses after a successful run; user can re-expand via
-  // the "edit roster" button. Stays open during entry and while running so
-  // progress remains visible against roster context.
-  const [rosterCollapsed, setRosterCollapsed] = useState(false);
+  const [rosterEditing, setRosterEditing] = useState(true);  // expand-to-edit default open until first run
+  const [drill, setDrill] = useState(null);  // {chapterKey, levelDisplay, cellKey} | null
+  const [filterPlayer, setFilterPlayer] = useState(null);  // steam_id | null
+  const [sortMode, setSortMode] = useState("chapter");  // chapter | most contested | biggest Δ
 
   const runIdRef = useRef(0);
-
-  // Section-level collapse (independent of the roster's pill-summary mode).
-  // Click a section title to fully hide its contents.
-  const [sectionsCollapsed, setSectionsCollapsed] = useState({ roster: false, view: false, result: false });
-  function toggleSection(key) {
-    setSectionsCollapsed(prev => ({ ...prev, [key]: !prev[key] }));
-  }
 
   // ── Initial bridge load ─────────────────────────────────────────────────
   useEffect(() => {
@@ -114,15 +120,13 @@ export default function MultiCompare({ visible = false } = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Re-pull profiles + rosters whenever the page becomes visible, so edits made
-  // in Settings reflect here without an app restart. Levels/chapters are static.
   useEffect(() => {
     if (!visible) return;
     loadProfiles().then(setSavedProfiles).catch(() => {});
     loadRosters().then(setSavedRosters).catch(() => {});
   }, [visible]);
 
-  // ── Multi-Compare event listener ────────────────────────────────────────
+  // ── Event listener ──────────────────────────────────────────────────────
   useEffect(() => {
     window._nwMultiCompareEvent = (evt) => {
       if (!evt || typeof evt !== "object") return;
@@ -133,9 +137,7 @@ export default function MultiCompare({ visible = false } = {}) {
         setProgress({ done: evt.done, total: evt.total });
       } else if (evt.type === "done") {
         setRunning(false);
-        // Auto-collapse the roster on natural completion only — a stopped
-        // run leaves the roster open so the user can keep editing.
-        if (evt.message === "ok") setRosterCollapsed(true);
+        if (evt.message === "ok") setRosterEditing(false);
       }
     };
     return () => { delete window._nwMultiCompareEvent; };
@@ -161,10 +163,7 @@ export default function MultiCompare({ visible = false } = {}) {
     });
   }
 
-  // ── Run / stop ──────────────────────────────────────────────────────────
-  // Rows are valid only if format-correct AND their steam_id is unique
-  // within the roster. Duplicates exclude *all* matching rows so the user
-  // gets visual feedback to fix them.
+  // ── Validity ─────────────────────────────────────────────────────────────
   const idCounts = useMemo(() => {
     const counts = {};
     for (const r of roster) {
@@ -173,7 +172,6 @@ export default function MultiCompare({ visible = false } = {}) {
     }
     return counts;
   }, [roster]);
-
   const validRoster = useMemo(
     () => roster.filter(r => {
       const id = (r.steam_id || "").trim();
@@ -191,6 +189,8 @@ export default function MultiCompare({ visible = false } = {}) {
     if (!canRun) return;
     setResults({});
     setProgress({ done: 0, total: 0 });
+    setDrill(null);
+    setFilterPlayer(null);
     runIdRef.current += 1;
     setRunning(true);
     const steam_ids = validRoster.map(r => r.steam_id.trim());
@@ -202,51 +202,34 @@ export default function MultiCompare({ visible = false } = {}) {
       }
     });
   }
-  function handleStop() {
-    stopMultiCompare();
-  }
+  function handleStop() { stopMultiCompare(); }
 
-  // ── Saved roster actions ────────────────────────────────────────────────
   function openSavePrompt() {
-    setSavePromptNickname("");
-    setSavePromptError("");
-    setSavePromptOpen(true);
+    setSavePromptNickname(""); setSavePromptError(""); setSavePromptOpen(true);
   }
-  function closeSavePrompt() {
-    setSavePromptOpen(false);
-    setSavePromptError("");
-  }
+  function closeSavePrompt() { setSavePromptOpen(false); setSavePromptError(""); }
   function handleSaveRosterSubmit() {
     if (validRoster.length === 0) return;
     const members = validRoster.map(r => ({
       color: r.color, name: r.name, initial: r.initial, steam_id: r.steam_id.trim(),
     }));
-    const { error, list } = addRoster(savedRosters, {
-      nickname: savePromptNickname,
-      members,
-    });
-    if (error) {
-      setSavePromptError(error);
-      return;
-    }
+    const { error, list } = addRoster(savedRosters, { nickname: savePromptNickname, members });
+    if (error) { setSavePromptError(error); return; }
     setSavedRosters(list);
-    saveRosters(list).catch(() => {}); // best-effort persist
+    saveRosters(list).catch(() => {});
     closeSavePrompt();
   }
   function handleLoadSavedRoster(idx) {
     const sr = savedRosters[idx];
     if (!sr || !Array.isArray(sr.members) || sr.members.length === 0) return;
-    // Replace current roster entirely with the saved members (up to MAX_ROWS).
     const restored = sr.members.slice(0, MAX_ROWS).map(m => ({
-      color: m.color || "white",
-      name: m.name || "",
-      initial: m.initial || "",
-      steam_id: m.steam_id || "",
+      color: m.color || "white", name: m.name || "", initial: m.initial || "", steam_id: m.steam_id || "",
     }));
     setRoster(restored);
-    setRosterCollapsed(false);
+    setRosterEditing(true);
     setResults({});
     setProgress({ done: 0, total: 0 });
+    setDrill(null);
   }
   function handleDeleteSavedRoster(idx) {
     const next = removeRoster(savedRosters, idx);
@@ -254,362 +237,409 @@ export default function MultiCompare({ visible = false } = {}) {
     saveRosters(next).catch(() => {});
   }
 
-  // ── Render ──────────────────────────────────────────────────────────────
-  return (
-    <>
-      <PageHead crumb="Leaderboard Tools" title="MULTI" accentWord="COMPARE" />
-      <div style={S.scrollBody}>
-      <section style={S.section}>
-        <SectionHeader
-          label="Roster"
-          collapsed={sectionsCollapsed.roster}
-          onToggle={() => toggleSection("roster")}
-        />
-        {!sectionsCollapsed.roster && (rosterCollapsed ? (
-          <CollapsedRoster roster={roster} onExpand={() => setRosterCollapsed(false)} />
-        ) : (
-          <>
-            <SavedRostersBar
-              rosters={savedRosters}
-              onLoad={handleLoadSavedRoster}
-              onDelete={handleDeleteSavedRoster}
-            />
-            <RosterTable
-              roster={roster}
-              savedProfiles={savedProfiles}
-              idCounts={idCounts}
-              onUpdateRow={updateRow}
-              onRemoveRow={removeRow}
-              onApplyProfile={applyProfileToRow}
-            />
-            <div style={S.rosterControls}>
-              <button
-                type="button"
-                style={S.btn}
-                onClick={addRow}
-                disabled={roster.length >= MAX_ROWS}
-              >
-                + add player
-              </button>
-              <span style={S.muted}>{roster.length} / {MAX_ROWS}</span>
-              <button
-                type="button"
-                style={S.btn}
-                onClick={() => setRosterCollapsed(true)}
-                title="Hide the roster fields"
-              >
-                ▴ collapse
-              </button>
-              <button
-                type="button"
-                style={S.btn}
-                onClick={openSavePrompt}
-                disabled={validRoster.length === 0 || savedRosters.length >= MAX_ROSTERS}
-                title={
-                  validRoster.length === 0 ? "Need at least one valid roster row"
-                  : savedRosters.length >= MAX_ROSTERS ? `Limit: ${MAX_ROSTERS} saved rosters`
-                  : "Save current roster"
-                }
-              >
-                ★ save roster
-              </button>
-              {savedRosters.length >= MAX_ROSTERS && (
-                <span style={{ ...S.muted, color: "var(--warn, #f5a623)" }}>
-                  {savedRosters.length}/{MAX_ROSTERS} saved — delete one in Settings to save more.
-                </span>
-              )}
-              <span style={{ flex: 1 }} />
-              <span style={S.muted}>{validRoster.length} valid steamID{validRoster.length === 1 ? "" : "s"}</span>
-            </div>
-            {savePromptOpen && (
-              <SaveRosterPrompt
-                nickname={savePromptNickname}
-                onNicknameChange={setSavePromptNickname}
-                error={savePromptError}
-                onSubmit={handleSaveRosterSubmit}
-                onCancel={closeSavePrompt}
-                validCount={validRoster.length}
-              />
-            )}
-          </>
-        ))}
-      </section>
+  // ── Derived data ────────────────────────────────────────────────────────
+  const rosterById = useMemo(() => {
+    const m = {};
+    for (const r of roster) {
+      const id = (r.steam_id || "").trim();
+      if (id) m[id] = r;
+    }
+    return m;
+  }, [roster]);
 
-      <section style={S.section}>
-        <SectionHeader
-          label="Search Mode"
-          collapsed={sectionsCollapsed.view}
-          onToggle={() => toggleSection("view")}
+  const chapterKeys = useMemo(() => Object.keys(chapters), [chapters]);
+
+  // Aggregates per (chapterKey, levelDisplay):
+  //   { winnerSid, winnerTime, winnerDelta, sortedRows[], rowsBySid{}, totalRosterRows, anyData }
+  const mcData = useMemo(() => {
+    const out = {};
+    const rosterSids = Object.keys(rosterById);
+    for (const ck of chapterKeys) {
+      const levelDisplays = chapters[ck] || [];
+      out[ck] = levelDisplays.map(disp => {
+        // results are keyed by `${steam_id}::${level_code}`; match by level_display.
+        const matching = Object.values(results).filter(r =>
+          r.level_display === disp && rosterSids.includes(r.steam_id)
+        );
+        const present = matching.filter(r => !r.missing).slice().sort((a, b) => a.time_us - b.time_us);
+        const winner = present.length ? present[0] : null;
+        const second = present.length > 1 ? present[1] : null;
+        const rowsBySid = {};
+        for (const m of matching) rowsBySid[m.steam_id] = m;
+        return {
+          levelDisplay: disp,
+          winnerSid: winner ? winner.steam_id : null,
+          winnerTime: winner ? winner.time_us : null,
+          winnerDelta: (winner && second) ? (second.time_us - winner.time_us) : null,
+          sortedRows: present,
+          missingRows: matching.filter(r => r.missing),
+          rowsBySid,
+          hasAnyData: matching.length > 0 && matching.some(r => !r.missing),
+        };
+      });
+    }
+    return out;
+  }, [chapters, chapterKeys, results, rosterById]);
+
+  // Wins per player (global) and per chapter
+  const { winsPerPlayer, winsPerChapter, totalLevels } = useMemo(() => {
+    const per = {};
+    for (const sid of Object.keys(rosterById)) per[sid] = 0;
+    const perChapter = {};
+    let total = 0;
+    for (const ck of chapterKeys) {
+      const chWins = {};
+      for (const sid of Object.keys(rosterById)) chWins[sid] = 0;
+      for (const lvl of mcData[ck] || []) {
+        total++;
+        if (lvl.winnerSid) {
+          per[lvl.winnerSid] = (per[lvl.winnerSid] || 0) + 1;
+          chWins[lvl.winnerSid] = (chWins[lvl.winnerSid] || 0) + 1;
+        }
+      }
+      perChapter[ck] = chWins;
+    }
+    return { winsPerPlayer: per, winsPerChapter: perChapter, totalLevels: total };
+  }, [chapterKeys, mcData, rosterById]);
+
+  // Sorted chapter order based on sortMode
+  const sortedChapterKeys = useMemo(() => {
+    if (sortMode === "chapter") return chapterKeys;
+    if (sortMode === "most contested") {
+      // Most-contested first: chapter where the most-winning player has the lowest share of wins.
+      return [...chapterKeys].sort((a, b) => {
+        const chA = winsPerChapter[a] || {}, chB = winsPerChapter[b] || {};
+        const lenA = (chapters[a] || []).length || 1, lenB = (chapters[b] || []).length || 1;
+        const maxA = Math.max(0, ...Object.values(chA)) / lenA;
+        const maxB = Math.max(0, ...Object.values(chB)) / lenB;
+        return maxA - maxB;
+      });
+    }
+    if (sortMode === "biggest Δ") {
+      return [...chapterKeys].sort((a, b) => {
+        const dA = Math.max(0, ...((mcData[a] || []).map(l => l.winnerDelta || 0)));
+        const dB = Math.max(0, ...((mcData[b] || []).map(l => l.winnerDelta || 0)));
+        return dB - dA;
+      });
+    }
+    return chapterKeys;
+  }, [sortMode, chapterKeys, winsPerChapter, mcData, chapters]);
+
+  // Standings (players ordered by wins desc)
+  const standings = useMemo(() => {
+    const sids = Object.keys(rosterById);
+    return sids
+      .map(sid => ({ sid, row: rosterById[sid], wins: winsPerPlayer[sid] || 0 }))
+      .sort((a, b) => b.wins - a.wins);
+  }, [rosterById, winsPerPlayer]);
+
+  const anyResults = Object.keys(results).length > 0;
+  const drillVisible = !!drill;
+
+  function handleCellClick(chapterKey, levelDisplay, cellKey) {
+    setDrill({ chapterKey, levelDisplay, cellKey });
+  }
+
+  function handleCopy() {
+    // Copy a compact text summary of standings + per-chapter winners.
+    const lines = [];
+    lines.push(`Multi Compare — ${validRoster.length} players, ${totalLevels} levels`);
+    for (const s of standings) {
+      lines.push(`  ${s.row.name || truncateSid(s.sid)}: ${s.wins}`);
+    }
+    try { navigator.clipboard.writeText(lines.join("\n")); } catch (e) {}
+  }
+  function handleExportCsv() {
+    // Wide CSV: chapter, level, then a column per player (time) + Best
+    const sids = Object.keys(rosterById);
+    const headers = ["chapter", "level", ...sids.map(s => rosterById[s].name || truncateSid(s)), "best", "winner"];
+    const lines = [headers.join(",")];
+    for (const ck of chapterKeys) {
+      for (const lvl of mcData[ck] || []) {
+        const row = [ck, lvl.levelDisplay];
+        for (const sid of sids) {
+          const r = lvl.rowsBySid[sid];
+          row.push(r && !r.missing ? formatTimeUs(r.time_us) : "");
+        }
+        row.push(lvl.winnerTime != null ? formatTimeUs(lvl.winnerTime) : "");
+        row.push(lvl.winnerSid ? (rosterById[lvl.winnerSid].name || truncateSid(lvl.winnerSid)) : "");
+        lines.push(row.map(c => (`${c}`.includes(",") ? `"${c}"` : `${c}`)).join(","));
+      }
+    }
+    const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "multi-compare.csv"; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // ── Render ──────────────────────────────────────────────────────────────
+  // Scope = levels actually in scope for the current/last run. In chapter mode
+  // this is just the chosen chapter's levels; in game mode all 121; in level
+  // mode just one. Falls back to "all" when no run has happened yet.
+  const scopeLevelCount = useMemo(() => {
+    let n = 0;
+    for (const ck of chapterKeys) {
+      for (const lvl of mcData[ck] || []) {
+        if (lvl.hasAnyData || lvl.missingRows.length > 0) n++;
+      }
+    }
+    return n || totalLevels;
+  }, [chapterKeys, mcData, totalLevels]);
+
+  const totalsTag = `${scopeLevelCount || 121} levels · ${validRoster.length || roster.length} players`;
+  const searchHint = mode === "level"
+    ? `· level: ${levelTarget || "(none)"}`
+    : mode === "chapter"
+      ? `· chapter: ${chapterTarget || "(none)"}`
+      : "· all 121 levels searched";
+  const runStatusHint = running
+    ? (progress.total ? `· running… ${progress.done} / ${progress.total}` : "· running…")
+    : "";
+
+  return (
+    <div className="mc-scope">
+      <main className="mc-main" style={{ paddingRight: drillVisible ? 520 : 0 }}>
+        <PageHead
+          crumb="Leaderboard Tools"
+          title="MULTI"
+          accentWord="COMPARE"
+          subtitle={totalsTag}
+          actions={<>
+            {anyResults && <Btn kind="ghost" size="sm" icn="copy" onClick={handleCopy}>Copy</Btn>}
+            {anyResults && <Btn kind="ghost" size="sm" icn="export" onClick={handleExportCsv}>Export CSV</Btn>}
+          </>}
         />
-        {!sectionsCollapsed.view && (<>
-        <ModeSelector
-          mode={mode}
-          onModeChange={setMode}
-          levels={levels}
-          chapters={chapters}
-          levelTarget={levelTarget}
-          onLevelTargetChange={setLevelTarget}
-          chapterTarget={chapterTarget}
-          onChapterTargetChange={setChapterTarget}
-        />
-        <div style={S.runControls}>
-          {running
-            ? <Btn kind="danger" size="lg" onClick={handleStop}>Stop</Btn>
-            : <Btn kind="primary" size="lg" icn="compare" onClick={handleRun} disabled={!canRun}>Run</Btn>}
-          {running && progress.total > 0 && (
-            <span style={S.muted}>
-              {progress.done} / {progress.total}
-            </span>
+
+        <div className="nwt-content">
+          <RosterPanel
+            roster={roster}
+            validRoster={validRoster}
+            editing={rosterEditing}
+            onToggleEditing={() => setRosterEditing(e => !e)}
+            savedProfiles={savedProfiles}
+            savedRosters={savedRosters}
+            idCounts={idCounts}
+            onUpdateRow={updateRow}
+            onAddRow={addRow}
+            onRemoveRow={removeRow}
+            onApplyProfile={applyProfileToRow}
+            onLoadSavedRoster={handleLoadSavedRoster}
+            onDeleteSavedRoster={handleDeleteSavedRoster}
+            savePromptOpen={savePromptOpen}
+            savePromptNickname={savePromptNickname}
+            savePromptError={savePromptError}
+            onOpenSavePrompt={openSavePrompt}
+            onCloseSavePrompt={closeSavePrompt}
+            onSavePromptNicknameChange={setSavePromptNickname}
+            onSaveRosterSubmit={handleSaveRosterSubmit}
+          />
+
+          <SearchModePanel
+            mode={mode}
+            onModeChange={setMode}
+            levels={levels}
+            chapters={chapters}
+            levelTarget={levelTarget}
+            chapterTarget={chapterTarget}
+            onLevelTargetChange={setLevelTarget}
+            onChapterTargetChange={setChapterTarget}
+            running={running}
+            canRun={canRun}
+            onRun={handleRun}
+            onStop={handleStop}
+            searchHint={searchHint}
+            runStatusHint={runStatusHint}
+          />
+
+          {mode !== "level" && standings.some(s => s.wins > 0) && (
+            <StandingsStrip standings={standings} totalLevels={scopeLevelCount} />
+          )}
+
+          {mode === "level" ? (
+            <LevelResultPanel
+              mcData={mcData}
+              levelDisplay={levelTarget}
+              rosterById={rosterById}
+              showMedals={showMedals}
+              anyResults={anyResults}
+            />
+          ) : (
+            <ResultsGrid
+              mode={mode}
+              chapterKeys={mode === "chapter" ? (chapterTarget ? [chapterTarget] : []) : sortedChapterKeys}
+              chapters={chapters}
+              mcData={mcData}
+              rosterById={rosterById}
+              filterPlayer={filterPlayer}
+              onFilterPlayer={setFilterPlayer}
+              sortMode={sortMode}
+              onSortMode={setSortMode}
+              selectedKey={drill ? drill.cellKey : null}
+              onCellClick={handleCellClick}
+              anyResults={anyResults}
+              scopeLevelCount={scopeLevelCount}
+              chapterTarget={chapterTarget}
+            />
           )}
         </div>
-        </>)}
-      </section>
+      </main>
 
-      <section style={S.section}>
-        <SectionHeader
-          label="Result"
-          collapsed={sectionsCollapsed.result}
-          onToggle={() => toggleSection("result")}
+      {drillVisible && mode !== "level" && (
+        <DrillPanel
+          drill={drill}
+          mcData={mcData}
+          rosterById={rosterById}
+          showMedals={showMedals}
+          onClose={() => setDrill(null)}
         />
-        {!sectionsCollapsed.result && (mode === "level" ? (
-          <LevelRankTable levelTarget={levelTarget} roster={roster} results={results} />
-        ) : mode === "chapter" ? (
-          <ChapterStrip
-            chapterTarget={chapterTarget}
-            chapters={chapters}
-            roster={roster}
-            results={results}
-            onCellClick={setDrilldownLevel}
-          />
-        ) : (
-          <WholeGameGrid
-            chapters={chapters}
-            roster={roster}
-            results={results}
-            onCellClick={setDrilldownLevel}
-          />
-        ))}
-      </section>
-
-      </div>
-      <LevelDrilldownDrawer
-        levelDisplay={drilldownLevel}
-        roster={roster}
-        results={results}
-        onClose={() => setDrilldownLevel(null)}
-      />
-    </>
-  );
-}
-
-// ── Section header (click to collapse/expand) ─────────────────────────────
-function SectionHeader({ label, collapsed, onToggle }) {
-  return (
-    <button type="button" onClick={onToggle} style={S.sectionHeaderBtn} aria-expanded={!collapsed}>
-      <span style={S.sectionChevron}>{collapsed ? "▸" : "▾"}</span>
-      <span className="field-label">{label}</span>
-    </button>
-  );
-}
-
-// ── Saved Rosters bar (top of roster section) ─────────────────────────────
-function SavedRostersBar({ rosters, onLoad, onDelete }) {
-  const [open, setOpen] = useState(false);
-  const wrapRef = useRef(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function onDocClick(e) {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
-    }
-    function onKey(e) { if (e.key === "Escape") setOpen(false); }
-    document.addEventListener("mousedown", onDocClick);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDocClick);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  function handlePick(idx) {
-    onLoad(idx);
-    setOpen(false);
-  }
-  function handleDelete(e, idx) {
-    e.stopPropagation();
-    if (window.confirm(`Delete saved roster "${rosters[idx]?.nickname}"?`)) onDelete(idx);
-  }
-
-  return (
-    <div style={S.savedRostersBar}>
-      <div ref={wrapRef} style={{ position: "relative", display: "inline-block" }}>
-        <button type="button" style={S.btn} onClick={() => setOpen(o => !o)}>
-          ▾ saved rosters ({rosters.length})
-        </button>
-        {open && (
-          <div style={S.savedRostersMenu}>
-            {rosters.length === 0 ? (
-              <div style={S.savedRosterEmpty}>
-                No saved rosters yet — fill in players, then click ★ save roster.
-              </div>
-            ) : (
-              rosters.slice().reverse().map((r, revIdx) => {
-                const idx = rosters.length - 1 - revIdx; // original index
-                return (
-                  <div key={idx} style={S.savedRosterRow}>
-                    <button
-                      type="button"
-                      style={S.savedRosterPick}
-                      onClick={() => handlePick(idx)}
-                      title="Load this roster (replaces current rows)"
-                    >
-                      <span style={S.savedRosterNick}>{r.nickname}</span>
-                      <span style={S.savedRosterMeta}>
-                        {(r.members || []).length} player{(r.members || []).length === 1 ? "" : "s"}
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      style={S.savedRosterDel}
-                      onClick={(e) => handleDelete(e, idx)}
-                      title="Delete this saved roster"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 }
 
-// ── Inline "Save Roster" prompt ────────────────────────────────────────────
-function SaveRosterPrompt({ nickname, onNicknameChange, error, onSubmit, onCancel, validCount }) {
-  const inputRef = useRef(null);
-  useEffect(() => { inputRef.current && inputRef.current.focus(); }, []);
-  function onKey(e) {
-    if (e.key === "Enter") onSubmit();
-    else if (e.key === "Escape") onCancel();
-  }
+// ── Roster panel ─────────────────────────────────────────────────────────
+function RosterPanel({
+  roster, validRoster, editing, onToggleEditing,
+  savedProfiles, savedRosters, idCounts,
+  onUpdateRow, onAddRow, onRemoveRow, onApplyProfile,
+  onLoadSavedRoster, onDeleteSavedRoster,
+  savePromptOpen, savePromptNickname, savePromptError,
+  onOpenSavePrompt, onCloseSavePrompt, onSavePromptNicknameChange, onSaveRosterSubmit,
+}) {
   return (
-    <div style={S.savePrompt}>
-      <span style={S.muted}>
-        Save these {validCount} player{validCount === 1 ? "" : "s"} as a roster:
-      </span>
-      <input
-        ref={inputRef}
-        style={S.input}
-        value={nickname}
-        onChange={(e) => onNicknameChange(e.target.value)}
-        onKeyDown={onKey}
-        placeholder="Roster name (e.g. Top 5 friends)"
-        maxLength={32}
-      />
-      <button type="button" style={S.btnPrimary} onClick={onSubmit}>save</button>
-      <button type="button" style={S.btn} onClick={onCancel}>cancel</button>
-      {error && <span style={S.savePromptError}>{error}</span>}
-    </div>
-  );
-}
+    <div className="nwt-panel">
+      <div className="nwt-panel-head" onClick={onToggleEditing}>
+        <span className="car"><McIcon name="caret" size={9} /></span>
+        <span className="title">Roster</span>
+        <span className="right" onClick={(e) => e.stopPropagation()}>
+          <span className="nwt-tag">{roster.length} / {MAX_ROWS}</span>
+          <Btn kind="ghost" size="sm" onClick={onToggleEditing}>
+            {editing ? "Done" : "Edit roster"}
+          </Btn>
+        </span>
+      </div>
 
-// ── Collapsed roster (post-run summary) ─────────────────────────────────
-function CollapsedRoster({ roster, onExpand }) {
-  const filled = roster.filter(r => (r.steam_id || "").trim());
-  return (
-    <div style={S.collapsedRoster}>
-      <div style={S.collapsedPills}>
-        {filled.length === 0 ? (
-          <span style={S.muted}>No players in roster</span>
-        ) : (
-          filled.map((r, i) => (
-            <span key={i} style={S.pill}>
-              <span style={{ ...S.swatchSmall, background: hexFor(r.color) }} />
-              <span>{r.name || `(${r.steam_id.slice(-4)})`}</span>
+      {/* Pills row — always visible as a summary */}
+      <div className="nwt-roster-row">
+        {roster.map((p, i) => {
+          const sid = (p.steam_id || "").trim();
+          return (
+            <div key={i} className={"nwt-pl-pill" + (sid ? "" : " empty")}>
+              <span className="sw" style={{ background: hexFor(p.color) }} />
+              <span>{p.name || `Player ${i + 1}`}</span>
+              <span className="sid">{sid ? truncateSid(sid) : "no id"}</span>
+            </div>
+          );
+        })}
+      </div>
+
+      {editing && (
+        <div className="nwt-roster-editor">
+          <SavedRostersDropdown
+            rosters={savedRosters}
+            onLoad={onLoadSavedRoster}
+            onDelete={onDeleteSavedRoster}
+          />
+          <RosterEditor
+            roster={roster}
+            savedProfiles={savedProfiles}
+            idCounts={idCounts}
+            onUpdateRow={onUpdateRow}
+            onRemoveRow={onRemoveRow}
+            onApplyProfile={onApplyProfile}
+          />
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <Btn kind="ghost" size="sm" onClick={onAddRow} disabled={roster.length >= MAX_ROWS}>
+              + Add player
+            </Btn>
+            <Btn
+              kind="ghost"
+              size="sm"
+              onClick={onOpenSavePrompt}
+              disabled={validRoster.length === 0 || savedRosters.length >= MAX_ROSTERS}
+            >
+              ★ Save roster
+            </Btn>
+            <span style={{ flex: 1 }} />
+            <span style={{ color: "var(--mc-text-3)", fontSize: 11 }}>
+              {validRoster.length} valid steamID{validRoster.length === 1 ? "" : "s"}
             </span>
-          ))
-        )}
-      </div>
-      <button type="button" style={S.btn} onClick={onExpand}>
-        ▾ edit roster
-      </button>
+          </div>
+          {savePromptOpen && (
+            <SaveRosterPrompt
+              nickname={savePromptNickname}
+              error={savePromptError}
+              onNicknameChange={onSavePromptNicknameChange}
+              onSubmit={onSaveRosterSubmit}
+              onCancel={onCloseSavePrompt}
+              validCount={validRoster.length}
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
-// ── Roster table ─────────────────────────────────────────────────────────
-function RosterTable({ roster, savedProfiles, idCounts, onUpdateRow, onRemoveRow, onApplyProfile }) {
+// ── Roster editor (inline row table) ─────────────────────────────────────
+function RosterEditor({ roster, savedProfiles, idCounts, onUpdateRow, onRemoveRow, onApplyProfile }) {
   const usedColors = roster.map(r => r.color);
   return (
-    <div style={S.roster}>
-      <div style={{ ...S.rosterRow, ...S.rosterHeader }}>
-        <span style={S.colColor}>color</span>
-        <span style={S.colName}>name</span>
-        <span style={S.colInitial}>init</span>
-        <span style={S.colSteamId}>steam id</span>
-        <span style={S.colActions}></span>
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <div className="mc-row header">
+        <span></span><span>name</span><span style={{ textAlign: "center" }}>init</span>
+        <span>steam id</span><span></span>
       </div>
       {roster.map((row, idx) => {
-        const trimmedId = (row.steam_id || "").trim();
-        const formatOk = STEAM_ID_RE.test(trimmedId);
-        const isDup = trimmedId && (idCounts?.[trimmedId] || 0) > 1;
-        const errorBorder = (trimmedId && !formatOk) || isDup;
-        const disabledIds = new Set(
-          roster.filter((_, i) => i !== idx)
-                .map(r => (r.steam_id || "").trim())
-                .filter(Boolean)
-        );
+        const trimmed = (row.steam_id || "").trim();
+        const formatOk = STEAM_ID_RE.test(trimmed);
+        const isDup = trimmed && (idCounts?.[trimmed] || 0) > 1;
+        const errorBorder = (trimmed && !formatOk) || isDup;
         return (
-          <div key={idx} style={S.rosterRow}>
-            <span style={S.colColor}>
-              <ColorPicker
-                value={row.color}
-                onChange={(c) => onUpdateRow(idx, { color: c })}
-                disallowed={usedColors.filter((c, i) => i !== idx)}
-              />
-            </span>
-            <input
-              style={S.input}
-              value={row.name}
-              onChange={(e) => onUpdateRow(idx, { name: e.target.value, initial: deriveInitial(e.target.value) })}
-              placeholder="Player 1"
+          <div key={idx} className="mc-row">
+            <ColorPickerInline
+              value={row.color}
+              onChange={(c) => onUpdateRow(idx, { color: c })}
+              disallowed={usedColors.filter((c, i) => i !== idx)}
             />
             <input
-              style={{ ...S.input, ...S.colInitial }}
+              className="mc-input"
+              value={row.name}
+              onChange={(e) => onUpdateRow(idx, { name: e.target.value, initial: deriveInitial(e.target.value) })}
+              placeholder={`Player ${idx + 1}`}
+            />
+            <input
+              className="mc-input"
+              style={{ textAlign: "center" }}
               value={row.initial}
               onChange={(e) => onUpdateRow(idx, { initial: (e.target.value || "").slice(0, 2).toUpperCase() })}
               maxLength={2}
-              placeholder="1"
+              placeholder={String(idx + 1)}
             />
             <input
-              style={{
-                ...S.input,
-                ...S.colSteamId,
-                borderColor: errorBorder ? "#ef4444" : "var(--border)",
-              }}
+              className={"mc-input" + (errorBorder ? " error" : "")}
               value={row.steam_id}
               onChange={(e) => onUpdateRow(idx, { steam_id: e.target.value.trim() })}
               placeholder="76561198…"
-              title={isDup ? "Duplicate of another row" : (trimmedId && !formatOk ? "Must be 17 digits" : undefined)}
+              title={isDup ? "Duplicate of another row" : (trimmed && !formatOk ? "Must be 17 digits" : undefined)}
             />
-            <span style={S.colActions}>
+            <span className="actions">
               <SavedProfilesDropdown
                 profiles={savedProfiles}
                 onSelect={(p) => onApplyProfile(idx, p)}
-                disabledIds={disabledIds}
+                disabledIds={new Set(
+                  roster.filter((_, i) => i !== idx)
+                    .map(r => (r.steam_id || "").trim())
+                    .filter(Boolean)
+                )}
               />
-              <button
-                type="button"
-                style={S.btnDanger}
+              <Btn
+                kind="ghost"
+                size="sm"
                 onClick={() => onRemoveRow(idx)}
                 disabled={roster.length <= MIN_ROWS}
-                title={roster.length <= MIN_ROWS ? "Need at least 1 row" : "Remove this row"}
-              >
-                −
-              </button>
+              >−</Btn>
             </span>
           </div>
         );
@@ -618,43 +648,41 @@ function RosterTable({ roster, savedProfiles, idCounts, onUpdateRow, onRemoveRow
   );
 }
 
-// ── Color picker (inline popover) ────────────────────────────────────────
-function ColorPicker({ value, onChange, disallowed = [] }) {
+function ColorPickerInline({ value, onChange, disallowed = [] }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   const disSet = new Set(disallowed);
-
   useEffect(() => {
     if (!open) return;
     function onDoc(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, [open]);
-
   return (
     <span ref={ref} style={{ position: "relative", display: "inline-block" }}>
       <button
         type="button"
+        className="mc-swatch"
         onClick={() => setOpen(o => !o)}
-        style={{ ...S.swatch, background: hexFor(value) }}
+        style={{ background: hexFor(value) }}
         title={`color: ${value}`}
       />
       {open && (
-        <div style={S.swatchMenu}>
+        <div className="mc-swatch-menu">
           {PLAYER_COLORS.map(c => {
             const taken = disSet.has(c.key) && c.key !== value;
             return (
               <button
                 key={c.key}
                 type="button"
+                className="mc-swatch-option"
                 onClick={() => { if (!taken) { onChange(c.key); setOpen(false); } }}
                 disabled={taken}
                 title={taken ? `${c.label} (in use)` : c.label}
                 style={{
-                  ...S.swatchOption,
                   background: c.hex,
                   opacity: taken ? 0.25 : 1,
-                  outline: c.key === value ? "2px solid var(--accent)" : "none",
+                  outline: c.key === value ? "2px solid var(--mc-accent)" : "none",
                   cursor: taken ? "not-allowed" : "pointer",
                 }}
               />
@@ -666,20 +694,119 @@ function ColorPicker({ value, onChange, disallowed = [] }) {
   );
 }
 
-// ── Mode selector ────────────────────────────────────────────────────────
-function ModeSelector({ mode, onModeChange, levels, chapters, levelTarget, onLevelTargetChange, chapterTarget, onChapterTargetChange }) {
+// Saved Rosters dropdown — mirrors the shared SavedProfilesDropdown pattern
+// (Btn toggle, fixed-overlay outside-click backdrop, right-anchored menu).
+function SavedRostersDropdown({ rosters, onLoad, onDelete }) {
+  const [open, setOpen] = useState(false);
   return (
-    <div style={S.modeWrap}>
-      <Seg
-        options={["level", "chapter", "game"]}
-        value={mode}
-        onChange={onModeChange}
+    <div style={{ position: "relative", display: "inline-block" }}>
+      <Btn kind="ghost" size="sm" onClick={() => setOpen(v => !v)}>
+        ▾ Saved rosters ({rosters.length})
+      </Btn>
+      {open && (
+        <>
+          <div style={{ position: "fixed", inset: 0, zIndex: 199 }} onClick={() => setOpen(false)} />
+          <div style={{
+            position: "absolute", top: "100%", left: 0, zIndex: 200,
+            background: "var(--bg-2)", border: "1px solid var(--border)",
+            borderRadius: 6, minWidth: 260, boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+            marginTop: 4, maxHeight: 360, overflowY: "auto",
+          }}>
+            {rosters.length === 0 ? (
+              <div style={{ padding: "10px 12px", fontSize: 11, color: "var(--text-3)" }}>
+                No saved rosters yet — fill in players, then ★ Save roster.
+              </div>
+            ) : rosters.slice().reverse().map((r, revIdx) => {
+              const idx = rosters.length - 1 - revIdx;
+              const memberCount = (r.members || []).length;
+              return (
+                <div key={idx} style={{ display: "flex", alignItems: "stretch" }}>
+                  <button
+                    type="button"
+                    onClick={() => { onLoad(idx); setOpen(false); }}
+                    style={{
+                      flex: 1, textAlign: "left", padding: "7px 12px",
+                      background: "none", border: "none", color: "var(--text)",
+                      cursor: "pointer", fontSize: 12,
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = "var(--bg-3, var(--surface-2))"}
+                    onMouseLeave={e => e.currentTarget.style.background = "none"}
+                  >
+                    <span style={{ fontWeight: 600 }}>{r.nickname}</span>
+                    <span style={{ color: "var(--text-3)", marginLeft: 8, fontSize: 10 }}>
+                      {memberCount} player{memberCount === 1 ? "" : "s"}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (window.confirm(`Delete saved roster "${r.nickname}"?`)) onDelete(idx);
+                    }}
+                    title="Delete this saved roster"
+                    style={{
+                      background: "none", border: "none", color: "var(--text-3)",
+                      padding: "0 12px", cursor: "pointer", fontSize: 12,
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.color = "var(--bad, #f87171)"}
+                    onMouseLeave={e => e.currentTarget.style.color = "var(--text-3)"}
+                  >
+                    ✕
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function SaveRosterPrompt({ nickname, error, onNicknameChange, onSubmit, onCancel, validCount }) {
+  const inputRef = useRef(null);
+  useEffect(() => { inputRef.current && inputRef.current.focus(); }, []);
+  function onKey(e) {
+    if (e.key === "Enter") onSubmit();
+    else if (e.key === "Escape") onCancel();
+  }
+  return (
+    <div className="mc-save-prompt">
+      <span style={{ color: "var(--mc-text-3)", fontSize: 11 }}>
+        Save these {validCount} player{validCount === 1 ? "" : "s"} as a roster:
+      </span>
+      <input
+        ref={inputRef}
+        value={nickname}
+        onChange={(e) => onNicknameChange(e.target.value)}
+        onKeyDown={onKey}
+        placeholder="Roster name (e.g. Top 5 friends)"
+        maxLength={32}
       />
-      <div style={S.modeTarget}>
+      <Btn kind="primary" size="sm" onClick={onSubmit}>Save</Btn>
+      <Btn kind="ghost" size="sm" onClick={onCancel}>Cancel</Btn>
+      {error && <span className="err">{error}</span>}
+    </div>
+  );
+}
+
+// ── Search mode panel ────────────────────────────────────────────────────
+function SearchModePanel({
+  mode, onModeChange, levels, chapters, levelTarget, chapterTarget,
+  onLevelTargetChange, onChapterTargetChange,
+  running, canRun, onRun, onStop, searchHint, runStatusHint,
+}) {
+  return (
+    <div className="nwt-panel">
+      <div className="nwt-panel-head">
+        <span className="car"><McIcon name="caret" size={9} /></span>
+        <span className="title">Search mode</span>
+      </div>
+      <div className="nwt-controls-row">
+        <Seg options={["level", "chapter", "game"]} value={mode} onChange={onModeChange} />
         {mode === "level" && (
           <select
-            className="input"
-            style={{ minWidth: 220 }}
+            className="nwt-select"
             value={levelTarget}
             onChange={(e) => onLevelTargetChange(e.target.value)}
           >
@@ -688,605 +815,348 @@ function ModeSelector({ mode, onModeChange, levels, chapters, levelTarget, onLev
         )}
         {mode === "chapter" && (
           <select
-            className="input"
-            style={{ minWidth: 220 }}
+            className="nwt-select"
             value={chapterTarget}
             onChange={(e) => onChapterTargetChange(e.target.value)}
           >
             {Object.keys(chapters).map(k => <option key={k} value={k}>{k}</option>)}
           </select>
         )}
-        {mode === "game" && <span style={S.muted}>all 121 levels</span>}
-      </div>
-    </div>
-  );
-}
-
-// ── Level mode renderer ──────────────────────────────────────────────────
-function LevelRankTable({ levelTarget, roster, results, hideTitle = false }) {
-  const rosterById = useMemo(() => {
-    const map = {};
-    roster.forEach(r => {
-      const id = (r.steam_id || "").trim();
-      if (id) map[id] = r;
-    });
-    return map;
-  }, [roster]);
-
-  const levelRows = useMemo(
-    () => Object.values(results).filter(r => r.level_display === levelTarget),
-    [results, levelTarget]
-  );
-
-  const { ranked, missing, firstTime } = useMemo(() => {
-    const present = levelRows.filter(r => !r.missing).slice().sort((a, b) => a.time_us - b.time_us);
-    let lastTime = null;
-    let rank = 0;
-    const rankedList = present.map(r => {
-      if (r.time_us !== lastTime) {
-        rank++;
-        lastTime = r.time_us;
-      }
-      return { ...r, displayRank: rank };
-    });
-    return {
-      ranked: rankedList,
-      missing: levelRows.filter(r => r.missing),
-      firstTime: rankedList.length ? rankedList[0].time_us : null,
-    };
-  }, [levelRows]);
-
-  if (!levelTarget) {
-    return <div style={S.placeholder}><span className="muted">Select a level.</span></div>;
-  }
-  if (levelRows.length === 0) {
-    return (
-      <div style={S.placeholder}>
-        <span className="muted">No results yet for "{levelTarget}". Press Run.</span>
-      </div>
-    );
-  }
-
-  function rowPlayerCell(r) {
-    const rosterRow = rosterById[r.steam_id];
-    const name = rosterRow?.name || `(${r.steam_id.slice(-4)})`;
-    const color = rosterRow?.color || "white";
-    return (
-      <span style={S.playerCell}>
-        <span style={{ ...S.swatchSmall, background: hexFor(color) }} />
-        <span>{name}</span>
-      </span>
-    );
-  }
-
-  return (
-    <div>
-      {!hideTitle && <div style={S.levelTitle}>{levelTarget}</div>}
-      <table style={S.rankTable}>
-        <thead>
-          <tr>
-            <th style={{ ...S.th, ...S.thNum }}>#</th>
-            <th style={S.th}>player</th>
-            <th style={{ ...S.th, ...S.thRight }}>time</th>
-            <th style={{ ...S.th, ...S.thRight }}>Δ vs above</th>
-            <th style={{ ...S.th, ...S.thRight }}>Δ vs 1st</th>
-            <th style={{ ...S.th, ...S.thRight }}>LB rank</th>
-          </tr>
-        </thead>
-        <tbody>
-          {ranked.map((r, i) => {
-            const above = i > 0 ? ranked[i - 1] : null;
-            const gapAbove = above && above.time_us !== r.time_us ? r.time_us - above.time_us : null;
-            const gapFirst = r.time_us !== firstTime ? r.time_us - firstTime : null;
-            const isTie = above && above.time_us === r.time_us;
-            return (
-              <tr key={r.steam_id} style={isTie ? S.tieRow : null}>
-                <td style={{ ...S.td, ...S.tdNum }}>{r.displayRank}</td>
-                <td style={S.td}>{rowPlayerCell(r)}</td>
-                <td style={{ ...S.td, ...S.tdMono, ...S.tdRight }}>{formatTimeUs(r.time_us)}</td>
-                <td style={{ ...S.td, ...S.tdMono, ...S.tdRight, ...S.tdMuted }}>
-                  {gapAbove == null ? (i === 0 ? "—" : "tie") : formatGapUs(gapAbove)}
-                </td>
-                <td style={{ ...S.td, ...S.tdMono, ...S.tdRight, ...S.tdMuted }}>
-                  {gapFirst == null ? "—" : formatGapUs(gapFirst)}
-                </td>
-                <td style={{ ...S.td, ...S.tdMono, ...S.tdRight, ...S.tdMuted }}>#{r.rank}</td>
-              </tr>
-            );
-          })}
-          {missing.map(r => (
-            <tr key={r.steam_id + "-miss"} style={S.missingRow}>
-              <td style={{ ...S.td, ...S.tdNum, ...S.tdMuted }}>—</td>
-              <td style={S.td}>{rowPlayerCell(r)}</td>
-              <td colSpan={4} style={{ ...S.td, ...S.tdMuted, fontStyle: "italic" }}>
-                no time on this level
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-// ── Chapter mode renderer ────────────────────────────────────────────────
-const CHAPTER_STRIP_WIDTH = 10;
-
-function resolveCell(display, rosterById, results) {
-  if (!display) return { kind: "structural" };
-  const rosterIds = new Set(Object.keys(rosterById));
-  const matching = Object.values(results)
-    .filter(r => r.level_display === display && rosterIds.has(r.steam_id));
-  const present = matching.filter(r => !r.missing).slice().sort((a, b) => a.time_us - b.time_us);
-  if (present.length === 0) return { kind: "missing", display };
-  const fastest = present[0].time_us;
-  const winners = present.filter(r => r.time_us === fastest);
-  if (winners.length === 1) {
-    return {
-      kind: "winner",
-      display,
-      color: rosterById[winners[0].steam_id]?.color || "white",
-      time_us: fastest,
-      steam_id: winners[0].steam_id,
-    };
-  }
-  return {
-    kind: "tie",
-    display,
-    colors: winners.map(w => rosterById[w.steam_id]?.color || "white"),
-    time_us: fastest,
-    steam_ids: winners.map(w => w.steam_id),
-  };
-}
-
-function ChapterStrip({ chapterTarget, chapters, roster, results, onCellClick }) {
-  const rosterById = useMemo(() => {
-    const map = {};
-    roster.forEach(r => {
-      const id = (r.steam_id || "").trim();
-      if (id) map[id] = r;
-    });
-    return map;
-  }, [roster]);
-
-  const levelDisplays = chapters[chapterTarget] || [];
-
-  if (!chapterTarget) {
-    return <div style={S.placeholder}><span className="muted">Select a chapter.</span></div>;
-  }
-
-  const cells = [];
-  for (let i = 0; i < CHAPTER_STRIP_WIDTH; i++) {
-    const display = i < levelDisplays.length ? levelDisplays[i] : null;
-    cells.push(resolveCell(display, rosterById, results));
-  }
-
-  const anyData = cells.some(c => c.kind === "winner" || c.kind === "tie");
-
-  return (
-    <div>
-      <div style={S.chapterHeader}>
-        <div style={S.levelTitle}>{chapterTarget}</div>
-        <span style={S.muted}>
-          {levelDisplays.length} level{levelDisplays.length === 1 ? "" : "s"}
-          {levelDisplays.length < CHAPTER_STRIP_WIDTH
-            ? ` · ${CHAPTER_STRIP_WIDTH - levelDisplays.length} structural cells`
-            : ""}
-        </span>
-      </div>
-      <div style={S.chapterStrip}>
-        {cells.map((cell, i) => (
-          <ChapterCell key={i} cell={cell} onClick={onCellClick} />
-        ))}
-      </div>
-      {!anyData && (
-        <div style={{ marginTop: 14 }}>
-          <span style={S.muted}>No results yet. Press Run.</span>
-        </div>
-      )}
-      <RosterLegend roster={roster} />
-    </div>
-  );
-}
-
-function ChapterCell({ cell, onClick }) {
-  if (cell.kind === "structural") {
-    return <div style={{ ...S.cell, ...S.cellStructural }} />;
-  }
-
-  const handleClick = () => onClick && onClick(cell.display);
-
-  let bg, outline, subtext;
-  if (cell.kind === "missing") {
-    bg = undefined;
-    subtext = "no time loaded";
-  } else if (cell.kind === "tie") {
-    const stops = cell.colors.map((c, i, arr) => {
-      const start = (i * 100) / arr.length;
-      const end = ((i + 1) * 100) / arr.length;
-      return `${hexFor(c)} ${start}%, ${hexFor(c)} ${end}%`;
-    }).join(", ");
-    bg = `linear-gradient(135deg, ${stops})`;
-    outline = "1px solid rgba(192,132,252,0.5)";
-    subtext = `tie @ ${formatTimeUs(cell.time_us)}`;
-  } else {
-    bg = hexFor(cell.color);
-    subtext = formatTimeUs(cell.time_us);
-  }
-
-  const buttonStyle = {
-    ...S.cellBtn,
-    ...(cell.kind === "missing" ? S.cellMissing : null),
-    ...(bg ? { background: bg } : null),
-    ...(outline ? { outline } : null),
-  };
-
-  return (
-    <button
-      type="button"
-      className="heatmap-cell"
-      onClick={handleClick}
-      style={buttonStyle}
-      aria-label={`${cell.display}, ${cell.kind}`}
-    >
-      <span className="heatmap-tooltip">
-        <span className="ht-name">{cell.display}</span>
-        <span className="ht-sub">{subtext}</span>
-      </span>
-    </button>
-  );
-}
-
-// ── Whole Game mode renderer ─────────────────────────────────────────────
-function chapterShortLabel(key) {
-  const [head, tail] = key.split(/\s*-\s*/, 2);
-  if (/^\d+$/.test(head)) return `Ch ${head}`;
-  if (head.toLowerCase().startsWith("sidequest")) return (tail || "").trim();
-  return key;
-}
-
-function WholeGameGrid({ chapters, roster, results, onCellClick }) {
-  const rosterById = useMemo(() => {
-    const map = {};
-    roster.forEach(r => {
-      const id = (r.steam_id || "").trim();
-      if (id) map[id] = r;
-    });
-    return map;
-  }, [roster]);
-
-  const chapterKeys = Object.keys(chapters);
-  if (chapterKeys.length === 0) {
-    return <div style={S.placeholder}><span className="muted">No chapter data.</span></div>;
-  }
-
-  const anyData = Object.values(results).some(r => !r.missing);
-
-  return (
-    <div>
-      <div style={S.wholeGameWrap}>
-        {chapterKeys.map(key => {
-          const levelDisplays = chapters[key];
-          const cells = [];
-          for (let i = 0; i < CHAPTER_STRIP_WIDTH; i++) {
-            const display = i < levelDisplays.length ? levelDisplays[i] : null;
-            cells.push(resolveCell(display, rosterById, results));
-          }
-          return (
-            <div key={key} style={S.wholeGameRow}>
-              <div style={S.wholeGameRowLabel} title={key}>{chapterShortLabel(key)}</div>
-              <div style={S.chapterStrip}>
-                {cells.map((cell, i) => (
-                  <ChapterCell key={i} cell={cell} onClick={onCellClick} />
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      {!anyData && (
-        <div style={{ marginTop: 14 }}>
-          <span style={S.muted}>No results yet. Press Run.</span>
-        </div>
-      )}
-      <RosterLegend roster={roster} />
-    </div>
-  );
-}
-
-function RosterLegend({ roster }) {
-  const named = roster.filter(r => (r.steam_id || "").trim() && (r.name || "").trim());
-  if (named.length === 0) return null;
-  return (
-    <div style={S.legend}>
-      {named.map((r, i) => (
-        <span key={i} style={S.legendItem}>
-          <span style={{ ...S.swatchSmall, background: hexFor(r.color) }} />
-          <span>{r.name}</span>
-        </span>
-      ))}
-    </div>
-  );
-}
-
-// ── Level drill-down drawer (used by Chapter and Whole Game cells) ───────
-function LevelDrilldownDrawer({ levelDisplay, roster, results, onClose }) {
-  const open = !!levelDisplay;
-
-  useEffect(() => {
-    if (!open) return;
-    function onKey(e) { if (e.key === "Escape") onClose(); }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
-
-  const [lastLevel, setLastLevel] = useState(levelDisplay);
-  useEffect(() => {
-    if (levelDisplay) setLastLevel(levelDisplay);
-  }, [levelDisplay]);
-
-  return (
-    <div
-      style={{
-        ...S.drawer,
-        transform: open ? "translateX(0)" : "translateX(100%)",
-        pointerEvents: open ? "auto" : "none",
-      }}
-      aria-hidden={!open}
-    >
-      <div style={S.drawerHeader}>
-        <div style={S.drawerTitleWrap}>
-          <span style={S.drawerKicker}>level detail</span>
-          <span style={S.drawerTitle}>{lastLevel || ""}</span>
-        </div>
-        <button type="button" style={S.drawerClose} onClick={onClose} aria-label="Close drawer">
-          ×
-        </button>
-      </div>
-      <div style={S.drawerBody}>
-        {lastLevel && (
-          <LevelRankTable
-            levelTarget={lastLevel}
-            roster={roster}
-            results={results}
-            hideTitle
-          />
+        <span style={{ color: "var(--mc-text-3)", fontSize: 11 }}>{searchHint}</span>
+        <span style={{ flex: 1 }} />
+        {running
+          ? <Btn kind="danger" size="lg" onClick={onStop}>Stop</Btn>
+          : <Btn kind="primary" size="lg" icn="multicompare" onClick={onRun} disabled={!canRun}>Run</Btn>}
+        {runStatusHint && (
+          <span style={{ color: "var(--mc-text-3)", fontSize: 11 }}>{runStatusHint}</span>
         )}
       </div>
     </div>
   );
 }
 
-// ── Styles ───────────────────────────────────────────────────────────────
-const S = {
-  scrollBody: { flex: 1, overflow: "auto", padding: 24, minHeight: 0, scrollbarGutter: "stable" },
-  section: {
-    background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 4,
-    padding: 16, marginBottom: 16,
-    display: "flex", flexDirection: "column", gap: 12,
-  },
-  sectionHeaderBtn: {
-    display: "flex", alignItems: "center", gap: 8,
-    background: "transparent", border: "none", padding: 0,
-    cursor: "pointer", width: "100%",
-    textAlign: "left",
-    fontFamily: "inherit",  // <button> resets font; restore page font for .field-label inside
-    color: "inherit",
-  },
-  sectionChevron: {
-    color: "var(--text-3)", fontSize: 10, lineHeight: 1,
-    width: 12, display: "inline-block",
-  },
-  muted: { color: "var(--text-3)", fontSize: 12 },
+// ── Standings strip ──────────────────────────────────────────────────────
+function StandingsStrip({ standings, totalLevels }) {
+  return (
+    <div className="nwt-sum-strip">
+      <span className="lbl">Standings</span>
+      {standings.map((s, i) => (
+        <React.Fragment key={s.sid}>
+          <span className="nwt-sum-chip">
+            <span className="sw" style={{ background: hexFor(s.row.color) }} />
+            <span>{s.row.name || truncateSid(s.sid)}</span>
+            <span className="n">{s.wins}</span>
+            {i === 0 && <span className="total">/ {totalLevels}</span>}
+          </span>
+          {i < standings.length - 1 && <span className="sep">·</span>}
+        </React.Fragment>
+      ))}
+      <span style={{ flex: 1 }} />
+      <div className="winbars">
+        {standings.map(s => {
+          const pct = totalLevels ? (s.wins / totalLevels) * 100 : 0;
+          return <div key={s.sid} className="seg" style={{ width: pct + "%", background: hexFor(s.row.color) }} />;
+        })}
+      </div>
+    </div>
+  );
+}
 
-  // Roster
-  roster: { display: "flex", flexDirection: "column", gap: 4 },
-  rosterRow: {
-    display: "grid",
-    gridTemplateColumns: "32px 1fr 50px 200px 130px",
-    gap: 8, alignItems: "center",
-  },
-  rosterHeader: { color: "var(--text-3)", fontSize: 10, textTransform: "uppercase", letterSpacing: 1, paddingBottom: 4 },
-  colColor: { display: "flex", justifyContent: "center" },
-  colName: {},
-  colInitial: { textAlign: "center" },
-  colSteamId: {},
-  colActions: { display: "flex", gap: 6, alignItems: "center" },
-  rosterControls: { display: "flex", gap: 12, alignItems: "center", marginTop: 12, flexWrap: "wrap" },
+// ── Results grid ─────────────────────────────────────────────────────────
+function ResultsGrid({
+  mode, chapterKeys, chapters, mcData, rosterById,
+  filterPlayer, onFilterPlayer, sortMode, onSortMode,
+  selectedKey, onCellClick, anyResults, scopeLevelCount, chapterTarget,
+}) {
+  const rosterEntries = Object.entries(rosterById);  // [[sid, row], ...]
+  // Sort seg only meaningful when there's more than one chapter to reorder.
+  const showSort = mode === "game";
+  const titleText = mode === "chapter"
+    ? `Result · ${chapterTarget || "(no chapter)"} · ${(chapters[chapterTarget] || []).length} levels`
+    : `Result · all ${scopeLevelCount || Object.values(chapters).reduce((a, l) => a + l.length, 0) || 121} levels`;
+  return (
+    <div className="nwt-grid-wrap">
+      <div className="nwt-grid-toolbar">
+        <span className="title">{titleText}</span>
+        <span className="hint">cells coloured by winner — click a cell for the breakdown</span>
+        <span className="right">
+          <span className="ctrl-label">Show only</span>
+          <span
+            className={"nwt-fchip" + (filterPlayer === null ? " on" : "")}
+            onClick={() => onFilterPlayer(null)}
+          >
+            all
+          </span>
+          {rosterEntries.map(([sid, p]) => (
+            <span
+              key={sid}
+              className={"nwt-fchip" + (filterPlayer === sid ? " on" : (filterPlayer ? " dim" : ""))}
+              onClick={() => onFilterPlayer(filterPlayer === sid ? null : sid)}
+            >
+              <span className="sw" style={{ background: hexFor(p.color) }} />
+              <span>{p.name || truncateSid(sid)}</span>
+            </span>
+          ))}
+          {showSort && (
+            <>
+              <span className="div" />
+              <span className="ctrl-label">Sort</span>
+              <Seg
+                options={["chapter", "most contested", "biggest Δ"]}
+                value={sortMode}
+                onChange={onSortMode}
+              />
+            </>
+          )}
+        </span>
+      </div>
 
-  // Saved rosters bar (top of roster section)
-  savedRostersBar: { marginBottom: 10 },
-  savedRostersMenu: {
-    position: "absolute", top: "100%", left: 0, marginTop: 4, minWidth: 280, maxWidth: 380,
-    background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 3,
-    boxShadow: "0 4px 12px rgba(0,0,0,0.4)", padding: 4, zIndex: 100,
-    display: "flex", flexDirection: "column", gap: 2,
-    maxHeight: 320, overflowY: "auto",
-  },
-  savedRosterEmpty: { padding: "12px 10px", color: "var(--text-3)", fontSize: 11 },
-  savedRosterRow: {
-    display: "flex", gap: 4, alignItems: "stretch",
-  },
-  savedRosterPick: {
-    flex: 1, background: "transparent", color: "var(--text)", border: "none",
-    padding: "6px 10px", fontFamily: "var(--data-font)", fontSize: 12, cursor: "pointer",
-    textAlign: "left", display: "flex", justifyContent: "space-between", alignItems: "center",
-    gap: 12, borderRadius: 2,
-  },
-  savedRosterNick: {},
-  savedRosterMeta: { color: "var(--text-3)", fontSize: 11 },
-  savedRosterDel: {
-    background: "transparent", color: "var(--text-3)", border: "none",
-    padding: "0 8px", fontSize: 13, cursor: "pointer", borderRadius: 2,
-  },
+      {!anyResults && (
+        <div className="mc-placeholder">No results yet. Configure a roster, pick a mode, and press <strong>run</strong>.</div>
+      )}
 
-  // Inline save-roster prompt
-  savePrompt: {
-    display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap",
-    marginTop: 10, padding: 10,
-    border: "1px dashed var(--border)", borderRadius: 3,
-  },
-  savePromptError: {
-    color: "var(--bad, #f87171)", fontSize: 11, flexBasis: "100%",
-  },
-  collapsedRoster: { display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" },
-  collapsedPills: { display: "flex", gap: 8, flexWrap: "wrap", flex: 1, minWidth: 0 },
-  pill: {
-    display: "inline-flex", alignItems: "center", gap: 8,
-    background: "var(--bg-2)", border: "1px solid var(--border)",
-    padding: "4px 12px", borderRadius: 14, fontSize: 12,
-  },
+      {chapterKeys.map(ck => (
+        <ChapterRow
+          key={ck}
+          chapterKey={ck}
+          levels={chapters[ck] || []}
+          levelData={mcData[ck] || []}
+          rosterById={rosterById}
+          filterPlayer={filterPlayer}
+          selectedKey={selectedKey}
+          onCellClick={onCellClick}
+        />
+      ))}
+    </div>
+  );
+}
 
-  input: {
-    background: "var(--bg-2)", color: "var(--text)", border: "1px solid var(--border)",
-    padding: "4px 8px", fontFamily: "var(--data-font)", fontSize: 13, borderRadius: 2,
-    minWidth: 0,
-  },
+function ChapterRow({ chapterKey, levels, levelData, rosterById, filterPlayer, selectedKey, onCellClick }) {
+  const padded = [];
+  for (let i = 0; i < 10; i++) {
+    padded.push(i < levelData.length ? levelData[i] : null);
+  }
+  return (
+    <div className="nwt-ch-row">
+      <div className="nwt-ch-label">
+        <span className="name">{chapterShortLabel(chapterKey)}</span>
+      </div>
+      <div className="nwt-ch-cells">
+        {padded.map((lvl, i) => {
+          if (!lvl) {
+            return <div key={i} className="nwt-cell compact empty" />;
+          }
+          const cellKey = chapterKey + "::" + i;
+          const dim = filterPlayer && lvl.winnerSid !== filterPlayer;
+          const sel = selectedKey === cellKey;
+          let bg = "transparent";
+          let extraClass = "";
+          if (lvl.winnerSid) {
+            bg = hexFor(rosterById[lvl.winnerSid]?.color || "white");
+          } else if (lvl.missingRows.length > 0) {
+            extraClass = " missing";
+          } else {
+            extraClass = " empty";  // no data yet
+          }
+          const classes = ["nwt-cell", "compact", sel ? "selected" : "", dim ? "filtered-out" : "", extraClass.trim()]
+            .filter(Boolean).join(" ");
+          return (
+            <div
+              key={i}
+              className={classes}
+              style={lvl.winnerSid ? { background: bg } : undefined}
+              onClick={() => onCellClick(chapterKey, lvl.levelDisplay, cellKey)}
+              title={
+                lvl.winnerSid
+                  ? `${lvl.levelDisplay} — ${rosterById[lvl.winnerSid]?.name || ""} ${formatTimeUs(lvl.winnerTime)}${lvl.winnerDelta != null ? ` (+${formatTimeUs(lvl.winnerDelta).replace("s","")}s)` : ""}`
+                  : lvl.levelDisplay
+              }
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
-  // Color swatch
-  swatch: {
-    width: 24, height: 24, border: "2px solid var(--border)", borderRadius: 4, cursor: "pointer",
-    padding: 0,
-  },
-  swatchMenu: {
-    position: "absolute", top: "100%", left: 0, marginTop: 4, zIndex: 100,
-    background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 4, padding: 6,
-    display: "grid", gridTemplateColumns: "repeat(5, 24px)", gap: 6,
-    boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
-  },
-  swatchOption: {
-    width: 24, height: 24, border: "1px solid var(--border)", borderRadius: 3, padding: 0,
-  },
+// ── Reusable bits used by both the drill panel and the Level-mode result ──
+function MetaStrip({ lvl, rosterById, showMedals }) {
+  const sorted = lvl ? lvl.sortedRows : [];
+  const winnerRow = sorted[0] || null;
+  const winner = lvl && lvl.winnerSid ? rosterById[lvl.winnerSid] : null;
+  if (!winnerRow) {
+    return (
+      <div style={{ padding: "14px 24px", borderBottom: "1px solid var(--mc-border)", color: "var(--mc-text-3)", fontSize: 12 }}>
+        No times yet for this level.
+      </div>
+    );
+  }
+  return (
+    <div className="nwt-drill-meta-strip">
+      <div className="item">
+        <span className="lbl">Winner</span>
+        <span className="val" style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <span style={{ width: 10, height: 10, borderRadius: 2, background: hexFor(winner?.color || "white") }} />
+          <span style={{ color: hexFor(winner?.color || "white") }}>{winner?.name || truncateSid(winnerRow.steam_id)}</span>
+        </span>
+      </div>
+      <div className="item">
+        <span className="lbl">Winning time</span>
+        <span className="val accent">{formatTimeUs(winnerRow.time_us)}</span>
+      </div>
+      <div className="item">
+        <span className="lbl">Lead Δ vs 2nd</span>
+        <span className="val">{lvl.winnerDelta != null ? `+${formatTimeUs(lvl.winnerDelta).replace(/s$/, "")}s` : "—"}</span>
+      </div>
+      {showMedals && (
+        <div className="item">
+          <span className="lbl">Top medal</span>
+          <span className="val">{winnerRow.medal ? <MedalBadge medal={winnerRow.medal} plain /> : "—"}</span>
+        </div>
+      )}
+      <div className="item">
+        <span className="lbl">Top global rank</span>
+        <span className="val">{winnerRow.rank != null ? `#${winnerRow.rank.toLocaleString()}` : "—"}</span>
+      </div>
+    </div>
+  );
+}
 
-  // Mode
-  modeWrap: { display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap", minHeight: 32 },
-  modeTarget: { display: "flex", gap: 8, alignItems: "center", minHeight: 32 },
+function RankTable({ lvl, rosterById, showMedals }) {
+  const sorted = lvl ? lvl.sortedRows : [];
+  const missing = lvl ? lvl.missingRows : [];
+  return (
+    <table className="nwt-drill-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Player</th>
+          <th className="r">Time</th>
+          <th className="r">Δ vs above</th>
+          <th className="r">Δ vs 1st</th>
+          {showMedals && <th>Medal</th>}
+          <th className="r">LB rank</th>
+        </tr>
+      </thead>
+      <tbody>
+        {sorted.map((row, i) => {
+          const p = rosterById[row.steam_id];
+          const above = i === 0 ? null : sorted[i - 1];
+          const dAbove = above ? row.time_us - above.time_us : null;
+          const d1 = i === 0 ? null : row.time_us - sorted[0].time_us;
+          return (
+            <tr key={row.steam_id} className={i === 0 ? "winner" : ""}>
+              <td className="rank-col">{i + 1}</td>
+              <td className="player">
+                <span className="pp">
+                  <span className="sw" style={{ background: hexFor(p?.color || "white") }} />
+                  <span>{p?.name || truncateSid(row.steam_id)}</span>
+                </span>
+              </td>
+              <td className="r time">{formatTimeUs(row.time_us)}</td>
+              <td className="r delta">{dAbove == null ? "—" : (dAbove === 0 ? "tie" : `+${formatTimeUs(dAbove).replace(/s$/, "")}s`)}</td>
+              <td className="r delta">{d1 == null ? "—" : (d1 === 0 ? "tie" : `+${formatTimeUs(d1).replace(/s$/, "")}s`)}</td>
+              {showMedals && <td>{row.medal ? <MedalBadge medal={row.medal} plain /> : "—"}</td>}
+              <td className="r lb">{row.rank != null ? `#${row.rank.toLocaleString()}` : "—"}</td>
+            </tr>
+          );
+        })}
+        {missing.map(row => {
+          const p = rosterById[row.steam_id];
+          return (
+            <tr key={row.steam_id + "-miss"} style={{ opacity: 0.5 }}>
+              <td className="rank-col">—</td>
+              <td className="player">
+                <span className="pp">
+                  <span className="sw" style={{ background: hexFor(p?.color || "white") }} />
+                  <span>{p?.name || truncateSid(row.steam_id)}</span>
+                </span>
+              </td>
+              <td className="r delta" colSpan={showMedals ? 5 : 4} style={{ fontStyle: "italic", textAlign: "left" }}>
+                no time on this level
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+}
 
-  // Run controls
-  runControls: { display: "flex", gap: 12, alignItems: "center", marginTop: 12 },
-  btn: {
-    background: "var(--bg-2)", color: "var(--text)", border: "1px solid var(--border)",
-    padding: "5px 12px", fontFamily: "var(--data-font)", fontSize: 12, cursor: "pointer",
-    borderRadius: 3,
-  },
-  btnPrimary: {
-    background: "var(--accent)", color: "#000", border: "1px solid var(--accent)",
-    padding: "6px 18px", fontFamily: "var(--data-font)", fontSize: 13, cursor: "pointer",
-    borderRadius: 3, fontWeight: 600,
-  },
-  btnDanger: {
-    background: "transparent", color: "var(--text-3)", border: "1px solid var(--border)",
-    padding: "2px 8px", fontFamily: "var(--data-font)", fontSize: 14, cursor: "pointer",
-    borderRadius: 3,
-  },
+// ── Level-mode result (inline, no drill panel) ───────────────────────────
+function LevelResultPanel({ mcData, levelDisplay, rosterById, showMedals, anyResults }) {
+  const lvl = useMemo(() => {
+    for (const entries of Object.values(mcData)) {
+      const hit = entries.find(l => l.levelDisplay === levelDisplay);
+      if (hit) return hit;
+    }
+    return null;
+  }, [mcData, levelDisplay]);
 
-  // Placeholder
-  placeholder: {
-    minHeight: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-    border: "1px dashed var(--border)", borderRadius: 4, padding: 24,
-  },
+  if (!anyResults || !lvl) {
+    return (
+      <div className="nwt-grid-wrap">
+        <div className="nwt-grid-toolbar">
+          <span className="title">Result · {levelDisplay || "(no level)"}</span>
+        </div>
+        <div className="mc-placeholder">
+          No results yet. Configure a roster, pick a level, and press <strong>run</strong>.
+        </div>
+      </div>
+    );
+  }
 
-  // Level rank table
-  levelTitle: {
-    fontFamily: "var(--display-font)", fontSize: 22, color: "var(--accent)",
-    marginBottom: 10, letterSpacing: 1,
-  },
-  rankTable: {
-    width: "100%", borderCollapse: "collapse", fontSize: 13,
-  },
-  th: {
-    textAlign: "left", padding: "6px 10px", color: "var(--text-3)",
-    fontSize: 10, textTransform: "uppercase", letterSpacing: 1,
-    borderBottom: "1px solid var(--border)", fontWeight: 500,
-  },
-  thNum: { textAlign: "center", width: 40 },
-  thRight: { textAlign: "right" },
-  td: { padding: "8px 10px", borderBottom: "1px solid var(--bg-2)" },
-  tdNum: { textAlign: "center", fontFamily: "var(--data-font)", color: "var(--accent)", fontWeight: 600 },
-  tdMono: { fontFamily: "var(--data-font)" },
-  tdRight: { textAlign: "right" },
-  tdMuted: { color: "var(--text-3)" },
-  tieRow: { background: "rgba(192, 132, 252, 0.06)" },
-  missingRow: { opacity: 0.6 },
-  playerCell: { display: "inline-flex", alignItems: "center", gap: 8 },
-  swatchSmall: {
-    display: "inline-block", width: 14, height: 14, borderRadius: 3,
-    border: "1px solid var(--border)", flexShrink: 0,
-  },
+  return (
+    <div className="nwt-grid-wrap" style={{ padding: 0 }}>
+      <div className="nwt-grid-toolbar" style={{ padding: "14px 18px 12px" }}>
+        <span className="title">Result · {levelDisplay}</span>
+      </div>
+      <MetaStrip lvl={lvl} rosterById={rosterById} showMedals={showMedals} />
+      <RankTable lvl={lvl} rosterById={rosterById} showMedals={showMedals} />
+    </div>
+  );
+}
 
-  // Chapter strip
-  chapterHeader: { display: "flex", alignItems: "baseline", gap: 16, marginBottom: 10 },
-  chapterStrip: {
-    display: "grid",
-    gridTemplateColumns: "repeat(10, 80px)",
-    gap: 4,
-  },
-  cell: {
-    width: 80, height: 60,
-    border: "1px solid var(--border)",
-    borderRadius: 3,
-  },
-  cellBtn: {
-    width: 80, height: 60,
-    border: "1px solid var(--border)",
-    borderRadius: 3,
-    cursor: "pointer",
-    padding: 0,
-  },
-  cellStructural: {
-    background: "#3a3a3a",
-    cursor: "default",
-  },
-  cellMissing: {
-    background: `repeating-linear-gradient(
-      45deg,
-      #4a4a4a,
-      #4a4a4a 4px,
-      #5a5a5a 4px,
-      #5a5a5a 8px
-    )`,
-  },
-  legend: {
-    display: "flex", gap: 14, flexWrap: "wrap", marginTop: 14,
-    fontSize: 12, color: "var(--text)",
-  },
-  legendItem: { display: "inline-flex", alignItems: "center", gap: 6 },
+// ── Drill panel ──────────────────────────────────────────────────────────
+function DrillPanel({ drill, mcData, rosterById, showMedals, onClose }) {
+  useEffect(() => {
+    function onKey(e) { if (e.key === "Escape") onClose(); }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
-  // Whole Game grid
-  wholeGameWrap: { display: "flex", flexDirection: "column", gap: 6 },
-  wholeGameRow: { display: "flex", gap: 12, alignItems: "center" },
-  wholeGameRowLabel: {
-    width: 70, flexShrink: 0,
-    color: "var(--text-3)", fontSize: 11,
-    textTransform: "uppercase", letterSpacing: 1,
-    textAlign: "right",
-  },
+  const lvl = useMemo(() => {
+    if (!drill) return null;
+    const arr = mcData[drill.chapterKey] || [];
+    return arr.find(l => l.levelDisplay === drill.levelDisplay) || null;
+  }, [drill, mcData]);
 
-  // Drill-down drawer
-  drawer: {
-    position: "fixed", top: 0, right: 0, bottom: 0, width: 500,
-    background: "var(--surface-2)", borderLeft: "1px solid var(--border)",
-    boxShadow: "-8px 0 24px rgba(0,0,0,0.5)",
-    display: "flex", flexDirection: "column", zIndex: 200,
-    transition: "transform 200ms ease",
-  },
-  drawerHeader: {
-    display: "flex", alignItems: "center", gap: 12,
-    padding: "14px 18px", borderBottom: "1px solid var(--border)",
-    background: "var(--bg-2)",
-  },
-  drawerTitleWrap: { display: "flex", flexDirection: "column", flex: 1, minWidth: 0 },
-  drawerKicker: {
-    fontSize: 10, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: 2,
-  },
-  drawerTitle: {
-    fontFamily: "var(--display-font)", fontSize: 22, color: "var(--accent)",
-    whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-  },
-  drawerClose: {
-    background: "transparent", color: "var(--text-3)", border: "1px solid var(--border)",
-    width: 32, height: 32, fontSize: 20, lineHeight: 1, borderRadius: 3,
-    cursor: "pointer", padding: 0,
-  },
-  drawerBody: { padding: 18, overflowY: "auto", flex: 1 },
-};
+  if (!drill) return null;
+
+  return (
+    <aside className="nwt-drill">
+      <div className="nwt-drill-head">
+        <div>
+          <div className="crumb">Level detail · {chapterShortLabel(drill.chapterKey)}</div>
+          <h2 className="title">{drill.levelDisplay}</h2>
+        </div>
+        <div className="right">
+          <button className="x" onClick={onClose} title="Close">
+            <McIcon name="close" size={11}/>
+          </button>
+        </div>
+      </div>
+
+      <MetaStrip lvl={lvl} rosterById={rosterById} showMedals={showMedals} />
+
+      <div className="nwt-drill-body">
+        <RankTable lvl={lvl} rosterById={rosterById} showMedals={showMedals} />
+        <div style={{ padding: "18px 24px 24px", color: "var(--mc-text-3)", fontSize: 11, lineHeight: 1.7 }}>
+          <div style={{ marginBottom: 6, color: "var(--mc-text-2)", letterSpacing: "0.12em", textTransform: "uppercase", fontSize: 10 }}>Notes</div>
+          <div>· Δ vs above measures gap to next-faster player in this roster.</div>
+          <div>· LB rank is each player's individual global ranking, not their position within the roster.</div>
+        </div>
+      </div>
+    </aside>
+  );
+}
