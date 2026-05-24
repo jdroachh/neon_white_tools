@@ -58,26 +58,44 @@ Vite serves the HTML page at `http://localhost:5173` by default.
 
 ---
 
-## 4. Deploy (placeholder)
+## 4. Deploy
 
-Stage 1–2 are dev-only. Stage 3 adds proper deploy steps.
+Live URLs:
+- Worker: `https://bingo-worker.roachyyyy.workers.dev` (account: roachyyyy@gmail.com)
+- Web:    `https://bingo-web-6en.pages.dev` (Cloudflare Pages, project `bingo-web`)
 
-For reference, the commands will be:
+**Worker redeploy** (any worker code change):
 
 ```sh
-cd bingo/worker && wrangler deploy
-cd bingo/web && npm run build && wrangler pages deploy ./dist
+cd bingo/worker
+npx wrangler deploy
+```
+
+**Web redeploy** (any frontend change). The prod WS URL must be passed at build time — Vite bakes it into the bundle:
+
+```sh
+cd bingo/web
+VITE_WS_URL="wss://bingo-worker.roachyyyy.workers.dev" npm run build
+npx wrangler pages deploy dist --project-name=bingo-web --branch=main --commit-dirty=true
+```
+
+PowerShell variant of the build line:
+
+```powershell
+$env:VITE_WS_URL = "wss://bingo-worker.roachyyyy.workers.dev"; npm run build
+```
+
+First-time Pages project creation (already done; kept for reference):
+
+```sh
+npx wrangler pages project create bingo-web --production-branch=main
 ```
 
 ---
 
 ## 5. Environment variable for prod WS URL
 
-The frontend reads `VITE_WS_URL` at build time. For local dev the default `ws://localhost:8787` is used automatically. For a deployed build, create `bingo/web/.env.production`:
-
-```
-VITE_WS_URL=wss://bingo-worker.<your-subdomain>.workers.dev
-```
+The frontend reads `VITE_WS_URL` at build time. For local dev the default `ws://localhost:8787` is used automatically. The prod URL is currently passed inline on the build command (see section 4); creating `bingo/web/.env.production` with `VITE_WS_URL=wss://bingo-worker.roachyyyy.workers.dev` would also work.
 
 ---
 
@@ -93,8 +111,8 @@ This is **Stage 2 of Phase 1**. The full plan is at `plans/bingo-mode-phase1-bet
 - **`main.ts`** — token-cookie identity, typed WS client, lobby/board/end-screen rendering, team picker, settings form (host-only), board grid with claim prompts.
 - The original Stage 1 chat-only mode is gone — superseded by the full envelope flow.
 
-### What Stage 3 will add
+### Stage 3 (in progress)
 
-- React UI, design tokens, real CSS (no more inline styles).
-- Settings form polish, claim dialog, chat panel.
-- Deploy automation to Cloudflare Workers + Pages.
+- ✅ Cloudflare Workers + Pages deploy live (URLs in section 4).
+- ⏳ React UI rewrite, design tokens, real CSS (no more inline styles).
+- ⏳ Settings form polish, claim dialog, chat panel.
