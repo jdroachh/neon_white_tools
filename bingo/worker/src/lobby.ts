@@ -114,6 +114,16 @@ export class LobbyDO extends DurableObject {
       this.room.hostToken = token;
     }
 
+    // Reconnect repair: if this member was previously on a team that lost its
+    // leader to disconnect (sole-member case), reclaim leadership on rejoin.
+    const reconnectingMember = this.room.members[token];
+    if (reconnectingMember?.teamId !== null && reconnectingMember?.teamId !== undefined) {
+      const team = this.room.teams[reconnectingMember.teamId];
+      if (team && team.leaderToken === null && team.memberTokens.includes(token)) {
+        team.leaderToken = token;
+      }
+    }
+
     console.log(`[${new Date().toISOString()}] [worker] hello from ${nickname} (${token.slice(0, 8)})`);
     this.broadcastState();
   }
@@ -201,7 +211,7 @@ export class LobbyDO extends DurableObject {
     this.room.startedAt = Date.now();
 
     if (this.room.settings.winConditions.includes("time_limit")) {
-      this.ctx.storage.setAlarm(this.room.startedAt + this.room.settings.timeLimitSec * 1000);
+      this.ctx.storage.setAlarm(this.room.startedAt + this.room.settings.timeLimitMin * 60 * 1000);
     }
 
     console.log(`[${new Date().toISOString()}] [worker] Game started — seed=${seed} boardSize=${this.room.settings.boardSize}`);

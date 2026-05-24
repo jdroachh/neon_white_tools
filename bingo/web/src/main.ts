@@ -343,14 +343,14 @@ function renderSettingsForm(settings: Settings): HTMLElement {
   }));
 
   // Time limit
-  wrapper.appendChild(labelText("Time limit (seconds):"));
+  wrapper.appendChild(labelText("Time limit (minutes):"));
   const timeInput = document.createElement("input");
   timeInput.type = "number";
-  timeInput.value = String(settings.timeLimitSec);
+  timeInput.value = String(settings.timeLimitMin);
   timeInput.style.cssText = "width:100px;padding:4px;background:#222;border:1px solid #444;color:#eee;font-family:monospace;border-radius:3px;margin-bottom:12px;";
   timeInput.addEventListener("change", () => {
     const v = parseInt(timeInput.value, 10);
-    if (!isNaN(v) && v > 0) sendUpdatedSettings({ ...settings, timeLimitSec: v });
+    if (!isNaN(v) && v > 0) sendUpdatedSettings({ ...settings, timeLimitMin: v });
   });
   wrapper.appendChild(timeInput);
   wrapper.appendChild(document.createElement("br"));
