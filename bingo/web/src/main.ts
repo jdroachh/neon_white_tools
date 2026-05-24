@@ -495,7 +495,7 @@ function renderBoard(): void {
   // Grid
   const cellSize = Math.max(70, Math.floor(560 / boardSize));
   const grid = el("div", {
-    style: `display:grid;grid-template-columns:repeat(${boardSize},${cellSize}px);gap:4px;`,
+    style: `display:grid;grid-template-columns:repeat(${boardSize},${cellSize}px);grid-auto-rows:minmax(${cellSize}px,auto);gap:4px;`,
   });
 
   const winShape = state.winner?.shape ?? null;
@@ -512,12 +512,12 @@ function renderBoard(): void {
     const border = inWinShape ? "3px solid #fff" : "1px solid #444";
 
     const cell = el("div", {
-      style: `background:${bg};color:${textColor};border:${border};width:${cellSize}px;height:${cellSize}px;box-sizing:border-box;padding:4px;font-size:0.7rem;display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden;cursor:${clickable ? "pointer" : "default"};border-radius:3px;word-break:break-word;`,
+      style: `background:${bg};color:${textColor};border:${border};width:${cellSize}px;min-height:${cellSize}px;box-sizing:border-box;padding:4px;font-size:0.7rem;display:flex;align-items:center;justify-content:center;text-align:center;cursor:${clickable ? "pointer" : "default"};border-radius:3px;word-break:break-word;`,
       title: square + cellTitle(claim),
     });
 
     const nameSpan = document.createElement("span");
-    nameSpan.style.cssText = "overflow:hidden;max-height:100%;background:rgba(255,255,255,0.6);padding:0 3px;border-radius:2px;";
+    nameSpan.style.cssText = "background:rgba(255,255,255,0.6);padding:0 3px;border-radius:2px;";
     nameSpan.textContent = isFree ? "FREE" : square;
     cell.appendChild(nameSpan);
 
@@ -580,7 +580,7 @@ function renderEnd(): void {
     const cellSize = Math.max(60, Math.floor(480 / boardSize));
 
     const grid = el("div", {
-      style: `display:grid;grid-template-columns:repeat(${boardSize},${cellSize}px);gap:4px;margin-bottom:16px;`,
+      style: `display:grid;grid-template-columns:repeat(${boardSize},${cellSize}px);grid-auto-rows:minmax(${cellSize}px,auto);gap:4px;margin-bottom:16px;`,
     });
 
     for (let i = 0; i < boardSize ** 2; i++) {
@@ -594,11 +594,11 @@ function renderEnd(): void {
       const border = inWinShape ? "3px solid #fff" : "1px solid #444";
 
       const cell = el("div", {
-        style: `background:${bg};color:${textColor};border:${border};width:${cellSize}px;height:${cellSize}px;box-sizing:border-box;padding:4px;font-size:0.65rem;display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden;border-radius:3px;word-break:break-word;`,
+        style: `background:${bg};color:${textColor};border:${border};width:${cellSize}px;min-height:${cellSize}px;box-sizing:border-box;padding:4px;font-size:0.65rem;display:flex;align-items:center;justify-content:center;text-align:center;border-radius:3px;word-break:break-word;`,
         title: square + cellTitle(claim),
       });
       const nameSpan = document.createElement("span");
-      nameSpan.style.cssText = "overflow:hidden;max-height:100%;background:rgba(255,255,255,0.6);padding:0 3px;border-radius:2px;";
+      nameSpan.style.cssText = "background:rgba(255,255,255,0.6);padding:0 3px;border-radius:2px;";
       nameSpan.textContent = isFree ? "FREE" : square;
       cell.appendChild(nameSpan);
       grid.appendChild(cell);
