@@ -10,8 +10,17 @@ import {
   type EndMsg,
   type ErrorMsg,
   type State,
+  type Chat,
 } from "./protocol";
 import { generateBoard, evaluateWin, evalTimeLimit } from "./board";
+
+const CHAT_HISTORY_CAP = 50;
+
+function coord(squareIndex: number, boardSize: number): string {
+  const r = Math.floor(squareIndex / boardSize);
+  const c = squareIndex % boardSize;
+  return `${String.fromCharCode(65 + c)}${r + 1}`;
+}
 
 export class LobbyDO extends DurableObject {
   private room: RoomState = makeInitialState();
@@ -21,6 +30,7 @@ export class LobbyDO extends DurableObject {
   // a room's lifetime; once the last player disconnects, the room dies."
   private sockets = new Set<WebSocket>();
   private wsTokens = new Map<WebSocket, string>();
+  private chatHistory: Chat[] = [];
 
   async fetch(request: Request): Promise<Response> {
     const upgradeHeader = request.headers.get("Upgrade");
@@ -119,6 +129,7 @@ export class LobbyDO extends DurableObject {
     } else {
       // No claims at all — no winner; leave ended anyway
       this.room.phase = "ended";
+      this.pushChat("Time limit reached — no winner", { system: true });
       this.broadcastState();
     }
   }
@@ -149,6 +160,7 @@ export class LobbyDO extends DurableObject {
     this.wsTokens.set(ws, token);
 
     const existing = this.room.members[token];
+    const isFirstJoin = !existing;
     if (existing) {
       existing.online = true;
       existing.nickname = nickname;
@@ -156,6 +168,8 @@ export class LobbyDO extends DurableObject {
       const member: MemberInfo = { nickname, teamId: null, online: true, joinedAt: Date.now() };
       this.room.members[token] = member;
     }
+
+    // (Chat replay + first-join announce happen after broadcastState — see end of method.)
 
     if (this.room.hostToken === null) {
       this.room.hostToken = token;
@@ -173,6 +187,12 @@ export class LobbyDO extends DurableObject {
 
     console.log(`[${new Date().toISOString()}] [worker] hello from ${nickname} (${token.slice(0, 8)})`);
     this.broadcastState();
+    // Order matters: state first (so client can resolve team colors), then chat replay
+    // (to the new socket only), then synthetic "joined" announce (broadcast to all).
+    this.replayChatTo(ws);
+    if (isFirstJoin) {
+      this.pushChat(`${nickname} joined`, { system: true, nickname });
+    }
   }
 
   private handleTeamJoin(ws: WebSocket, token: string, teamId: number | null): void {
@@ -205,6 +225,9 @@ export class LobbyDO extends DurableObject {
       if (team.leaderToken === null) {
         team.leaderToken = token;
       }
+      this.pushChat(`${member.nickname} joined ${team.name}`, { system: true, teamId, nickname: member.nickname });
+    } else if (oldTeamId !== null) {
+      this.pushChat(`${member.nickname} left ${this.room.teams[oldTeamId].name}`, { system: true, teamId: oldTeamId, nickname: member.nickname });
     }
 
     this.broadcastState();
@@ -224,7 +247,9 @@ export class LobbyDO extends DurableObject {
       this.sendError(ws, "You must be on the team to rename it", "not_member");
       return;
     }
+    const oldName = team.name;
     team.name = name.trim().slice(0, 24);
+    this.pushChat(`${oldName} → ${team.name}`, { system: true, teamId });
     this.broadcastState();
   }
 
@@ -263,6 +288,7 @@ export class LobbyDO extends DurableObject {
     }
 
     console.log(`[${new Date().toISOString()}] [worker] Game start requested — seed=${seed} boardSize=${this.room.settings.boardSize}`);
+    this.pushChat(`Game starting (${this.room.settings.boardSize}x${this.room.settings.boardSize}, win: ${this.room.settings.winConditions.join(", ")})`, { system: true });
     this.beginStartingPhase({ seed, squares: result.squares });
   }
 
@@ -285,6 +311,7 @@ export class LobbyDO extends DurableObject {
       this.room.startedAt = null;
       this.ctx.storage.deleteAlarm();
       console.log(`[${new Date().toISOString()}] [worker] Restart → lobby`);
+      this.pushChat("Back to lobby", { system: true });
       this.broadcastState();
       return;
     }
@@ -301,6 +328,7 @@ export class LobbyDO extends DurableObject {
       board = { seed, squares: result.squares };
     }
     console.log(`[${new Date().toISOString()}] [worker] Restart → ${mode} (seed=${board.seed})`);
+    this.pushChat(mode === "same" ? "Replaying same board" : "New board", { system: true });
     this.beginStartingPhase(board);
   }
 
@@ -345,6 +373,10 @@ export class LobbyDO extends DurableObject {
       existing.push(newClaim);
     }
 
+    const square = this.room.board?.squares[squareIndex] ?? "?";
+    const coordStr = coord(squareIndex, this.room.settings.boardSize);
+    this.pushChat(`claimed ${coordStr} — ${square}`, { system: true, teamId: member.teamId, nickname: member.nickname });
+
     const win = evaluateWin(this.room);
     if (win) {
       this.room.winner = win;
@@ -382,21 +414,46 @@ export class LobbyDO extends DurableObject {
     const filtered = existing.filter((c) => c.teamId !== member.teamId);
     if (filtered.length === existing.length) return;         // my team wasn't on this cell
     this.room.claims[squareIndex] = filtered.length === 0 ? null : filtered;
+    const square = this.room.board?.squares[squareIndex] ?? "?";
+    const coordStr = coord(squareIndex, this.room.settings.boardSize);
+    this.pushChat(`unclaimed ${coordStr} — ${square}`, { system: true, teamId: member.teamId, nickname: member.nickname });
     this.broadcastState();
   }
 
   private handleChat(token: string, body: string): void {
     const member = this.room.members[token];
     const nickname = member?.nickname ?? token.slice(0, 8);
-    const envelope: Envelope = {
+    const teamId = member?.teamId ?? null;
+    this.pushChat(body, { teamId, nickname, system: false, fromToken: token });
+  }
+
+  // Append to chat history (capped), broadcast a chat envelope to all sockets.
+  // System messages set system:true and use teamId for color tinting (or null for neutral).
+  private pushChat(body: string, opts: { teamId?: number | null; nickname?: string | null; system?: boolean; fromToken?: string } = {}): void {
+    const envelope: Chat = {
       t: "chat",
       ts: Date.now(),
-      from: token,
-      data: { body: `<${nickname}> ${body}` },
+      from: opts.fromToken,
+      data: {
+        body,
+        teamId: opts.teamId ?? null,
+        nickname: opts.nickname ?? null,
+        system: opts.system ?? false,
+      },
     };
+    this.chatHistory.push(envelope);
+    if (this.chatHistory.length > CHAT_HISTORY_CAP) {
+      this.chatHistory.splice(0, this.chatHistory.length - CHAT_HISTORY_CAP);
+    }
     const raw = JSON.stringify(envelope);
     for (const ws of this.sockets) {
       ws.send(raw);
+    }
+  }
+
+  private replayChatTo(ws: WebSocket): void {
+    for (const envelope of this.chatHistory) {
+      ws.send(JSON.stringify(envelope));
     }
   }
 
@@ -460,6 +517,9 @@ export class LobbyDO extends DurableObject {
     for (const ws of this.sockets) {
       ws.send(raw);
     }
+    const teamName = this.room.teams[teamId]?.name ?? `Team ${teamId + 1}`;
+    const shapeStr = shape ? ` (${shape.map((i) => coord(i, this.room.settings.boardSize)).join(", ")})` : "";
+    this.pushChat(`${teamName} won by ${condition}${shapeStr}`, { system: true, teamId });
   }
 
   private sendError(ws: WebSocket, message: string, reason?: string): void {

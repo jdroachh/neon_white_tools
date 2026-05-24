@@ -14,7 +14,7 @@ export type Start       = EnvelopeBase & { t: "start";    data: { seed?: number 
 export type Claim       = EnvelopeBase & { t: "claim";    data: { squareIndex: number; timeMs: number | null } };
 export type Unclaim     = EnvelopeBase & { t: "unclaim";  data: { squareIndex: number } };
 export type Restart     = EnvelopeBase & { t: "restart";  data: { mode: "same" | "new" | "lobby" } };
-export type Chat        = EnvelopeBase & { t: "chat";     data: { body: string } };
+export type Chat        = EnvelopeBase & { t: "chat";     data: { body: string; teamId?: number | null; nickname?: string | null; system?: boolean } };
 export type State       = EnvelopeBase & { t: "state";    data: RoomState };
 export type EndMsg      = EnvelopeBase & { t: "end";      data: { teamId: number; condition: WinConditionKey; shape?: number[] } };
 export type ErrorMsg    = EnvelopeBase & { t: "error";    data: { message: string; reason?: string } };
@@ -144,7 +144,11 @@ function isRestart(e: Record<string, unknown>): e is Restart {
 
 function isChat(e: Record<string, unknown>): e is Chat {
   const d = e["data"];
-  return isObject(d) && typeof d["body"] === "string";
+  if (!isObject(d) || typeof d["body"] !== "string") return false;
+  if (d["teamId"] !== undefined && d["teamId"] !== null && typeof d["teamId"] !== "number") return false;
+  if (d["nickname"] !== undefined && d["nickname"] !== null && typeof d["nickname"] !== "string") return false;
+  if (d["system"] !== undefined && typeof d["system"] !== "boolean") return false;
+  return true;
 }
 
 export function parseEnvelope(raw: string): Envelope | null {

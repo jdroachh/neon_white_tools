@@ -70,6 +70,49 @@ hostBackBtn.addEventListener("click", () => showPreConnect("landing"));
 joinBackBtn.addEventListener("click", () => showPreConnect("landing"));
 const logContent     = document.getElementById("log-content") as HTMLDivElement;
 const logToggle      = document.getElementById("log-toggle") as HTMLButtonElement;
+const chatSection    = document.getElementById("chat")          as HTMLDivElement;
+const chatMessages   = document.getElementById("chat-messages") as HTMLDivElement;
+const chatInput      = document.getElementById("chat-input")    as HTMLInputElement;
+const chatSend       = document.getElementById("chat-send")     as HTMLButtonElement;
+
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!)
+  );
+}
+
+function teamColor(teamId: number | null | undefined): string {
+  if (teamId == null || teamId < 0) return "#aaa";
+  return currentState?.teams[teamId]?.color ?? "#aaa";
+}
+
+function appendChat(env: { ts: number; data: { body: string; teamId?: number | null; nickname?: string | null; system?: boolean } }): void {
+  const line = document.createElement("div");
+  const color = teamColor(env.data.teamId ?? null);
+  const ts = new Date(env.ts).toLocaleTimeString();
+  if (env.data.system) {
+    // System: tinted by team color, italic. e.g., "[10:24] Alice claimed C3 — …"
+    const nick = env.data.nickname ? `${escapeHtml(env.data.nickname)} ` : "";
+    line.innerHTML = `<span style="color:#555;font-size:0.75rem;">[${ts}]</span> <span style="color:${color};font-style:italic;">${nick}${escapeHtml(env.data.body)}</span>`;
+  } else {
+    // User chat: "[10:24] <Alice> hi" — nickname colored, body in default text.
+    const nick = env.data.nickname ?? "?";
+    line.innerHTML = `<span style="color:#555;font-size:0.75rem;">[${ts}]</span> <span style="color:${color};font-weight:bold;">&lt;${escapeHtml(nick)}&gt;</span> <span>${escapeHtml(env.data.body)}</span>`;
+  }
+  chatMessages.appendChild(line);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+chatSend.addEventListener("click", sendChat);
+chatInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); sendChat(); }
+});
+function sendChat(): void {
+  const body = chatInput.value.trim();
+  if (!body) return;
+  send({ t: "chat", data: { body } });
+  chatInput.value = "";
+}
 
 // ─── Sections ────────────────────────────────────────────────────────────────
 
@@ -127,6 +170,8 @@ function connect(): void {
   console.log(`[${new Date().toISOString()}] [client] Connecting to ${url}`);
   statusEl.textContent = `Connecting to room "${myRoomCode}"…`;
   everOpened = false;
+  // Clear local chat — server will replay full history after hello.
+  chatMessages.innerHTML = "";
 
   socket = new WebSocket(url);
 
@@ -152,6 +197,7 @@ function connect(): void {
     if (!everOpened && !connectAsHost) {
       myRoomCode = "";
       statusEl.textContent = "Not connected.";
+      chatSection.style.display = "none";
       showSection("join");
       showPreConnect("join");
       joinErrorEl.textContent = "Room not found — check the code with your host.";
@@ -222,6 +268,7 @@ function handleMessage(raw: string): void {
   switch (env.t) {
     case "state": {
       currentState = env.data;
+      chatSection.style.display = "block";
       renderForPhase();
       break;
     }
@@ -230,7 +277,7 @@ function handleMessage(raw: string): void {
       break;
     }
     case "chat": {
-      appendLog(env.data.body);
+      appendChat(env);
       break;
     }
     case "error": {
