@@ -609,40 +609,58 @@ function renderBoard(): void {
     container.appendChild(note);
   }
 
-  // Grid
+  // Grid with axis labels — extra leading column (row numbers) and header row (column letters).
   const cellSize = Math.max(70, Math.floor(560 / boardSize));
   const grid = el("div", {
-    style: `display:grid;grid-template-columns:repeat(${boardSize},${cellSize}px);grid-auto-rows:minmax(${cellSize}px,auto);gap:4px;`,
+    style: `display:grid;grid-template-columns:24px repeat(${boardSize},${cellSize}px);grid-template-rows:24px repeat(${boardSize}, minmax(${cellSize}px, auto));gap:4px;`,
   });
+
+  const labelStyle = "display:flex;align-items:center;justify-content:center;color:#aaa;font-size:0.85rem;font-weight:bold;";
+  // Top-left corner (blank)
+  grid.appendChild(el("div", {}));
+  // Column header letters: A, B, C, ...
+  for (let c = 0; c < boardSize; c++) {
+    const lbl = el("div", { style: labelStyle });
+    lbl.textContent = String.fromCharCode(65 + c);
+    grid.appendChild(lbl);
+  }
 
   const winShape = state.winner?.shape ?? null;
 
-  for (let i = 0; i < boardSize ** 2; i++) {
-    const square = state.board!.squares[i];
-    const claim = state.claims[i];
-    const isFree = cellIsFree(claim);
-    const inWinShape = winShape?.includes(i);
-    const clickable = amLeader && !isFree;
+  for (let r = 0; r < boardSize; r++) {
+    // Row label (number)
+    const rowLbl = el("div", { style: labelStyle });
+    rowLbl.textContent = String(r + 1);
+    grid.appendChild(rowLbl);
 
-    const bg = cellBackground(claim, state.teams);
-    const textColor = claim ? "#000" : "#eee";
-    const border = inWinShape ? "3px solid #fff" : "1px solid #444";
+    for (let c = 0; c < boardSize; c++) {
+      const i = r * boardSize + c;
+      const square = state.board!.squares[i];
+      const claim = state.claims[i];
+      const isFree = cellIsFree(claim);
+      const inWinShape = winShape?.includes(i);
+      const clickable = amLeader && !isFree;
 
-    const cell = el("div", {
-      style: `background:${bg};color:${textColor};border:${border};width:${cellSize}px;min-height:${cellSize}px;box-sizing:border-box;padding:4px;font-size:0.7rem;display:flex;align-items:center;justify-content:center;text-align:center;cursor:${clickable ? "pointer" : "default"};border-radius:3px;word-break:break-word;`,
-      title: square + cellTitle(claim),
-    });
+      const bg = cellBackground(claim, state.teams);
+      const textColor = claim ? "#000" : "#eee";
+      const border = inWinShape ? "3px solid #fff" : "1px solid #444";
 
-    const nameSpan = document.createElement("span");
-    nameSpan.style.cssText = "background:rgba(255,255,255,0.6);padding:0 3px;border-radius:2px;";
-    nameSpan.textContent = isFree ? "FREE" : square;
-    cell.appendChild(nameSpan);
+      const cell = el("div", {
+        style: `background:${bg};color:${textColor};border:${border};width:${cellSize}px;min-height:${cellSize}px;box-sizing:border-box;padding:4px;font-size:0.7rem;display:flex;align-items:center;justify-content:center;text-align:center;cursor:${clickable ? "pointer" : "default"};border-radius:3px;word-break:break-word;`,
+        title: `${String.fromCharCode(65 + c)}${r + 1} — ${square}${cellTitle(claim)}`,
+      });
 
-    if (clickable) {
-      cell.addEventListener("click", () => handleCellClick(i));
+      const nameSpan = document.createElement("span");
+      nameSpan.style.cssText = "padding:0 3px;";
+      nameSpan.textContent = isFree ? "FREE" : square;
+      cell.appendChild(nameSpan);
+
+      if (clickable) {
+        cell.addEventListener("click", () => handleCellClick(i));
+      }
+
+      grid.appendChild(cell);
     }
-
-    grid.appendChild(cell);
   }
 
   container.appendChild(grid);
@@ -697,28 +715,43 @@ function renderEnd(): void {
     const cellSize = Math.max(60, Math.floor(480 / boardSize));
 
     const grid = el("div", {
-      style: `display:grid;grid-template-columns:repeat(${boardSize},${cellSize}px);grid-auto-rows:minmax(${cellSize}px,auto);gap:4px;margin-bottom:16px;`,
+      style: `display:grid;grid-template-columns:20px repeat(${boardSize},${cellSize}px);grid-template-rows:20px repeat(${boardSize}, minmax(${cellSize}px, auto));gap:4px;margin-bottom:16px;`,
     });
 
-    for (let i = 0; i < boardSize ** 2; i++) {
-      const square = state.board.squares[i];
-      const claim = state.claims[i];
-      const isFree = cellIsFree(claim);
-      const inWinShape = winShape?.includes(i);
+    const labelStyle = "display:flex;align-items:center;justify-content:center;color:#aaa;font-size:0.75rem;font-weight:bold;";
+    grid.appendChild(el("div", {}));
+    for (let c = 0; c < boardSize; c++) {
+      const lbl = el("div", { style: labelStyle });
+      lbl.textContent = String.fromCharCode(65 + c);
+      grid.appendChild(lbl);
+    }
 
-      const bg = cellBackground(claim, state.teams);
-      const textColor = claim ? "#000" : "#eee";
-      const border = inWinShape ? "3px solid #fff" : "1px solid #444";
+    for (let r = 0; r < boardSize; r++) {
+      const rowLbl = el("div", { style: labelStyle });
+      rowLbl.textContent = String(r + 1);
+      grid.appendChild(rowLbl);
 
-      const cell = el("div", {
-        style: `background:${bg};color:${textColor};border:${border};width:${cellSize}px;min-height:${cellSize}px;box-sizing:border-box;padding:4px;font-size:0.65rem;display:flex;align-items:center;justify-content:center;text-align:center;border-radius:3px;word-break:break-word;`,
-        title: square + cellTitle(claim),
-      });
-      const nameSpan = document.createElement("span");
-      nameSpan.style.cssText = "background:rgba(255,255,255,0.6);padding:0 3px;border-radius:2px;";
-      nameSpan.textContent = isFree ? "FREE" : square;
-      cell.appendChild(nameSpan);
-      grid.appendChild(cell);
+      for (let c = 0; c < boardSize; c++) {
+        const i = r * boardSize + c;
+        const square = state.board.squares[i];
+        const claim = state.claims[i];
+        const isFree = cellIsFree(claim);
+        const inWinShape = winShape?.includes(i);
+
+        const bg = cellBackground(claim, state.teams);
+        const textColor = claim ? "#000" : "#eee";
+        const border = inWinShape ? "3px solid #fff" : "1px solid #444";
+
+        const cell = el("div", {
+          style: `background:${bg};color:${textColor};border:${border};width:${cellSize}px;min-height:${cellSize}px;box-sizing:border-box;padding:4px;font-size:0.65rem;display:flex;align-items:center;justify-content:center;text-align:center;border-radius:3px;word-break:break-word;`,
+          title: `${String.fromCharCode(65 + c)}${r + 1} — ${square}${cellTitle(claim)}`,
+        });
+        const nameSpan = document.createElement("span");
+        nameSpan.style.cssText = "padding:0 3px;";
+        nameSpan.textContent = isFree ? "FREE" : square;
+        cell.appendChild(nameSpan);
+        grid.appendChild(cell);
+      }
     }
 
     container.appendChild(grid);
@@ -778,7 +811,7 @@ function cellCountsFor(claim: import("./protocol").ClaimInfo[] | null, teamId: n
 }
 
 function cellBackground(claim: import("./protocol").ClaimInfo[] | null, teams: import("./protocol").TeamInfo[]): string {
-  if (!claim || claim.length === 0) return "#222";
+  if (!claim || claim.length === 0) return "#000";
   if (cellIsFree(claim)) return "#888";
   if (claim.length === 1) return teams[claim[0].teamId].color;
   // Multiple teams — horizontal stripes, equal bands top-to-bottom.

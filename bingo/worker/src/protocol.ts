@@ -175,12 +175,12 @@ export function parseEnvelope(raw: string): Envelope | null {
 
 export const DEFAULT_SETTINGS: Settings = {
   boardSize: 5,
-  sections: ["standard", "level_completion"],
+  sections: ["standard"],
   allowModded: false,
   centerFree: false,
   lockout: true,
   timeLimitMin: 20,
-  winConditions: ["line", "time_limit"],
+  winConditions: ["line"],
 };
 
 export const TEAM_PALETTE: { name: string; color: string }[] = [
