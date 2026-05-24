@@ -342,6 +342,12 @@ function renderSettingsForm(settings: Settings): HTMLElement {
     sendUpdatedSettings({ ...settings, centerFree: v });
   }));
 
+  // Lockout — ON = first team to claim owns it. OFF = multiple teams may claim
+  // the same cell (rendered as horizontal stripes).
+  wrapper.appendChild(makeCheckbox("Lockout (one team per square)", settings.lockout, (v) => {
+    sendUpdatedSettings({ ...settings, lockout: v });
+  }));
+
   // Time limit
   wrapper.appendChild(labelText("Time limit (minutes):"));
   const timeInput = document.createElement("input");
@@ -410,10 +416,10 @@ function renderBoard(): void {
   const container = document.getElementById("board-inner")!;
   container.innerHTML = "";
 
-  // Claim counts per team
+  // Claim counts per team — FREE sentinel counts for every team.
   const countsDiv = el("div", { style: "margin-bottom:12px;display:flex;gap:12px;flex-wrap:wrap;" });
   for (const team of state.teams) {
-    const count = state.claims.filter((c) => c !== null && c.teamId === team.id).length;
+    const count = state.claims.filter((c) => cellCountsFor(c, team.id)).length;
     if (team.memberTokens.length === 0 && count === 0) continue;
     const badge = el("span", { style: `background:${team.color};color:#000;padding:4px 8px;border-radius:4px;font-weight:bold;` });
     badge.textContent = `${team.name}: ${count}`;
@@ -443,26 +449,26 @@ function renderBoard(): void {
   for (let i = 0; i < boardSize ** 2; i++) {
     const square = state.board!.squares[i];
     const claim = state.claims[i];
-    const isFree = claim?.teamId === -1;
-    const claimTeam = claim && !isFree ? state.teams[claim.teamId] : null;
+    const isFree = cellIsFree(claim);
     const inWinShape = winShape?.includes(i);
+    const clickable = amLeader && !isFree;
 
-    const bg = isFree ? "#555" : claimTeam ? claimTeam.color : "#222";
-    const textColor = isFree || claimTeam ? "#000" : "#eee";
+    const bg = cellBackground(claim, state.teams);
+    const textColor = claim ? "#000" : "#eee";
     const border = inWinShape ? "3px solid #fff" : "1px solid #444";
 
     const cell = el("div", {
-      style: `background:${bg};color:${textColor};border:${border};width:${cellSize}px;height:${cellSize}px;box-sizing:border-box;padding:4px;font-size:0.7rem;display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden;cursor:${amLeader && !isFree ? "pointer" : "default"};border-radius:3px;word-break:break-word;`,
-      title: square + (claim ? `\nClaimed by ${claim.player}${claim.timeMs != null ? ` (${(claim.timeMs / 1000).toFixed(2)}s)` : ""}` : ""),
+      style: `background:${bg};color:${textColor};border:${border};width:${cellSize}px;height:${cellSize}px;box-sizing:border-box;padding:4px;font-size:0.7rem;display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden;cursor:${clickable ? "pointer" : "default"};border-radius:3px;word-break:break-word;`,
+      title: square + cellTitle(claim),
     });
 
     const nameSpan = document.createElement("span");
-    nameSpan.style.cssText = "overflow:hidden;max-height:100%;";
+    nameSpan.style.cssText = "overflow:hidden;max-height:100%;background:rgba(255,255,255,0.6);padding:0 3px;border-radius:2px;";
     nameSpan.textContent = isFree ? "FREE" : square;
     cell.appendChild(nameSpan);
 
-    if (amLeader && !isFree) {
-      cell.addEventListener("click", () => handleCellClick(i, square));
+    if (clickable) {
+      cell.addEventListener("click", () => handleCellClick(i));
     }
 
     grid.appendChild(cell);
@@ -471,7 +477,7 @@ function renderBoard(): void {
   container.appendChild(grid);
 }
 
-function handleCellClick(squareIndex: number, _squareName: string): void {
+function handleCellClick(squareIndex: number): void {
   if (!currentState) return;
   const member = currentState.members[myToken];
   if (!member || member.teamId === null) return;
@@ -479,10 +485,17 @@ function handleCellClick(squareIndex: number, _squareName: string): void {
 
   if (existing === null) {
     send({ t: "claim", data: { squareIndex, timeMs: null } });
-  } else if (existing.teamId === member.teamId) {
-    send({ t: "unclaim", data: { squareIndex } });
+    return;
   }
-  // else: owned by another team or FREE — no-op
+  if (existing.some((c) => c.teamId === -1)) return; // FREE — no-op
+  if (existing.some((c) => c.teamId === member.teamId)) {
+    send({ t: "unclaim", data: { squareIndex } });
+    return;
+  }
+  // Cell owned by other team(s) but not me. Multi-claim only allowed when lockout is OFF.
+  if (!currentState.settings.lockout) {
+    send({ t: "claim", data: { squareIndex, timeMs: null } });
+  }
 }
 
 // ─── End screen ───────────────────────────────────────────────────────────────
@@ -519,20 +532,19 @@ function renderEnd(): void {
     for (let i = 0; i < boardSize ** 2; i++) {
       const square = state.board.squares[i];
       const claim = state.claims[i];
-      const isFree = claim?.teamId === -1;
-      const claimTeam = claim && !isFree ? state.teams[claim.teamId] : null;
+      const isFree = cellIsFree(claim);
       const inWinShape = winShape?.includes(i);
 
-      const bg = isFree ? "#555" : claimTeam ? claimTeam.color : "#222";
-      const textColor = isFree || claimTeam ? "#000" : "#eee";
+      const bg = cellBackground(claim, state.teams);
+      const textColor = claim ? "#000" : "#eee";
       const border = inWinShape ? "3px solid #fff" : "1px solid #444";
 
       const cell = el("div", {
         style: `background:${bg};color:${textColor};border:${border};width:${cellSize}px;height:${cellSize}px;box-sizing:border-box;padding:4px;font-size:0.65rem;display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden;border-radius:3px;word-break:break-word;`,
-        title: square + (claim ? `\n${claim.player}${claim.timeMs != null ? ` (${(claim.timeMs / 1000).toFixed(2)}s)` : ""}` : ""),
+        title: square + cellTitle(claim),
       });
       const nameSpan = document.createElement("span");
-      nameSpan.style.cssText = "overflow:hidden;max-height:100%;";
+      nameSpan.style.cssText = "overflow:hidden;max-height:100%;background:rgba(255,255,255,0.6);padding:0 3px;border-radius:2px;";
       nameSpan.textContent = isFree ? "FREE" : square;
       cell.appendChild(nameSpan);
       grid.appendChild(cell);
@@ -554,6 +566,42 @@ function renderEnd(): void {
     showSection("join");
   });
   container.appendChild(backBtn);
+}
+
+// ─── Cell helpers (claim is ClaimInfo[] | null) ───────────────────────────────
+
+function cellIsFree(claim: import("./protocol").ClaimInfo[] | null): boolean {
+  return claim?.some((c) => c.teamId === -1) ?? false;
+}
+
+function cellCountsFor(claim: import("./protocol").ClaimInfo[] | null, teamId: number): boolean {
+  if (!claim) return false;
+  return claim.some((c) => c.teamId === teamId || c.teamId === -1);
+}
+
+function cellBackground(claim: import("./protocol").ClaimInfo[] | null, teams: import("./protocol").TeamInfo[]): string {
+  if (!claim || claim.length === 0) return "#222";
+  if (cellIsFree(claim)) return "#888";
+  if (claim.length === 1) return teams[claim[0].teamId].color;
+  // Multiple teams — horizontal stripes, equal bands top-to-bottom.
+  const colors = claim.map((c) => teams[c.teamId].color);
+  const n = colors.length;
+  const stops = colors
+    .flatMap((color, i) => [
+      `${color} ${((i * 100) / n).toFixed(2)}%`,
+      `${color} ${(((i + 1) * 100) / n).toFixed(2)}%`,
+    ])
+    .join(", ");
+  return `linear-gradient(to bottom, ${stops})`;
+}
+
+function cellTitle(claim: import("./protocol").ClaimInfo[] | null): string {
+  if (!claim || claim.length === 0) return "";
+  return "\n" + claim.map((c) => {
+    if (c.teamId === -1) return "FREE";
+    const t = c.timeMs != null ? ` (${(c.timeMs / 1000).toFixed(2)}s)` : "";
+    return `${c.player}${t}`;
+  }).join(", ");
 }
 
 // ─── DOM helpers ──────────────────────────────────────────────────────────────

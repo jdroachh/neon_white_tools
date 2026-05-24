@@ -199,17 +199,21 @@ export class LobbyDO extends DurableObject {
 
     const total = this.room.settings.boardSize ** 2;
     this.room.board = { seed, squares: result.squares };
-    this.room.claims = Array(total).fill(null) as (ClaimInfo | null)[];
+    this.room.claims = Array(total).fill(null) as (ClaimInfo[] | null)[];
 
     if (this.room.settings.centerFree) {
       const centerIdx = Math.floor(total / 2);
       const now = Date.now();
-      this.room.claims[centerIdx] = { teamId: -1, timeMs: null, player: "FREE", ts: now };
+      this.room.claims[centerIdx] = [{ teamId: -1, timeMs: null, player: "FREE", ts: now }];
     }
 
     this.room.phase = "playing";
     this.room.startedAt = Date.now();
 
+    // Clear any stale alarm from a previous game before potentially scheduling a new one.
+    // Without this, an alarm scheduled by an earlier game could fire mid-way through this
+    // one and prematurely declare a time_limit winner.
+    this.ctx.storage.deleteAlarm();
     if (this.room.settings.winConditions.includes("time_limit")) {
       this.ctx.storage.setAlarm(this.room.startedAt + this.room.settings.timeLimitMin * 60 * 1000);
     }
@@ -243,38 +247,21 @@ export class LobbyDO extends DurableObject {
     }
 
     const existing = this.room.claims[squareIndex];
-
-    // Center-free sentinel — never overwrite
-    if (existing !== null && existing.teamId === -1) {
-      return;
-    }
-
-    let accepted = false;
     const newClaim: ClaimInfo = { teamId: member.teamId, timeMs, player: member.nickname, ts: Date.now() };
 
     if (existing === null) {
-      // Empty square — accept
-      this.room.claims[squareIndex] = newClaim;
-      accepted = true;
-    } else if (existing.teamId === member.teamId) {
-      // Same team — accept if new time beats old (non-null beats null; lower non-null beats higher)
-      if (existing.timeMs === null && timeMs !== null) {
-        // old had no time, new has a time — non-null beats null
-        this.room.claims[squareIndex] = newClaim;
-        accepted = true;
-      } else if (timeMs !== null && existing.timeMs !== null && timeMs < existing.timeMs) {
-        this.room.claims[squareIndex] = newClaim;
-        accepted = true;
-      }
+      // Empty — always accept (single-element array).
+      this.room.claims[squareIndex] = [newClaim];
     } else {
-      // Different team — accept if new time is non-null AND beats old (or old was null)
-      if (timeMs !== null && (existing.timeMs === null || timeMs < existing.timeMs)) {
-        this.room.claims[squareIndex] = newClaim;
-        accepted = true;
-      }
+      // Never override FREE sentinel.
+      if (existing.some((c) => c.teamId === -1)) return;
+      // Already claimed by my team — no-op (unclaim is a separate envelope).
+      if (existing.some((c) => c.teamId === member.teamId)) return;
+      // Lockout ON — first team owns the cell; nothing else can claim.
+      if (this.room.settings.lockout) return;
+      // Multi-claim allowed — add alongside existing claims.
+      existing.push(newClaim);
     }
-
-    if (!accepted) return;
 
     const win = evaluateWin(this.room);
     if (win) {
@@ -309,10 +296,10 @@ export class LobbyDO extends DurableObject {
     }
     const existing = this.room.claims[squareIndex];
     if (existing === null) return;
-    if (existing.teamId === -1) return;                  // FREE sentinel — never clear
-    if (existing.teamId !== member.teamId) return;       // can't unclaim other teams
-
-    this.room.claims[squareIndex] = null;
+    if (existing.some((c) => c.teamId === -1)) return;       // FREE sentinel — never clear
+    const filtered = existing.filter((c) => c.teamId !== member.teamId);
+    if (filtered.length === existing.length) return;         // my team wasn't on this cell
+    this.room.claims[squareIndex] = filtered.length === 0 ? null : filtered;
     this.broadcastState();
   }
 

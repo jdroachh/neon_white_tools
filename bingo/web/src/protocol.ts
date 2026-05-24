@@ -24,6 +24,7 @@ export type Settings = {
   sections: ("standard" | "level_completion" | "modded")[];
   allowModded: boolean;
   centerFree: boolean;
+  lockout: boolean;
   timeLimitMin: number;
   winConditions: WinConditionKey[];
   firstToN?: number;
@@ -60,7 +61,7 @@ export type RoomState = {
   members: Record<string, MemberInfo>;
   teams: TeamInfo[];
   board: { seed: number; squares: string[] } | null;
-  claims: (ClaimInfo | null)[];
+  claims: (ClaimInfo[] | null)[];
   startedAt: number | null;
   winner: { teamId: number; condition: WinConditionKey; shape?: number[] } | null;
 };
@@ -92,6 +93,7 @@ function isSettingsMsg(e: Record<string, unknown>): e is SettingsMsg {
     (d["sections"] as unknown[]).every((s) => VALID_SECTIONS.has(s as string)) &&
     typeof d["allowModded"] === "boolean" &&
     typeof d["centerFree"] === "boolean" &&
+    typeof d["lockout"] === "boolean" &&
     typeof d["timeLimitMin"] === "number" &&
     Array.isArray(d["winConditions"]) &&
     (d["winConditions"] as unknown[]).every((w) => VALID_WIN_CONDITIONS.has(w as string))
@@ -155,6 +157,7 @@ export const DEFAULT_SETTINGS: Settings = {
   sections: ["standard", "level_completion"],
   allowModded: false,
   centerFree: false,
+  lockout: true,
   timeLimitMin: 20,
   winConditions: ["line", "time_limit"],
 };

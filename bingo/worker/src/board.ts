@@ -69,32 +69,44 @@ export function generateBoard(
 }
 
 // Win evaluators — each returns first hit or null.
+// Claims model: claims[i] is either null (empty) or a non-empty array of
+// ClaimInfo. Lockout ON enforces array.length === 1. FREE sentinel is stored
+// as a single-element array with teamId = -1 and counts toward every team.
 
 type WinResult = { teamId: number; shape?: number[] } | null;
 
+// "Does this cell count for teamId?" — true if FREE sentinel OR any claim by teamId.
+function cellCountsFor(cell: ClaimInfo[] | null, teamId: number): boolean {
+  if (!cell) return false;
+  return cell.some((c) => c.teamId === teamId || c.teamId === -1);
+}
+
+function realTeamsOnBoard(claims: (ClaimInfo[] | null)[]): Set<number> {
+  const ids = new Set<number>();
+  for (const cell of claims) {
+    if (!cell) continue;
+    for (const c of cell) if (c.teamId !== -1) ids.add(c.teamId);
+  }
+  return ids;
+}
+
 export function evalLine(
-  claims: (ClaimInfo | null)[],
+  claims: (ClaimInfo[] | null)[],
   boardSize: number,
 ): WinResult {
-  const teamIds = new Set<number>();
-  for (const c of claims) {
-    if (c && c.teamId !== -1) teamIds.add(c.teamId);
-  }
+  const teamIds = realTeamsOnBoard(claims);
 
   const lines: number[][] = [];
-  // rows
   for (let r = 0; r < boardSize; r++) {
     const row: number[] = [];
     for (let c = 0; c < boardSize; c++) row.push(r * boardSize + c);
     lines.push(row);
   }
-  // cols
   for (let c = 0; c < boardSize; c++) {
     const col: number[] = [];
     for (let r = 0; r < boardSize; r++) col.push(r * boardSize + c);
     lines.push(col);
   }
-  // diagonals
   const diag1: number[] = [];
   const diag2: number[] = [];
   for (let i = 0; i < boardSize; i++) {
@@ -105,30 +117,21 @@ export function evalLine(
 
   for (const teamId of teamIds) {
     for (const line of lines) {
-      const wins = line.every((idx) => {
-        const c = claims[idx];
-        return c !== null && (c.teamId === teamId || c.teamId === -1);
-      });
-      if (wins) return { teamId, shape: line };
+      if (line.every((idx) => cellCountsFor(claims[idx], teamId))) {
+        return { teamId, shape: line };
+      }
     }
   }
   return null;
 }
 
 export function evalFourCorners(
-  claims: (ClaimInfo | null)[],
+  claims: (ClaimInfo[] | null)[],
   boardSize: number,
 ): WinResult {
   const corners = [0, boardSize - 1, boardSize * (boardSize - 1), boardSize ** 2 - 1];
-  const teamIds = new Set<number>();
-  for (const c of claims) {
-    if (c && c.teamId !== -1) teamIds.add(c.teamId);
-  }
-  for (const teamId of teamIds) {
-    if (corners.every((idx) => {
-      const c = claims[idx];
-      return c !== null && (c.teamId === teamId || c.teamId === -1);
-    })) {
+  for (const teamId of realTeamsOnBoard(claims)) {
+    if (corners.every((idx) => cellCountsFor(claims[idx], teamId))) {
       return { teamId, shape: corners };
     }
   }
@@ -136,69 +139,63 @@ export function evalFourCorners(
 }
 
 export function evalFullHouse(
-  claims: (ClaimInfo | null)[],
+  claims: (ClaimInfo[] | null)[],
   boardSize: number,
 ): WinResult {
   const total = boardSize ** 2;
-  const teamIds = new Set<number>();
-  for (const c of claims) {
-    if (c && c.teamId !== -1) teamIds.add(c.teamId);
-  }
-  for (const teamId of teamIds) {
+  for (const teamId of realTeamsOnBoard(claims)) {
     let full = true;
     for (let i = 0; i < total; i++) {
-      const c = claims[i];
-      if (c === null || (c.teamId !== teamId && c.teamId !== -1)) {
-        full = false;
-        break;
-      }
+      if (!cellCountsFor(claims[i], teamId)) { full = false; break; }
     }
-    if (full) {
-      return { teamId, shape: Array.from({ length: total }, (_, i) => i) };
-    }
+    if (full) return { teamId, shape: Array.from({ length: total }, (_, i) => i) };
   }
   return null;
 }
 
 export function evalFirstToN(
-  claims: (ClaimInfo | null)[],
+  claims: (ClaimInfo[] | null)[],
   settings: Settings,
 ): WinResult {
   const n = settings.firstToN ?? 5;
-  const counts = new Map<number, number[]>();
-  for (let i = 0; i < claims.length; i++) {
-    const c = claims[i];
-    if (!c) continue;
-    // sentinel counts toward every real team
-    if (c.teamId === -1) continue;
-    const arr = counts.get(c.teamId) ?? [];
-    arr.push(i);
-    counts.set(c.teamId, arr);
-  }
-  for (const [teamId, idxs] of counts) {
+  for (const teamId of realTeamsOnBoard(claims)) {
+    const idxs: number[] = [];
+    for (let i = 0; i < claims.length; i++) {
+      if (cellCountsFor(claims[i], teamId)) idxs.push(i);
+    }
     if (idxs.length >= n) return { teamId, shape: idxs };
   }
   return null;
 }
 
 export function evalTimeLimit(
-  claims: (ClaimInfo | null)[],
+  claims: (ClaimInfo[] | null)[],
 ): WinResult {
-  // Count claims per team; tie-break by sum of timeMs (lower wins).
-  const counts = new Map<number, { count: number; timeSum: number; idxs: number[] }>();
+  // Count cells per team (FREE counts for everyone); tie-break by sum of timeMs
+  // across that team's actual claims (FREE has no timeMs).
+  const stats = new Map<number, { count: number; timeSum: number; idxs: number[] }>();
+  const teamIds = realTeamsOnBoard(claims);
+  for (const teamId of teamIds) stats.set(teamId, { count: 0, timeSum: 0, idxs: [] });
+
   for (let i = 0; i < claims.length; i++) {
-    const c = claims[i];
-    if (!c || c.teamId === -1) continue;
-    const entry = counts.get(c.teamId) ?? { count: 0, timeSum: 0, idxs: [] };
-    entry.count++;
-    entry.timeSum += c.timeMs ?? 0;
-    entry.idxs.push(i);
-    counts.set(c.teamId, entry);
+    const cell = claims[i];
+    if (!cell) continue;
+    for (const teamId of teamIds) {
+      if (cellCountsFor(cell, teamId)) {
+        const entry = stats.get(teamId)!;
+        entry.count++;
+        entry.idxs.push(i);
+        // Sum times only across this team's own (non-FREE) claims on the cell.
+        for (const c of cell) {
+          if (c.teamId === teamId) entry.timeSum += c.timeMs ?? 0;
+        }
+      }
+    }
   }
-  if (counts.size === 0) return null;
+  if (stats.size === 0) return null;
 
   let best: { teamId: number; count: number; timeSum: number; idxs: number[] } | null = null;
-  for (const [teamId, entry] of counts) {
+  for (const [teamId, entry] of stats) {
     if (
       best === null ||
       entry.count > best.count ||
