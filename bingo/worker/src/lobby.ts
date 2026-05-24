@@ -82,6 +82,7 @@ export class LobbyDO extends DurableObject {
     switch (envelope.t) {
       case "hello":    this.handleHello(ws, envelope.data.token, envelope.data.nickname); break;
       case "team_join": this.handleTeamJoin(ws, senderToken!, envelope.data.teamId); break;
+      case "team_rename": this.handleTeamRename(ws, senderToken!, envelope.data.teamId, envelope.data.name); break;
       case "settings": this.handleSettings(ws, senderToken!, envelope.data); break;
       case "start":    this.handleStart(ws, senderToken!, envelope.data.seed); break;
       case "claim":    this.handleClaim(ws, senderToken!, envelope.data.squareIndex, envelope.data.timeMs); break;
@@ -206,6 +207,24 @@ export class LobbyDO extends DurableObject {
       }
     }
 
+    this.broadcastState();
+  }
+
+  private handleTeamRename(ws: WebSocket, token: string, teamId: number, name: string): void {
+    if (this.room.phase !== "lobby") {
+      this.sendError(ws, "Cannot rename teams after game started", "wrong_phase");
+      return;
+    }
+    const team = this.room.teams[teamId];
+    if (!team) {
+      this.sendError(ws, "Unknown team", "bad_team");
+      return;
+    }
+    if (!team.memberTokens.includes(token)) {
+      this.sendError(ws, "You must be on the team to rename it", "not_member");
+      return;
+    }
+    team.name = name.trim().slice(0, 24);
     this.broadcastState();
   }
 

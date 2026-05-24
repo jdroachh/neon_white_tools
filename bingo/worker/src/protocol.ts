@@ -8,6 +8,7 @@ export type EnvelopeBase = {
 
 export type Hello       = EnvelopeBase & { t: "hello";    data: { token: string; nickname: string } };
 export type TeamJoin    = EnvelopeBase & { t: "team_join"; data: { teamId: number | null } };
+export type TeamRename  = EnvelopeBase & { t: "team_rename"; data: { teamId: number; name: string } };
 export type SettingsMsg = EnvelopeBase & { t: "settings"; data: Settings };
 export type Start       = EnvelopeBase & { t: "start";    data: { seed?: number } };
 export type Claim       = EnvelopeBase & { t: "claim";    data: { squareIndex: number; timeMs: number | null } };
@@ -18,7 +19,9 @@ export type State       = EnvelopeBase & { t: "state";    data: RoomState };
 export type EndMsg      = EnvelopeBase & { t: "end";      data: { teamId: number; condition: WinConditionKey; shape?: number[] } };
 export type ErrorMsg    = EnvelopeBase & { t: "error";    data: { message: string; reason?: string } };
 
-export type Envelope = Hello | TeamJoin | SettingsMsg | Start | Claim | Unclaim | Restart | Chat | State | EndMsg | ErrorMsg;
+export type Envelope = Hello | TeamJoin | TeamRename | SettingsMsg | Start | Claim | Unclaim | Restart | Chat | State | EndMsg | ErrorMsg;
+
+export const MAX_TEAM_NAME_LEN = 24;
 
 export type Settings = {
   boardSize: 5 | 7 | 9;
@@ -88,6 +91,17 @@ function isTeamJoin(e: Record<string, unknown>): e is TeamJoin {
   return isObject(d) && (d["teamId"] === null || typeof d["teamId"] === "number");
 }
 
+function isTeamRename(e: Record<string, unknown>): e is TeamRename {
+  const d = e["data"];
+  return (
+    isObject(d) &&
+    typeof d["teamId"] === "number" &&
+    typeof d["name"] === "string" &&
+    (d["name"] as string).trim().length > 0 &&
+    (d["name"] as string).length <= MAX_TEAM_NAME_LEN
+  );
+}
+
 function isSettingsMsg(e: Record<string, unknown>): e is SettingsMsg {
   const d = e["data"];
   if (!isObject(d)) return false;
@@ -148,6 +162,7 @@ export function parseEnvelope(raw: string): Envelope | null {
   switch (t) {
     case "hello":    return isHello(parsed) ? parsed : null;
     case "team_join": return isTeamJoin(parsed) ? parsed : null;
+    case "team_rename": return isTeamRename(parsed) ? parsed : null;
     case "settings": return isSettingsMsg(parsed) ? parsed : null;
     case "start":    return isStart(parsed) ? parsed : null;
     case "claim":    return isClaim(parsed) ? parsed : null;

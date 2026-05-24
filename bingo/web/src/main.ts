@@ -352,9 +352,25 @@ function renderLobby(): void {
   for (const team of state.teams) {
     if (team.memberTokens.length === 0) continue;
     const teamDiv = el("div", { style: `border-left:4px solid ${team.color};padding-left:8px;margin-bottom:8px;` });
-    const teamLabel = el("div", { style: "font-weight:bold;" });
+    const teamHeader = el("div", { style: "font-weight:bold;display:flex;align-items:center;gap:6px;" });
+    const teamLabel = document.createElement("span");
     teamLabel.textContent = team.name;
-    teamDiv.appendChild(teamLabel);
+    teamHeader.appendChild(teamLabel);
+    // Anyone on this team can rename it (lobby phase only).
+    if (team.memberTokens.includes(myToken)) {
+      const renameBtn = document.createElement("button");
+      renameBtn.textContent = "✏️ Rename";
+      renameBtn.style.cssText = "font-size:0.7rem;padding:2px 6px;font-weight:normal;";
+      renameBtn.addEventListener("click", () => {
+        const next = prompt(`Rename "${team.name}" to:`, team.name);
+        if (next === null) return;
+        const trimmed = next.trim();
+        if (!trimmed || trimmed === team.name) return;
+        send({ t: "team_rename", data: { teamId: team.id, name: trimmed.slice(0, 24) } });
+      });
+      teamHeader.appendChild(renameBtn);
+    }
+    teamDiv.appendChild(teamHeader);
     const ul = el("ul", {});
     for (const tok of team.memberTokens) {
       const m = state.members[tok];
@@ -554,14 +570,31 @@ function renderBoard(): void {
   const container = document.getElementById("board-inner")!;
   container.innerHTML = "";
 
-  // Claim counts per team — FREE sentinel counts for every team.
-  const countsDiv = el("div", { style: "margin-bottom:12px;display:flex;gap:12px;flex-wrap:wrap;" });
+  // Claim counts + per-team roster. FREE sentinel counts for every team.
+  const countsDiv = el("div", { style: "margin-bottom:12px;display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start;" });
   for (const team of state.teams) {
     const count = state.claims.filter((c) => cellCountsFor(c, team.id)).length;
     if (team.memberTokens.length === 0 && count === 0) continue;
-    const badge = el("span", { style: `background:${team.color};color:#000;padding:4px 8px;border-radius:4px;font-weight:bold;` });
-    badge.textContent = `${team.name}: ${count}`;
-    countsDiv.appendChild(badge);
+    const block = el("div", { style: `background:${team.color};color:#000;padding:6px 10px;border-radius:4px;min-width:120px;` });
+    const header = document.createElement("div");
+    header.style.cssText = "font-weight:bold;margin-bottom:2px;";
+    header.textContent = `${team.name}: ${count}`;
+    block.appendChild(header);
+    const roster = document.createElement("div");
+    roster.style.cssText = "font-size:0.75rem;line-height:1.3;";
+    const names = team.memberTokens
+      .map((tok) => {
+        const m = state.members[tok];
+        if (!m) return null;
+        const youMark = tok === myToken ? " (you)" : "";
+        const leaderMark = tok === team.leaderToken ? " ★" : "";
+        const offlineMark = m.online ? "" : " [off]";
+        return `${m.nickname}${youMark}${leaderMark}${offlineMark}`;
+      })
+      .filter((n): n is string => n !== null);
+    roster.textContent = names.length > 0 ? names.join(", ") : "(no members)";
+    block.appendChild(roster);
+    countsDiv.appendChild(block);
   }
   container.appendChild(countsDiv);
 
