@@ -95,7 +95,8 @@
     {"name": "Kill 4 demons with a single input using Dominion", "mods_required": [], "verification": "honor"},
     {"name": "Kill 4 demons with a single input using Fireball", "mods_required": [], "verification": "honor"},
     {"name": "Kill 4 demons with a single input using Stomp", "mods_required": [], "verification": "honor"},
-    {"name": "Kill 4 demons with a single input using Godspeed", "mods_required": [], "verification": "honor"}
+    {"name": "Kill 4 demons with a single input using Godspeed", "mods_required": [], "verification": "honor"},
+    {"name": "Complete 3 levels without moving your camera", "mods_required": [], "verification": "honor"}
   ],
 
   "modded": [
