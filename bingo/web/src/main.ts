@@ -8,6 +8,8 @@ import {
 } from "./protocol";
 
 const WS_BASE = (import.meta.env.VITE_WS_URL as string | undefined) ?? "ws://localhost:8787";
+// HTTP base derived from WS base — same host, http(s) instead of ws(s).
+const HTTP_BASE = WS_BASE.replace(/^ws/, "http");
 
 // ─── Token cookie ────────────────────────────────────────────────────────────
 
@@ -39,10 +41,33 @@ const boardSection    = document.getElementById("board")    as HTMLDivElement;
 const endSection      = document.getElementById("end")      as HTMLDivElement;
 const logSection     = document.getElementById("log")     as HTMLDivElement;
 
-const nicknameInput  = document.getElementById("nickname")  as HTMLInputElement;
-const roomCodeInput  = document.getElementById("room-code") as HTMLInputElement;
-const connectBtn     = document.getElementById("connect-btn") as HTMLButtonElement;
+const landingDiv     = document.getElementById("landing")   as HTMLDivElement;
+const hostFormDiv    = document.getElementById("host-form") as HTMLDivElement;
+const joinFormDiv    = document.getElementById("join-form") as HTMLDivElement;
+const hostNicknameInput = document.getElementById("host-nickname") as HTMLInputElement;
+const joinNicknameInput = document.getElementById("join-nickname") as HTMLInputElement;
+const joinRoomCodeInput = document.getElementById("join-room-code") as HTMLInputElement;
+const hostCreateBtn  = document.getElementById("host-create-btn") as HTMLButtonElement;
+const joinGoBtn      = document.getElementById("join-go-btn") as HTMLButtonElement;
+const btnShowHost    = document.getElementById("btn-show-host") as HTMLButtonElement;
+const btnShowJoin    = document.getElementById("btn-show-join") as HTMLButtonElement;
+const hostBackBtn    = document.getElementById("host-back-btn") as HTMLButtonElement;
+const joinBackBtn    = document.getElementById("join-back-btn") as HTMLButtonElement;
+const hostErrorEl    = document.getElementById("host-error") as HTMLDivElement;
+const joinErrorEl    = document.getElementById("join-error") as HTMLDivElement;
 const statusEl       = document.getElementById("status")    as HTMLDivElement;
+
+function showPreConnect(mode: "landing" | "host" | "join"): void {
+  landingDiv.style.display  = mode === "landing" ? "block" : "none";
+  hostFormDiv.style.display = mode === "host"    ? "block" : "none";
+  joinFormDiv.style.display = mode === "join"    ? "block" : "none";
+  hostErrorEl.textContent = "";
+  joinErrorEl.textContent = "";
+}
+btnShowHost.addEventListener("click", () => showPreConnect("host"));
+btnShowJoin.addEventListener("click", () => showPreConnect("join"));
+hostBackBtn.addEventListener("click", () => showPreConnect("landing"));
+joinBackBtn.addEventListener("click", () => showPreConnect("landing"));
 const logContent     = document.getElementById("log-content") as HTMLDivElement;
 const logToggle      = document.getElementById("log-toggle") as HTMLButtonElement;
 
@@ -91,16 +116,24 @@ function send(envelope: Omit<Envelope, "ts">): void {
 
 // ─── Connect ─────────────────────────────────────────────────────────────────
 
+// Tracks host intent on the latest connect attempt so reconnects use the same query.
+let connectAsHost = false;
+// Distinguishes "WS upgrade was rejected (room missing)" from "WS opened then dropped".
+let everOpened = false;
+
 function connect(): void {
-  const url = `${WS_BASE}/ws/${encodeURIComponent(myRoomCode)}`;
+  const qs = connectAsHost ? "?host=1" : "";
+  const url = `${WS_BASE}/ws/${encodeURIComponent(myRoomCode)}${qs}`;
   console.log(`[${new Date().toISOString()}] [client] Connecting to ${url}`);
   statusEl.textContent = `Connecting to room "${myRoomCode}"…`;
+  everOpened = false;
 
   socket = new WebSocket(url);
 
   socket.addEventListener("open", () => {
     console.log(`[${new Date().toISOString()}] [client] WebSocket open`);
     retryCount = 0;
+    everOpened = true;
     statusEl.textContent = `Connected to room "${myRoomCode}" as "${myNickname}".`;
     send({ t: "hello", data: { token: myToken, nickname: myNickname } });
   });
@@ -113,12 +146,24 @@ function connect(): void {
 
   socket.addEventListener("close", (event) => {
     console.log(`[${new Date().toISOString()}] [client] WebSocket closed — code=${event.code}`);
-    statusEl.textContent = `Disconnected (code ${event.code}).`;
     socket = null;
 
+    // Close before open = upgrade rejected (server returned 404 from the join-only gate).
+    if (!everOpened && !connectAsHost) {
+      myRoomCode = "";
+      statusEl.textContent = "Not connected.";
+      showSection("join");
+      showPreConnect("join");
+      joinErrorEl.textContent = "Room not found — check the code with your host.";
+      return;
+    }
+
+    statusEl.textContent = `Disconnected (code ${event.code}).`;
     if (retryCount < MAX_RETRIES && myRoomCode) {
       retryCount++;
       appendLog(`*** Disconnected. Reconnecting (${retryCount}/${MAX_RETRIES})…`);
+      // Reconnects don't need host=1 — once members exist, the join_only gate passes.
+      connectAsHost = false;
       setTimeout(connect, 2000);
     } else {
       appendLog("*** Disconnected. Stopped retrying.");
@@ -127,20 +172,40 @@ function connect(): void {
 
   socket.addEventListener("error", () => {
     console.log(`[${new Date().toISOString()}] [client] WebSocket error`);
-    statusEl.textContent = "Connection error.";
+    // Don't overwrite the room-not-found message that close handler will set.
+    if (everOpened) statusEl.textContent = "Connection error.";
   });
 }
 
-connectBtn.addEventListener("click", () => {
-  const nick = nicknameInput.value.trim();
-  const room = roomCodeInput.value.trim();
-  if (!nick || !room) {
-    statusEl.textContent = "Please enter a nickname and room code.";
-    return;
+hostCreateBtn.addEventListener("click", async () => {
+  const nick = hostNicknameInput.value.trim();
+  if (!nick) { hostErrorEl.textContent = "Please enter a nickname."; return; }
+  hostCreateBtn.disabled = true;
+  hostErrorEl.textContent = "";
+  try {
+    const res = await fetch(`${HTTP_BASE}/create-room`, { method: "POST" });
+    if (!res.ok) throw new Error(`create-room failed: ${res.status}`);
+    const { code } = await res.json() as { code: string };
+    myNickname = nick;
+    myRoomCode = code;
+    retryCount = 0;
+    connectAsHost = true;
+    connect();
+  } catch (err) {
+    hostErrorEl.textContent = `Could not create room: ${(err as Error).message}`;
+    hostCreateBtn.disabled = false;
   }
+});
+
+joinGoBtn.addEventListener("click", () => {
+  const nick = joinNicknameInput.value.trim();
+  const room = joinRoomCodeInput.value.trim().toUpperCase();
+  if (!nick || !room) { joinErrorEl.textContent = "Please enter a nickname and room code."; return; }
+  joinErrorEl.textContent = "";
   myNickname = nick;
   myRoomCode = room;
   retryCount = 0;
+  connectAsHost = false;
   connect();
 });
 
@@ -238,9 +303,28 @@ function renderLobby(): void {
   const container = document.getElementById("lobby-inner")!;
   container.innerHTML = "";
 
-  // Room code display
-  const codeDiv = el("div", { style: "margin-bottom:16px;font-size:1.2rem;" });
-  codeDiv.textContent = `Room: ${myRoomCode}`;
+  // Room code display + Copy button
+  const codeDiv = el("div", { style: "margin-bottom:16px;font-size:1.2rem;display:flex;align-items:center;gap:8px;" });
+  const codeLabel = document.createElement("span");
+  codeLabel.textContent = "Room: ";
+  const codeValue = document.createElement("span");
+  codeValue.textContent = myRoomCode;
+  codeValue.style.cssText = "font-weight:bold;letter-spacing:2px;background:#222;padding:2px 8px;border-radius:3px;";
+  const copyBtn = document.createElement("button") as HTMLButtonElement;
+  copyBtn.textContent = "📋 Copy";
+  copyBtn.style.cssText = "font-size:0.8rem;padding:4px 8px;";
+  copyBtn.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(myRoomCode);
+      copyBtn.textContent = "✓ Copied";
+      setTimeout(() => { copyBtn.textContent = "📋 Copy"; }, 1500);
+    } catch {
+      copyBtn.textContent = "Copy failed";
+    }
+  });
+  codeDiv.appendChild(codeLabel);
+  codeDiv.appendChild(codeValue);
+  codeDiv.appendChild(copyBtn);
   container.appendChild(codeDiv);
 
   // Members list grouped by team

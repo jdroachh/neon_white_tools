@@ -28,6 +28,17 @@ export class LobbyDO extends DurableObject {
       return new Response("Expected WebSocket upgrade", { status: 426 });
     }
 
+    // Join-only gate: reject WS upgrades that didn't declare host intent (?host=1)
+    // when this room has no members. Prevents "typo creates ghost lobby" — the
+    // joiner gets a clean 404 instead of silently landing in an empty room.
+    // A returning member always passes because their token is already in members.
+    const url = new URL(request.url);
+    const isHost = url.searchParams.get("host") === "1";
+    const memberCount = Object.keys(this.room.members).length;
+    if (!isHost && memberCount === 0) {
+      return new Response("Room not found", { status: 404 });
+    }
+
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);
     server.accept();

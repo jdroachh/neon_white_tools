@@ -27,15 +27,35 @@
 <body>
   <h1>Neon White — Bingo Mode</h1>
 
-  <!-- Join section -->
+  <!-- Pre-connect: landing / host-form / join-form -->
   <div id="join">
-    <label for="nickname">Nickname</label>
-    <input id="nickname" type="text" />
+    <div id="landing">
+      <button id="btn-show-host" style="margin-right:8px;padding:12px 24px;background:#2563eb;color:#fff;border:none;font-size:1rem;">Host new game</button>
+      <button id="btn-show-join" style="padding:12px 24px;background:#374151;color:#fff;border:none;font-size:1rem;">Join game</button>
+    </div>
 
-    <label for="room-code">Room code</label>
-    <input id="room-code" type="text" placeholder="e.g. TEST" />
+    <div id="host-form" style="display:none;">
+      <label for="host-nickname">Nickname</label>
+      <input id="host-nickname" type="text" />
+      <div>
+        <button id="host-create-btn" style="background:#2563eb;color:#fff;">Create room</button>
+        <button id="host-back-btn">Back</button>
+      </div>
+      <div id="host-error" style="color:#f87171;margin-top:8px;font-size:0.85rem;"></div>
+    </div>
 
-    <button id="connect-btn">Connect</button>
+    <div id="join-form" style="display:none;">
+      <label for="join-nickname">Nickname</label>
+      <input id="join-nickname" type="text" />
+      <label for="join-room-code">Room code</label>
+      <input id="join-room-code" type="text" />
+      <div>
+        <button id="join-go-btn" style="background:#2563eb;color:#fff;">Join</button>
+        <button id="join-back-btn">Back</button>
+      </div>
+      <div id="join-error" style="color:#f87171;margin-top:8px;font-size:0.85rem;"></div>
+    </div>
+
     <div id="status">Not connected.</div>
   </div>
 
