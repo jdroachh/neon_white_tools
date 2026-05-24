@@ -4,12 +4,12 @@
     "schema": {
       "name": "Square text shown on the tile",
       "mods_required": "Array of mod names. Empty = vanilla. Modded squares are excluded unless lobby toggles 'allow_modded'.",
-      "verification": "'honor' | 'duel' | 'dice'. v1 includes only honor in the sampling pool; duel/dice are parked for Phase 2.",
+      "verification": "'honor' | 'duel' | 'dice'. v1 includes honor and dice in the sampling pool; duel is parked for Phase 2.",
       "chapter": "Only on level_completion entries — display label from CHAPTERS in rush_data.py.",
       "stat_code": "Only on level_completion entries — Steam leaderboard stat code from rush_data.LEVELS."
     },
     "sections": ["standard", "level_completion", "modded"],
-    "lobby_filtering": "Lobby settings pick which sections to draw from. Board = uniform random sample from union, filtered by allow_modded and verification == 'honor' for v1.",
+    "lobby_filtering": "Lobby settings pick which sections to draw from. Board = uniform random sample from union, filtered by allow_modded and verification in ('honor', 'dice') for v1.",
     "mods_referenced": ["Reverse Mode", "BoofOfMemes", "Challenge Deck", "NeonLite", "SecretShop", "NeonNetwork", "ChapterRush", "EventTracker"],
     "review_needed": [
       "mods_required tags in the modded section are best-effort. Worth a manual pass before Stage 1 — especially the EventTracker / NeonLite / SecretShop assignments which I inferred from square text rather than known mod docs.",
@@ -59,6 +59,7 @@
     {"name": "Enter the goal of 8 levels with 1 demon remaining", "mods_required": [], "verification": "honor"},
     {"name": "Complete a level from each main chapter", "mods_required": [], "verification": "honor"},
     {"name": "Roll 2 dice for a number, complete Godspeed that many times", "mods_required": [], "verification": "dice"},
+    {"name": "Roll 2 (d6) die and add them together. Complete every stage of the resulting number's chapter", "mods_required": [], "verification": "dice"},
     {"name": "Die to 5 unique demons", "mods_required": [], "verification": "honor"},
     {"name": "Deplete all vending machines in Climbing Gym", "mods_required": [], "verification": "honor"},
     {"name": "Take a vacation to Idiot Island", "mods_required": [], "verification": "honor"},

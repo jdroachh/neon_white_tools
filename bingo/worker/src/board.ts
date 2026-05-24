@@ -38,7 +38,7 @@ export function generateBoard(
   for (const section of settings.sections) {
     const src = squares[section as keyof SquaresJson];
     if (Array.isArray(src)) {
-      pool.push(...(src as Square[]).filter((s) => s.verification === "honor"));
+      pool.push(...(src as Square[]).filter((s) => s.verification === "honor" || s.verification === "dice"));
     }
   }
 
