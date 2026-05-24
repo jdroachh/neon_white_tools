@@ -209,7 +209,9 @@ function renderStarting(): void {
       stopCountdown();
       return;
     }
-    number.textContent = String(Math.ceil(remainingMs / 1000));
+    // Cap to absorb client/server clock skew — without this, a client whose clock lags briefly shows "4".
+    const cap = Math.ceil(COUNTDOWN_MS / 1000);
+    number.textContent = String(Math.min(cap, Math.ceil(remainingMs / 1000)));
   };
   update();
   stopCountdown();
