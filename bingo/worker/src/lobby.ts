@@ -2,6 +2,7 @@ import { DurableObject } from "cloudflare:workers";
 import {
   parseEnvelope,
   makeInitialState,
+  COUNTDOWN_MS,
   type RoomState,
   type MemberInfo,
   type ClaimInfo,
@@ -74,11 +75,25 @@ export class LobbyDO extends DurableObject {
       case "start":    this.handleStart(ws, senderToken!, envelope.data.seed); break;
       case "claim":    this.handleClaim(ws, senderToken!, envelope.data.squareIndex, envelope.data.timeMs); break;
       case "unclaim":  this.handleUnclaim(ws, senderToken!, envelope.data.squareIndex); break;
+      case "restart":  this.handleRestart(ws, senderToken!, envelope.data.mode); break;
       case "chat":     this.handleChat(senderToken!, envelope.data.body); break;
     }
   }
 
   async alarm(): Promise<void> {
+    // Countdown alarm: transition starting → playing, then chain the time-limit alarm if needed.
+    if (this.room.phase === "starting") {
+      this.room.phase = "playing";
+      this.room.startedAt = Date.now();
+      this.room.startingAt = null;
+      if (this.room.settings.winConditions.includes("time_limit")) {
+        this.ctx.storage.setAlarm(this.room.startedAt + this.room.settings.timeLimitMin * 60 * 1000);
+      }
+      console.log(`[${new Date().toISOString()}] [worker] Countdown done — phase=playing`);
+      this.broadcastState();
+      return;
+    }
+
     if (this.room.phase !== "playing") return;
     if (!this.room.settings.winConditions.includes("time_limit")) return;
 
@@ -94,6 +109,26 @@ export class LobbyDO extends DurableObject {
       this.room.phase = "ended";
       this.broadcastState();
     }
+  }
+
+  // Shared startup: install a board, reset per-game state, enter the "starting"
+  // countdown phase, and schedule the countdown alarm. Used by handleStart and
+  // handleRestart (same/new modes).
+  private beginStartingPhase(board: { seed: number; squares: string[] }): void {
+    const total = this.room.settings.boardSize ** 2;
+    this.room.board = board;
+    this.room.claims = Array(total).fill(null) as (ClaimInfo[] | null)[];
+    if (this.room.settings.centerFree) {
+      const centerIdx = Math.floor(total / 2);
+      this.room.claims[centerIdx] = [{ teamId: -1, timeMs: null, player: "FREE", ts: Date.now() }];
+    }
+    this.room.winner = null;
+    this.room.phase = "starting";
+    this.room.startingAt = Date.now();
+    this.room.startedAt = null;
+    this.ctx.storage.deleteAlarm();
+    this.ctx.storage.setAlarm(this.room.startingAt + COUNTDOWN_MS);
+    this.broadcastState();
   }
 
   // ─── Handlers ─────────────────────────────────────────────────────────────
@@ -197,29 +232,46 @@ export class LobbyDO extends DurableObject {
       return;
     }
 
-    const total = this.room.settings.boardSize ** 2;
-    this.room.board = { seed, squares: result.squares };
-    this.room.claims = Array(total).fill(null) as (ClaimInfo[] | null)[];
+    console.log(`[${new Date().toISOString()}] [worker] Game start requested — seed=${seed} boardSize=${this.room.settings.boardSize}`);
+    this.beginStartingPhase({ seed, squares: result.squares });
+  }
 
-    if (this.room.settings.centerFree) {
-      const centerIdx = Math.floor(total / 2);
-      const now = Date.now();
-      this.room.claims[centerIdx] = [{ teamId: -1, timeMs: null, player: "FREE", ts: now }];
+  private handleRestart(ws: WebSocket, token: string, mode: "same" | "new" | "lobby"): void {
+    if (token !== this.room.hostToken) {
+      this.sendError(ws, "Only the host can restart the game", "not_host");
+      return;
+    }
+    if (this.room.phase !== "ended") {
+      this.sendError(ws, "Can only restart from the end screen", "wrong_phase");
+      return;
     }
 
-    this.room.phase = "playing";
-    this.room.startedAt = Date.now();
-
-    // Clear any stale alarm from a previous game before potentially scheduling a new one.
-    // Without this, an alarm scheduled by an earlier game could fire mid-way through this
-    // one and prematurely declare a time_limit winner.
-    this.ctx.storage.deleteAlarm();
-    if (this.room.settings.winConditions.includes("time_limit")) {
-      this.ctx.storage.setAlarm(this.room.startedAt + this.room.settings.timeLimitMin * 60 * 1000);
+    if (mode === "lobby") {
+      this.room.phase = "lobby";
+      this.room.board = null;
+      this.room.claims = [];
+      this.room.winner = null;
+      this.room.startingAt = null;
+      this.room.startedAt = null;
+      this.ctx.storage.deleteAlarm();
+      console.log(`[${new Date().toISOString()}] [worker] Restart → lobby`);
+      this.broadcastState();
+      return;
     }
 
-    console.log(`[${new Date().toISOString()}] [worker] Game started — seed=${seed} boardSize=${this.room.settings.boardSize}`);
-    this.broadcastState();
+    // "same" or "new" — both run a fresh countdown.
+    let board = this.room.board;
+    if (mode === "new" || !board) {
+      const seed = Math.floor(Math.random() * 2 ** 32);
+      const result = generateBoard(this.room.settings, seed);
+      if ("error" in result) {
+        this.sendError(ws, result.error, "board_gen_error");
+        return;
+      }
+      board = { seed, squares: result.squares };
+    }
+    console.log(`[${new Date().toISOString()}] [worker] Restart → ${mode} (seed=${board.seed})`);
+    this.beginStartingPhase(board);
   }
 
   private handleClaim(ws: WebSocket, token: string, squareIndex: number, timeMs: number | null): void {

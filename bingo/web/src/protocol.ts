@@ -12,12 +12,13 @@ export type SettingsMsg = EnvelopeBase & { t: "settings"; data: Settings };
 export type Start       = EnvelopeBase & { t: "start";    data: { seed?: number } };
 export type Claim       = EnvelopeBase & { t: "claim";    data: { squareIndex: number; timeMs: number | null } };
 export type Unclaim     = EnvelopeBase & { t: "unclaim";  data: { squareIndex: number } };
+export type Restart     = EnvelopeBase & { t: "restart";  data: { mode: "same" | "new" | "lobby" } };
 export type Chat        = EnvelopeBase & { t: "chat";     data: { body: string } };
 export type State       = EnvelopeBase & { t: "state";    data: RoomState };
 export type EndMsg      = EnvelopeBase & { t: "end";      data: { teamId: number; condition: WinConditionKey; shape?: number[] } };
 export type ErrorMsg    = EnvelopeBase & { t: "error";    data: { message: string; reason?: string } };
 
-export type Envelope = Hello | TeamJoin | SettingsMsg | Start | Claim | Unclaim | Chat | State | EndMsg | ErrorMsg;
+export type Envelope = Hello | TeamJoin | SettingsMsg | Start | Claim | Unclaim | Restart | Chat | State | EndMsg | ErrorMsg;
 
 export type Settings = {
   boardSize: 5 | 7 | 9;
@@ -55,16 +56,19 @@ export type ClaimInfo = {
 };
 
 export type RoomState = {
-  phase: "lobby" | "playing" | "ended";
+  phase: "lobby" | "starting" | "playing" | "ended";
   hostToken: string | null;
   settings: Settings;
   members: Record<string, MemberInfo>;
   teams: TeamInfo[];
   board: { seed: number; squares: string[] } | null;
   claims: (ClaimInfo[] | null)[];
+  startingAt: number | null;
   startedAt: number | null;
   winner: { teamId: number; condition: WinConditionKey; shape?: number[] } | null;
 };
+
+export const COUNTDOWN_MS = 3000;
 
 const VALID_BOARD_SIZES = new Set([5, 7, 9]);
 const VALID_SECTIONS = new Set(["standard", "level_completion", "modded"]);
@@ -119,6 +123,11 @@ function isUnclaim(e: Record<string, unknown>): e is Unclaim {
   return isObject(d) && typeof d["squareIndex"] === "number";
 }
 
+function isRestart(e: Record<string, unknown>): e is Restart {
+  const d = e["data"];
+  return isObject(d) && (d["mode"] === "same" || d["mode"] === "new" || d["mode"] === "lobby");
+}
+
 function isChat(e: Record<string, unknown>): e is Chat {
   const d = e["data"];
   return isObject(d) && typeof d["body"] === "string";
@@ -143,6 +152,7 @@ export function parseEnvelope(raw: string): Envelope | null {
     case "start":    return isStart(parsed) ? parsed : null;
     case "claim":    return isClaim(parsed) ? parsed : null;
     case "unclaim":  return isUnclaim(parsed) ? parsed : null;
+    case "restart":  return isRestart(parsed) ? parsed : null;
     case "chat":     return isChat(parsed) ? parsed : null;
     // Server-to-client envelopes: pass through for display
     case "state":    return isObject(parsed["data"]) ? (parsed as unknown as State) : null;
@@ -186,6 +196,7 @@ export function makeInitialState(): RoomState {
     })),
     board: null,
     claims: [],
+    startingAt: null,
     startedAt: null,
     winner: null,
   };

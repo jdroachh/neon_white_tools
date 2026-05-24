@@ -1,5 +1,6 @@
 import {
   parseEnvelope,
+  COUNTDOWN_MS,
   type Envelope,
   type RoomState,
   type Settings,
@@ -31,10 +32,11 @@ const MAX_RETRIES = 5;
 
 // ─── DOM refs ────────────────────────────────────────────────────────────────
 
-const joinSection    = document.getElementById("join")    as HTMLDivElement;
-const lobbySection   = document.getElementById("lobby")   as HTMLDivElement;
-const boardSection   = document.getElementById("board")   as HTMLDivElement;
-const endSection     = document.getElementById("end")     as HTMLDivElement;
+const joinSection     = document.getElementById("join")     as HTMLDivElement;
+const lobbySection    = document.getElementById("lobby")    as HTMLDivElement;
+const startingSection = document.getElementById("starting") as HTMLDivElement;
+const boardSection    = document.getElementById("board")    as HTMLDivElement;
+const endSection      = document.getElementById("end")      as HTMLDivElement;
 const logSection     = document.getElementById("log")     as HTMLDivElement;
 
 const nicknameInput  = document.getElementById("nickname")  as HTMLInputElement;
@@ -46,11 +48,12 @@ const logToggle      = document.getElementById("log-toggle") as HTMLButtonElemen
 
 // ─── Sections ────────────────────────────────────────────────────────────────
 
-function showSection(phase: "join" | "lobby" | "playing" | "ended"): void {
-  joinSection.style.display  = phase === "join"    ? "block" : "none";
-  lobbySection.style.display = phase === "lobby"   ? "block" : "none";
-  boardSection.style.display = phase === "playing" ? "block" : "none";
-  endSection.style.display   = phase === "ended"   ? "block" : "none";
+function showSection(phase: "join" | "lobby" | "starting" | "playing" | "ended"): void {
+  joinSection.style.display     = phase === "join"     ? "block" : "none";
+  lobbySection.style.display    = phase === "lobby"    ? "block" : "none";
+  startingSection.style.display = phase === "starting" ? "block" : "none";
+  boardSection.style.display    = phase === "playing"  ? "block" : "none";
+  endSection.style.display      = phase === "ended"    ? "block" : "none";
 }
 
 // ─── Log ─────────────────────────────────────────────────────────────────────
@@ -165,11 +168,52 @@ function handleMessage(raw: string): void {
 
 function renderForPhase(): void {
   if (!currentState) return;
+  // Stop any running countdown unless we're (re-)entering the starting phase.
+  if (currentState.phase !== "starting") stopCountdown();
   switch (currentState.phase) {
-    case "lobby":   showSection("lobby");   renderLobby(); break;
-    case "playing": showSection("playing"); renderBoard(); break;
-    case "ended":   showSection("ended");   renderEnd();   break;
+    case "lobby":    showSection("lobby");    renderLobby();    break;
+    case "starting": showSection("starting"); renderStarting(); break;
+    case "playing":  showSection("playing");  renderBoard();    break;
+    case "ended":    showSection("ended");    renderEnd();      break;
   }
+}
+
+// ─── Starting countdown ───────────────────────────────────────────────────────
+
+let countdownIntervalId: number | null = null;
+
+function stopCountdown(): void {
+  if (countdownIntervalId !== null) {
+    clearInterval(countdownIntervalId);
+    countdownIntervalId = null;
+  }
+}
+
+function renderStarting(): void {
+  if (!currentState || currentState.startingAt === null) return;
+  const startingAt = currentState.startingAt;
+  const container = document.getElementById("starting-inner")!;
+  container.innerHTML = "";
+
+  const banner = el("div", { style: "font-size:0.9rem;color:#aaa;margin-bottom:24px;" });
+  banner.textContent = "Game starting…";
+  container.appendChild(banner);
+
+  const number = el("div", { style: "font-size:8rem;font-weight:bold;color:#a78bfa;line-height:1;" });
+  container.appendChild(number);
+
+  const update = () => {
+    const remainingMs = startingAt + COUNTDOWN_MS - Date.now();
+    if (remainingMs <= 0) {
+      number.textContent = "GO";
+      stopCountdown();
+      return;
+    }
+    number.textContent = String(Math.ceil(remainingMs / 1000));
+  };
+  update();
+  stopCountdown();
+  countdownIntervalId = window.setInterval(update, 100);
 }
 
 // ─── Lobby render ─────────────────────────────────────────────────────────────
@@ -553,11 +597,38 @@ function renderEnd(): void {
     container.appendChild(grid);
   }
 
-  const backBtn = el("button", {
-    style: "padding:10px 24px;background:#2563eb;color:#fff;border:none;border-radius:4px;cursor:pointer;font-family:monospace;font-size:1rem;",
+  // Host action row: Replay (same board) / New board / Back to lobby. Disabled
+  // for non-host members; they wait for the host to pick.
+  const amHost = state.hostToken === myToken;
+  const actionRow = el("div", { style: "display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;" });
+
+  const mkActionBtn = (label: string, mode: "same" | "new" | "lobby", bg: string): HTMLButtonElement => {
+    const b = el("button", {
+      style: `padding:10px 18px;background:${bg};color:#fff;border:none;border-radius:4px;cursor:${amHost ? "pointer" : "default"};font-family:monospace;font-size:0.95rem;${amHost ? "" : "opacity:0.4;"}`,
+    }) as HTMLButtonElement;
+    b.textContent = label;
+    b.disabled = !amHost;
+    if (amHost) b.addEventListener("click", () => send({ t: "restart", data: { mode } }));
+    return b;
+  };
+
+  actionRow.appendChild(mkActionBtn("Replay (same board)", "same", "#2563eb"));
+  actionRow.appendChild(mkActionBtn("New board",           "new",  "#16a34a"));
+  actionRow.appendChild(mkActionBtn("Back to lobby",       "lobby", "#6b7280"));
+  container.appendChild(actionRow);
+
+  if (!amHost) {
+    const note = el("div", { style: "color:#aaa;font-size:0.85rem;margin-bottom:16px;" });
+    note.textContent = "Waiting for host to pick a next step…";
+    container.appendChild(note);
+  }
+
+  // Always-available: leave the room entirely.
+  const leaveBtn = el("button", {
+    style: "padding:8px 18px;background:#374151;color:#eee;border:1px solid #555;border-radius:4px;cursor:pointer;font-family:monospace;font-size:0.85rem;",
   }) as HTMLButtonElement;
-  backBtn.textContent = "Back to join screen";
-  backBtn.addEventListener("click", () => {
+  leaveBtn.textContent = "Leave room";
+  leaveBtn.addEventListener("click", () => {
     currentState = null;
     socket?.close();
     socket = null;
@@ -565,7 +636,7 @@ function renderEnd(): void {
     retryCount = MAX_RETRIES; // prevent auto-reconnect
     showSection("join");
   });
-  container.appendChild(backBtn);
+  container.appendChild(leaveBtn);
 }
 
 // ─── Cell helpers (claim is ClaimInfo[] | null) ───────────────────────────────
