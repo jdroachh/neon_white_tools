@@ -78,7 +78,24 @@
     {"name": "Complete any level with a comically small window size", "mods_required": [], "verification": "honor"},
     {"name": "Fail 3 unique Hell Rushes", "mods_required": [], "verification": "honor"},
     {"name": "Collect 6 different card types in Holy Ground", "mods_required": [], "verification": "honor"},
-    {"name": "Complete Book of Life Traversal without leaving any tripwires alive", "mods_required": [], "verification": "honor"}
+    {"name": "Complete Book of Life Traversal without leaving any tripwires alive", "mods_required": [], "verification": "honor"},
+    {"name": "Discard all available cards in 5 levels", "mods_required": [], "verification": "honor"},
+    {"name": "Get a 1% boost from a barrel", "mods_required": [], "verification": "honor"},
+    {"name": "Roll a random number between 1-10, pick a chapter and do the level assigned to that number", "mods_required": [], "verification": "dice"},
+    {"name": "Complete a level with a time ending in .000", "mods_required": [], "verification": "honor"},
+    {"name": "Shoot a frog's bullet after parrying it in 3 levels", "mods_required": [], "verification": "honor"},
+    {"name": "In any level containing bubbles, kill all other demons besides them", "mods_required": [], "verification": "honor"},
+    {"name": "Beat an IL's WR in Hell Rush", "mods_required": [], "verification": "honor"},
+    {"name": "Complete 3 levels where your only used movement key is S (backwards key)", "mods_required": [], "verification": "honor"},
+    {"name": "Complete 3 levels in Chapter 1 without touching water", "mods_required": [], "verification": "honor"},
+    {"name": "Make an enemy kill itself", "mods_required": [], "verification": "honor"},
+    {"name": "Complete The Third Temple without taking damage", "mods_required": [], "verification": "honor"},
+    {"name": "Complete a level after losing 7 or more hp", "mods_required": [], "verification": "honor"},
+    {"name": "Kill 4 demons with a single input using Purify", "mods_required": [], "verification": "honor"},
+    {"name": "Kill 4 demons with a single input using Dominion", "mods_required": [], "verification": "honor"},
+    {"name": "Kill 4 demons with a single input using Fireball", "mods_required": [], "verification": "honor"},
+    {"name": "Kill 4 demons with a single input using Stomp", "mods_required": [], "verification": "honor"},
+    {"name": "Kill 4 demons with a single input using Godspeed", "mods_required": [], "verification": "honor"}
   ],
 
   "modded": [
@@ -107,7 +124,8 @@
     {"name": "Collect 12 gifts with the BoofOfMemes mod", "mods_required": ["Challenge Deck", "BoofOfMemes"], "verification": "honor"},
     {"name": "Collect 7 gifts with the Mikey mod", "mods_required": ["Challenge Deck"], "verification": "honor"},
     {"name": "Collect 5 gifts without discarding", "mods_required": ["Challenge Deck"], "verification": "honor"},
-    {"name": "Complete any 2 run categories in the Archipelago custom level", "mods_required": ["SecretShop"], "verification": "honor"}
+    {"name": "Complete any 2 run categories in the Archipelago custom level", "mods_required": ["SecretShop"], "verification": "honor"},
+    {"name": "Complete Fortress without picking up any Dominion cards", "mods_required": ["Challenge Deck"], "verification": "honor"}
   ],
 
   "level_completion": [
