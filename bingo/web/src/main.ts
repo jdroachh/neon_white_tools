@@ -1,106 +1,590 @@
-const WS_BASE =
-  import.meta.env.VITE_WS_URL ?? "ws://localhost:8787";
+import {
+  parseEnvelope,
+  type Envelope,
+  type RoomState,
+  type Settings,
+  type WinConditionKey,
+} from "./protocol";
 
-const connectBtn = document.getElementById("connect-btn") as HTMLButtonElement;
-const sendBtn = document.getElementById("send-btn") as HTMLButtonElement;
-const nicknameInput = document.getElementById("nickname") as HTMLInputElement;
-const roomCodeInput = document.getElementById("room-code") as HTMLInputElement;
-const messageInput = document.getElementById("message-input") as HTMLInputElement;
-const statusEl = document.getElementById("status") as HTMLDivElement;
-const logEl = document.getElementById("log") as HTMLDivElement;
+const WS_BASE = (import.meta.env.VITE_WS_URL as string | undefined) ?? "ws://localhost:8787";
 
+// ─── Token cookie ────────────────────────────────────────────────────────────
+
+function getOrCreateToken(): string {
+  const m = document.cookie.match(/(?:^|;\s*)bingo_token=([^;]+)/);
+  if (m) return m[1];
+  const t = crypto.randomUUID();
+  document.cookie = `bingo_token=${t}; path=/; max-age=${365 * 24 * 3600}; SameSite=Lax`;
+  return t;
+}
+
+const myToken = getOrCreateToken();
+
+// ─── State ───────────────────────────────────────────────────────────────────
+
+let currentState: RoomState | null = null;
 let socket: WebSocket | null = null;
-let nickname = "";
+let myNickname = "";
+let myRoomCode = "";
+let retryCount = 0;
+const MAX_RETRIES = 5;
+
+// ─── DOM refs ────────────────────────────────────────────────────────────────
+
+const joinSection    = document.getElementById("join")    as HTMLDivElement;
+const lobbySection   = document.getElementById("lobby")   as HTMLDivElement;
+const boardSection   = document.getElementById("board")   as HTMLDivElement;
+const endSection     = document.getElementById("end")     as HTMLDivElement;
+const logSection     = document.getElementById("log")     as HTMLDivElement;
+
+const nicknameInput  = document.getElementById("nickname")  as HTMLInputElement;
+const roomCodeInput  = document.getElementById("room-code") as HTMLInputElement;
+const connectBtn     = document.getElementById("connect-btn") as HTMLButtonElement;
+const statusEl       = document.getElementById("status")    as HTMLDivElement;
+const logContent     = document.getElementById("log-content") as HTMLDivElement;
+const logToggle      = document.getElementById("log-toggle") as HTMLButtonElement;
+
+// ─── Sections ────────────────────────────────────────────────────────────────
+
+function showSection(phase: "join" | "lobby" | "playing" | "ended"): void {
+  joinSection.style.display  = phase === "join"    ? "block" : "none";
+  lobbySection.style.display = phase === "lobby"   ? "block" : "none";
+  boardSection.style.display = phase === "playing" ? "block" : "none";
+  endSection.style.display   = phase === "ended"   ? "block" : "none";
+}
+
+// ─── Log ─────────────────────────────────────────────────────────────────────
 
 function appendLog(text: string): void {
-  const entry = document.createElement("div");
-  entry.className = "log-entry";
+  const div = document.createElement("div");
   const ts = new Date().toLocaleTimeString();
-  entry.innerHTML = `<span class="ts">[${ts}]</span> ${escapeHtml(text)}`;
-  logEl.appendChild(entry);
-  logEl.scrollTop = logEl.scrollHeight;
+  div.textContent = `[${ts}] ${text}`;
+  logContent.appendChild(div);
+  logContent.scrollTop = logContent.scrollHeight;
 }
 
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+logToggle.addEventListener("click", () => {
+  const hidden = logContent.style.display === "none";
+  logContent.style.display = hidden ? "block" : "none";
+  logToggle.textContent = hidden ? "Hide log" : "Show log";
+});
+
+// ─── Send ─────────────────────────────────────────────────────────────────────
+
+function send(envelope: Omit<Envelope, "ts">): void {
+  if (!socket || socket.readyState !== WebSocket.OPEN) return;
+  const payload = JSON.stringify({ ...envelope, ts: Date.now() });
+  socket.send(payload);
 }
 
-function setConnected(connected: boolean): void {
-  connectBtn.disabled = connected;
-  sendBtn.disabled = !connected;
-  messageInput.disabled = !connected;
-  nicknameInput.disabled = connected;
-  roomCodeInput.disabled = connected;
-}
+// ─── Connect ─────────────────────────────────────────────────────────────────
 
-connectBtn.addEventListener("click", () => {
-  nickname = nicknameInput.value.trim();
-  const roomCode = roomCodeInput.value.trim();
-
-  if (!nickname || !roomCode) {
-    statusEl.textContent = "Please enter a nickname and room code.";
-    return;
-  }
-
-  const url = `${WS_BASE}/ws/${encodeURIComponent(roomCode)}`;
-  console.log(`[${new Date().toISOString()}] Connecting to ${url}`);
-  statusEl.textContent = `Connecting to room "${roomCode}"…`;
+function connect(): void {
+  const url = `${WS_BASE}/ws/${encodeURIComponent(myRoomCode)}`;
+  console.log(`[${new Date().toISOString()}] [client] Connecting to ${url}`);
+  statusEl.textContent = `Connecting to room "${myRoomCode}"…`;
 
   socket = new WebSocket(url);
 
   socket.addEventListener("open", () => {
-    console.log(`[${new Date().toISOString()}] WebSocket open`);
-    statusEl.textContent = `Connected to room "${roomCode}" as "${nickname}".`;
-    setConnected(true);
-    appendLog(`*** You joined as "${nickname}".`);
+    console.log(`[${new Date().toISOString()}] [client] WebSocket open`);
+    retryCount = 0;
+    statusEl.textContent = `Connected to room "${myRoomCode}" as "${myNickname}".`;
+    send({ t: "hello", data: { token: myToken, nickname: myNickname } });
   });
 
   socket.addEventListener("message", (event) => {
     const raw = typeof event.data === "string" ? event.data : "[binary]";
-    console.log(`[${new Date().toISOString()}] Message received: ${raw}`);
-
-    let display: string;
-    try {
-      const parsed = JSON.parse(raw) as { nickname?: string; body?: string; ts?: number };
-      const sender = parsed.nickname ?? "unknown";
-      const body = parsed.body ?? raw;
-      display = `<${sender}> ${body}`;
-    } catch {
-      display = raw;
-    }
-    appendLog(display);
+    console.log(`[${new Date().toISOString()}] [client] recv: ${raw.slice(0, 120)}`);
+    handleMessage(raw);
   });
 
   socket.addEventListener("close", (event) => {
-    console.log(`[${new Date().toISOString()}] WebSocket closed — code=${event.code}`);
+    console.log(`[${new Date().toISOString()}] [client] WebSocket closed — code=${event.code}`);
     statusEl.textContent = `Disconnected (code ${event.code}).`;
-    setConnected(false);
-    appendLog(`*** Disconnected.`);
     socket = null;
+
+    if (retryCount < MAX_RETRIES && myRoomCode) {
+      retryCount++;
+      appendLog(`*** Disconnected. Reconnecting (${retryCount}/${MAX_RETRIES})…`);
+      setTimeout(connect, 2000);
+    } else {
+      appendLog("*** Disconnected. Stopped retrying.");
+    }
   });
 
   socket.addEventListener("error", () => {
-    console.log(`[${new Date().toISOString()}] WebSocket error`);
+    console.log(`[${new Date().toISOString()}] [client] WebSocket error`);
     statusEl.textContent = "Connection error.";
   });
-});
-
-sendBtn.addEventListener("click", sendMessage);
-messageInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") sendMessage();
-});
-
-function sendMessage(): void {
-  if (!socket || socket.readyState !== WebSocket.OPEN) return;
-  const body = messageInput.value.trim();
-  if (!body) return;
-
-  const payload = JSON.stringify({ nickname, body, ts: Date.now() });
-  socket.send(payload);
-  appendLog(`<${nickname}> ${body}`);
-  messageInput.value = "";
 }
+
+connectBtn.addEventListener("click", () => {
+  const nick = nicknameInput.value.trim();
+  const room = roomCodeInput.value.trim();
+  if (!nick || !room) {
+    statusEl.textContent = "Please enter a nickname and room code.";
+    return;
+  }
+  myNickname = nick;
+  myRoomCode = room;
+  retryCount = 0;
+  connect();
+});
+
+// ─── Message dispatch ─────────────────────────────────────────────────────────
+
+function handleMessage(raw: string): void {
+  const env = parseEnvelope(raw);
+  if (!env) {
+    appendLog(`[parse error] ${raw.slice(0, 80)}`);
+    return;
+  }
+  appendLog(`[${env.t}] ${raw.slice(0, 100)}`);
+
+  switch (env.t) {
+    case "state": {
+      currentState = env.data;
+      renderForPhase();
+      break;
+    }
+    case "end": {
+      appendLog(`*** Game over! Team ${env.data.teamId + 1} won by ${env.data.condition}`);
+      break;
+    }
+    case "chat": {
+      appendLog(env.data.body);
+      break;
+    }
+    case "error": {
+      appendLog(`[server error] ${env.data.message}${env.data.reason ? ` (${env.data.reason})` : ""}`);
+      break;
+    }
+  }
+}
+
+function renderForPhase(): void {
+  if (!currentState) return;
+  switch (currentState.phase) {
+    case "lobby":   showSection("lobby");   renderLobby(); break;
+    case "playing": showSection("playing"); renderBoard(); break;
+    case "ended":   showSection("ended");   renderEnd();   break;
+  }
+}
+
+// ─── Lobby render ─────────────────────────────────────────────────────────────
+
+function renderLobby(): void {
+  if (!currentState) return;
+  const state = currentState;
+  const amHost = state.hostToken === myToken;
+  const myTeamId = state.members[myToken]?.teamId ?? null;
+
+  const container = document.getElementById("lobby-inner")!;
+  container.innerHTML = "";
+
+  // Room code display
+  const codeDiv = el("div", { style: "margin-bottom:16px;font-size:1.2rem;" });
+  codeDiv.textContent = `Room: ${myRoomCode}`;
+  container.appendChild(codeDiv);
+
+  // Members list grouped by team
+  const membersDiv = el("div", { style: "margin-bottom:16px;" });
+  const membersTitle = el("h3", {});
+  membersTitle.textContent = "Members";
+  membersDiv.appendChild(membersTitle);
+
+  // Unassigned
+  const unassigned = Object.entries(state.members).filter(([, m]) => m.teamId === null);
+  if (unassigned.length > 0) {
+    const ul = el("ul", {});
+    for (const [tok, m] of unassigned) {
+      const li = el("li", { style: `color:${m.online ? "#eee" : "#666"}` });
+      li.textContent = `${m.nickname}${tok === myToken ? " (you)" : ""}${tok === state.hostToken ? " 👑" : ""}${!m.online ? " [offline]" : ""}`;
+      ul.appendChild(li);
+    }
+    const label = el("div", { style: "color:#aaa;font-size:0.85rem;" });
+    label.textContent = "No team:";
+    membersDiv.appendChild(label);
+    membersDiv.appendChild(ul);
+  }
+
+  // Per-team
+  for (const team of state.teams) {
+    if (team.memberTokens.length === 0) continue;
+    const teamDiv = el("div", { style: `border-left:4px solid ${team.color};padding-left:8px;margin-bottom:8px;` });
+    const teamLabel = el("div", { style: "font-weight:bold;" });
+    teamLabel.textContent = team.name;
+    teamDiv.appendChild(teamLabel);
+    const ul = el("ul", {});
+    for (const tok of team.memberTokens) {
+      const m = state.members[tok];
+      if (!m) continue;
+      const li = el("li", { style: `color:${m.online ? "#eee" : "#666"}` });
+      li.textContent = `${m.nickname}${tok === myToken ? " (you)" : ""}${tok === state.hostToken ? " 👑" : ""}${tok === team.leaderToken ? " ★" : ""}${!m.online ? " [offline]" : ""}`;
+      ul.appendChild(li);
+    }
+    teamDiv.appendChild(ul);
+    membersDiv.appendChild(teamDiv);
+  }
+  container.appendChild(membersDiv);
+
+  // Team picker
+  const pickerDiv = el("div", { style: "margin-bottom:16px;" });
+  const pickerTitle = el("h3", {});
+  pickerTitle.textContent = "Pick a team";
+  pickerDiv.appendChild(pickerTitle);
+
+  const btnRow = el("div", { style: "display:flex;flex-wrap:wrap;gap:8px;" });
+  for (const team of state.teams) {
+    const btn = el("button", {
+      style: `background:${team.color};border:none;padding:8px 12px;border-radius:4px;cursor:pointer;font-family:monospace;color:#000;font-weight:bold;${myTeamId === team.id ? "outline:3px solid #fff;" : ""}`,
+    }) as HTMLButtonElement;
+    btn.textContent = team.name;
+    btn.addEventListener("click", () => {
+      send({ t: "team_join", data: { teamId: team.id } });
+    });
+    btnRow.appendChild(btn);
+  }
+  if (myTeamId !== null) {
+    const leaveBtn = el("button", { style: "padding:8px 12px;border-radius:4px;cursor:pointer;font-family:monospace;" }) as HTMLButtonElement;
+    leaveBtn.textContent = "Leave team";
+    leaveBtn.addEventListener("click", () => {
+      send({ t: "team_join", data: { teamId: null } });
+    });
+    btnRow.appendChild(leaveBtn);
+  }
+  pickerDiv.appendChild(btnRow);
+  container.appendChild(pickerDiv);
+
+  // Settings (host only)
+  if (amHost) {
+    const settingsDiv = renderSettingsForm(state.settings);
+    container.appendChild(settingsDiv);
+  }
+
+  // Start button (host only)
+  if (amHost) {
+    const teamsWithMembers = state.teams.filter((t) => t.memberTokens.length > 0);
+    const allHaveLeaders = teamsWithMembers.every((t) => t.leaderToken !== null);
+    const canStart = teamsWithMembers.length >= 1 && allHaveLeaders;
+
+    const startBtn = el("button", {
+      style: "padding:10px 24px;background:#2563eb;color:#fff;border:none;border-radius:4px;cursor:pointer;font-family:monospace;font-size:1rem;margin-top:12px;",
+    }) as HTMLButtonElement;
+    startBtn.textContent = "Start Game";
+    startBtn.disabled = !canStart;
+    startBtn.title = canStart ? "" : "Need at least one team with a leader";
+    startBtn.addEventListener("click", () => {
+      send({ t: "start", data: {} });
+    });
+    container.appendChild(startBtn);
+  } else {
+    const waiting = el("div", { style: "margin-top:12px;color:#aaa;" });
+    waiting.textContent = "Waiting for host to start the game…";
+    container.appendChild(waiting);
+  }
+}
+
+function renderSettingsForm(settings: Settings): HTMLElement {
+  const wrapper = el("div", { style: "border:1px solid #444;padding:16px;border-radius:4px;margin-bottom:16px;" });
+  const title = el("h3", {});
+  title.textContent = "Settings (host)";
+  wrapper.appendChild(title);
+
+  // Board size
+  wrapper.appendChild(labelText("Board size:"));
+  const sizeRow = el("div", { style: "display:flex;gap:12px;margin-bottom:12px;" });
+  for (const s of [5, 7, 9] as (5 | 7 | 9)[]) {
+    const radio = el("label", {});
+    const inp = document.createElement("input");
+    inp.type = "radio";
+    inp.name = "boardSize";
+    inp.value = String(s);
+    inp.checked = settings.boardSize === s;
+    inp.addEventListener("change", () => {
+      sendUpdatedSettings({ ...settings, boardSize: s });
+    });
+    radio.appendChild(inp);
+    radio.append(` ${s}×${s}`);
+    sizeRow.appendChild(radio);
+  }
+  wrapper.appendChild(sizeRow);
+
+  // Sections
+  wrapper.appendChild(labelText("Sections:"));
+  const sectionsRow = el("div", { style: "display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;" });
+  for (const sec of ["standard", "level_completion", "modded"] as Settings["sections"][number][]) {
+    const lbl = el("label", {});
+    const inp = document.createElement("input");
+    inp.type = "checkbox";
+    inp.checked = settings.sections.includes(sec);
+    inp.addEventListener("change", () => {
+      const newSections = inp.checked
+        ? ([...settings.sections, sec] as Settings["sections"])
+        : (settings.sections.filter((s) => s !== sec) as Settings["sections"]);
+      if (newSections.length === 0) { inp.checked = true; return; }
+      sendUpdatedSettings({ ...settings, sections: newSections });
+    });
+    lbl.appendChild(inp);
+    lbl.append(` ${sec}`);
+    sectionsRow.appendChild(lbl);
+  }
+  wrapper.appendChild(sectionsRow);
+
+  // Allow modded
+  wrapper.appendChild(makeCheckbox("Allow modded squares", settings.allowModded, (v) => {
+    sendUpdatedSettings({ ...settings, allowModded: v });
+  }));
+
+  // Center free
+  wrapper.appendChild(makeCheckbox("Center free square", settings.centerFree, (v) => {
+    sendUpdatedSettings({ ...settings, centerFree: v });
+  }));
+
+  // Time limit
+  wrapper.appendChild(labelText("Time limit (seconds):"));
+  const timeInput = document.createElement("input");
+  timeInput.type = "number";
+  timeInput.value = String(settings.timeLimitSec);
+  timeInput.style.cssText = "width:100px;padding:4px;background:#222;border:1px solid #444;color:#eee;font-family:monospace;border-radius:3px;margin-bottom:12px;";
+  timeInput.addEventListener("change", () => {
+    const v = parseInt(timeInput.value, 10);
+    if (!isNaN(v) && v > 0) sendUpdatedSettings({ ...settings, timeLimitSec: v });
+  });
+  wrapper.appendChild(timeInput);
+  wrapper.appendChild(document.createElement("br"));
+
+  // Win conditions
+  wrapper.appendChild(labelText("Win conditions:"));
+  const winRow = el("div", { style: "display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;" });
+  const allWins: WinConditionKey[] = ["line", "four_corners", "full_house", "first_to_n", "time_limit"];
+  for (const wc of allWins) {
+    const lbl = el("label", {});
+    const inp = document.createElement("input");
+    inp.type = "checkbox";
+    inp.checked = settings.winConditions.includes(wc);
+    inp.addEventListener("change", () => {
+      const newWins = inp.checked
+        ? ([...settings.winConditions, wc] as WinConditionKey[])
+        : settings.winConditions.filter((w) => w !== wc);
+      sendUpdatedSettings({ ...settings, winConditions: newWins });
+    });
+    lbl.appendChild(inp);
+    lbl.append(` ${wc}`);
+    winRow.appendChild(lbl);
+  }
+  wrapper.appendChild(winRow);
+
+  // first_to_n value (only show if first_to_n selected)
+  if (settings.winConditions.includes("first_to_n")) {
+    wrapper.appendChild(labelText("First to N (count):"));
+    const nInput = document.createElement("input");
+    nInput.type = "number";
+    nInput.value = String(settings.firstToN ?? 5);
+    nInput.style.cssText = "width:80px;padding:4px;background:#222;border:1px solid #444;color:#eee;font-family:monospace;border-radius:3px;margin-bottom:12px;";
+    nInput.addEventListener("change", () => {
+      const v = parseInt(nInput.value, 10);
+      if (!isNaN(v) && v > 0) sendUpdatedSettings({ ...settings, firstToN: v });
+    });
+    wrapper.appendChild(nInput);
+  }
+
+  return wrapper;
+}
+
+function sendUpdatedSettings(s: Settings): void {
+  send({ t: "settings", data: s });
+}
+
+// ─── Board render ─────────────────────────────────────────────────────────────
+
+function renderBoard(): void {
+  if (!currentState?.board) return;
+  const state = currentState;
+  const { boardSize } = state.settings;
+  const myTeamId = state.members[myToken]?.teamId ?? null;
+  const myTeam = myTeamId !== null ? state.teams[myTeamId] : null;
+  const amLeader = myTeam?.leaderToken === myToken;
+
+  const container = document.getElementById("board-inner")!;
+  container.innerHTML = "";
+
+  // Claim counts per team
+  const countsDiv = el("div", { style: "margin-bottom:12px;display:flex;gap:12px;flex-wrap:wrap;" });
+  for (const team of state.teams) {
+    const count = state.claims.filter((c) => c !== null && c.teamId === team.id).length;
+    if (team.memberTokens.length === 0 && count === 0) continue;
+    const badge = el("span", { style: `background:${team.color};color:#000;padding:4px 8px;border-radius:4px;font-weight:bold;` });
+    badge.textContent = `${team.name}: ${count}`;
+    countsDiv.appendChild(badge);
+  }
+  container.appendChild(countsDiv);
+
+  if (!amLeader && myTeamId !== null) {
+    const note = el("div", { style: "color:#aaa;margin-bottom:8px;font-size:0.85rem;" });
+    note.textContent = "Only your team leader can claim squares.";
+    container.appendChild(note);
+  }
+  if (myTeamId === null) {
+    const note = el("div", { style: "color:#aaa;margin-bottom:8px;font-size:0.85rem;" });
+    note.textContent = "You are not on a team — spectating.";
+    container.appendChild(note);
+  }
+
+  // Grid
+  const cellSize = Math.max(70, Math.floor(560 / boardSize));
+  const grid = el("div", {
+    style: `display:grid;grid-template-columns:repeat(${boardSize},${cellSize}px);gap:4px;`,
+  });
+
+  const winShape = state.winner?.shape ?? null;
+
+  for (let i = 0; i < boardSize ** 2; i++) {
+    const square = state.board!.squares[i];
+    const claim = state.claims[i];
+    const isFree = claim?.teamId === -1;
+    const claimTeam = claim && !isFree ? state.teams[claim.teamId] : null;
+    const inWinShape = winShape?.includes(i);
+
+    const bg = isFree ? "#555" : claimTeam ? claimTeam.color : "#222";
+    const textColor = isFree || claimTeam ? "#000" : "#eee";
+    const border = inWinShape ? "3px solid #fff" : "1px solid #444";
+
+    const cell = el("div", {
+      style: `background:${bg};color:${textColor};border:${border};width:${cellSize}px;height:${cellSize}px;box-sizing:border-box;padding:4px;font-size:0.7rem;display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden;cursor:${amLeader && !isFree ? "pointer" : "default"};border-radius:3px;word-break:break-word;`,
+      title: square + (claim ? `\nClaimed by ${claim.player}${claim.timeMs != null ? ` (${(claim.timeMs / 1000).toFixed(2)}s)` : ""}` : ""),
+    });
+
+    const nameSpan = document.createElement("span");
+    nameSpan.style.cssText = "overflow:hidden;max-height:100%;";
+    nameSpan.textContent = isFree ? "FREE" : square;
+    cell.appendChild(nameSpan);
+
+    if (amLeader && !isFree) {
+      cell.addEventListener("click", () => handleCellClick(i, square));
+    }
+
+    grid.appendChild(cell);
+  }
+
+  container.appendChild(grid);
+}
+
+function handleCellClick(squareIndex: number, _squareName: string): void {
+  if (!currentState) return;
+  const member = currentState.members[myToken];
+  if (!member || member.teamId === null) return;
+  const existing = currentState.claims[squareIndex];
+
+  if (existing === null) {
+    send({ t: "claim", data: { squareIndex, timeMs: null } });
+  } else if (existing.teamId === member.teamId) {
+    send({ t: "unclaim", data: { squareIndex } });
+  }
+  // else: owned by another team or FREE — no-op
+}
+
+// ─── End screen ───────────────────────────────────────────────────────────────
+
+function renderEnd(): void {
+  if (!currentState) return;
+  const state = currentState;
+
+  const container = document.getElementById("end-inner")!;
+  container.innerHTML = "";
+
+  const winner = state.winner;
+  if (winner) {
+    const team = state.teams[winner.teamId];
+    const banner = el("h2", { style: `color:${team.color};margin-bottom:16px;` });
+    banner.textContent = `${team.name} won by ${winner.condition}!`;
+    container.appendChild(banner);
+  } else {
+    const banner = el("h2", {});
+    banner.textContent = "Game over — no winner.";
+    container.appendChild(banner);
+  }
+
+  // Final board (read-only, winning shape highlighted)
+  if (state.board) {
+    const { boardSize } = state.settings;
+    const winShape = state.winner?.shape ?? null;
+    const cellSize = Math.max(60, Math.floor(480 / boardSize));
+
+    const grid = el("div", {
+      style: `display:grid;grid-template-columns:repeat(${boardSize},${cellSize}px);gap:4px;margin-bottom:16px;`,
+    });
+
+    for (let i = 0; i < boardSize ** 2; i++) {
+      const square = state.board.squares[i];
+      const claim = state.claims[i];
+      const isFree = claim?.teamId === -1;
+      const claimTeam = claim && !isFree ? state.teams[claim.teamId] : null;
+      const inWinShape = winShape?.includes(i);
+
+      const bg = isFree ? "#555" : claimTeam ? claimTeam.color : "#222";
+      const textColor = isFree || claimTeam ? "#000" : "#eee";
+      const border = inWinShape ? "3px solid #fff" : "1px solid #444";
+
+      const cell = el("div", {
+        style: `background:${bg};color:${textColor};border:${border};width:${cellSize}px;height:${cellSize}px;box-sizing:border-box;padding:4px;font-size:0.65rem;display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden;border-radius:3px;word-break:break-word;`,
+        title: square + (claim ? `\n${claim.player}${claim.timeMs != null ? ` (${(claim.timeMs / 1000).toFixed(2)}s)` : ""}` : ""),
+      });
+      const nameSpan = document.createElement("span");
+      nameSpan.style.cssText = "overflow:hidden;max-height:100%;";
+      nameSpan.textContent = isFree ? "FREE" : square;
+      cell.appendChild(nameSpan);
+      grid.appendChild(cell);
+    }
+
+    container.appendChild(grid);
+  }
+
+  const backBtn = el("button", {
+    style: "padding:10px 24px;background:#2563eb;color:#fff;border:none;border-radius:4px;cursor:pointer;font-family:monospace;font-size:1rem;",
+  }) as HTMLButtonElement;
+  backBtn.textContent = "Back to join screen";
+  backBtn.addEventListener("click", () => {
+    currentState = null;
+    socket?.close();
+    socket = null;
+    myRoomCode = "";
+    retryCount = MAX_RETRIES; // prevent auto-reconnect
+    showSection("join");
+  });
+  container.appendChild(backBtn);
+}
+
+// ─── DOM helpers ──────────────────────────────────────────────────────────────
+
+function el(tag: string, attrs: Record<string, string>): HTMLElement {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    e.setAttribute(k, v);
+  }
+  return e;
+}
+
+function labelText(text: string): HTMLElement {
+  const lbl = el("div", { style: "font-size:0.85rem;color:#aaa;margin-bottom:4px;" });
+  lbl.textContent = text;
+  return lbl;
+}
+
+function makeCheckbox(label: string, checked: boolean, onChange: (v: boolean) => void): HTMLElement {
+  const wrapper = el("div", { style: "margin-bottom:12px;" });
+  const lbl = el("label", {});
+  const inp = document.createElement("input");
+  inp.type = "checkbox";
+  inp.checked = checked;
+  inp.addEventListener("change", () => onChange(inp.checked));
+  lbl.appendChild(inp);
+  lbl.append(` ${label}`);
+  wrapper.appendChild(lbl);
+  return wrapper;
+}
+
+// ─── Init ────────────────────────────────────────────────────────────────────
+
+showSection("join");

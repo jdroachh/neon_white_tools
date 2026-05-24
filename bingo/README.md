@@ -1,13 +1,13 @@
-# Bingo Mode — Stage 1 (WebSocket relay smoke test)
+# Bingo Mode — Phase 1 (local dev)
 
-No protocol, no board, no real UI. Two browser tabs, same room code, messages echo to each other. Stage 2 adds envelopes and the board.
+Stage 1 (WebSocket relay) + Stage 2 (real protocol, board generation, claims, win conditions).
 
 ---
 
 ## 1. Prerequisites
 
 - Node 20+
-- Cloudflare account (free tier is fine for Stage 1)
+- Cloudflare account (free tier is fine for the beta)
 - Wrangler CLI: `npm i -g wrangler`
 - Log in once: `wrangler login`
 
@@ -27,7 +27,7 @@ wrangler dev
 
 Worker listens on `http://localhost:8787`. Routes:
 - `GET /health` → `200 ok`
-- `GET /ws/:roomCode` → WebSocket upgrade, forwarded to LobbyDO
+- `GET /ws/:roomCode` → WebSocket upgrade, forwarded to `LobbyDO`
 
 **Terminal 2 — Frontend**
 
@@ -37,26 +37,30 @@ npm install
 npm run dev
 ```
 
-Vite serves the HTML page, by default at `http://localhost:5173`.
+Vite serves the HTML page at `http://localhost:5173` by default.
 
 ---
 
-## 3. Smoke test
+## 3. Smoke test — Stage 2
 
-1. Open `http://localhost:5173` in **two separate browser tabs** (or two different browsers).
-2. In each tab, enter any nickname (different ones help) and the **same** room code (e.g. `ROOM1`).
-3. Click **Connect** in both tabs.
-4. Type a message in Tab A and click **Send**. Confirm Tab B's log shows it.
-5. Reply from Tab B. Confirm Tab A sees it.
-6. That's it — the relay works.
+1. Open `http://localhost:5173` in **two separate browser tabs**.
+2. Tab A: enter `Alice` as nickname, `TEST` as room code, click Connect.
+3. Tab B: enter `Bob` as nickname, `TEST` as room code, click Connect.
+4. Both tabs will be in the **Lobby**. Alice (first to connect) is the host (👑).
+5. Alice joins Team 1; Bob joins Team 2. Each becomes their team's leader (★).
+6. Alice (host) sees the Settings panel. Adjust if desired, then click **Start Game**.
+7. A 5×5 board appears in both tabs. Alice and Bob each click squares as team leaders.
+8. Enter an optional time (in seconds) in the prompt that appears.
+9. The first team to complete a line (or whichever win condition is set) triggers an end screen.
+10. The end screen shows the winning team and highlights the winning shape.
 
-The sender's own message is echoed locally in the log immediately; the other tab receives it via the Worker's Durable Object broadcast.
+**Tab refresh / reconnect:** closing and reopening a tab reconnects automatically using the `bingo_token` cookie. The member's team slot is preserved; leadership transfers immediately on disconnect and can be reclaimed via the team picker on reconnect.
 
 ---
 
 ## 4. Deploy (placeholder)
 
-Stage 1 is dev-only. Stage 3 adds proper deploy steps (Worker to `workers.dev`, frontend to Cloudflare Pages).
+Stage 1–2 are dev-only. Stage 3 adds proper deploy steps.
 
 For reference, the commands will be:
 
@@ -64,8 +68,6 @@ For reference, the commands will be:
 cd bingo/worker && wrangler deploy
 cd bingo/web && npm run build && wrangler pages deploy ./dist
 ```
-
-Do not run these yet — the worker name and routes need finalizing in Stage 3.
 
 ---
 
@@ -81,7 +83,18 @@ VITE_WS_URL=wss://bingo-worker.<your-subdomain>.workers.dev
 
 ## Stage notes
 
-This is **Stage 1 of Phase 1**. The full plan is at `plans/bingo-mode-phase1-beta.md`.
+This is **Stage 2 of Phase 1**. The full plan is at `plans/bingo-mode-phase1-beta.md`.
 
-- **Stage 2** — typed envelopes (`protocol.ts`), board generation (`board.ts`), leader-token claim logic.
-- **Stage 3** — React UI, settings form, team picker, board grid, claim dialog, end screen, deploy automation.
+### What Stage 2 added
+
+- **`protocol.ts`** (worker + web) — typed envelope union (`hello`, `team_join`, `settings`, `start`, `claim`, `chat`, `state`, `end`, `error`), `parseEnvelope()` type guard, `RoomState` schema.
+- **`board.ts`** (worker) — `generateBoard()` ingests `squares.json`, builds a section-filtered honor-only pool, runs a Mulberry32 seeded shuffle, returns the square name list. All five win evaluators: `line`, `four_corners`, `full_house`, `first_to_n`, `time_limit`.
+- **`lobby.ts`** — full state machine replacing Stage 1's broadcast-only relay. Handles hello / team_join / settings / start / claim / chat with proper leader-token gating, same-team time-improvement overwrites, and cross-team lower-time overwrites. DO alarm for `time_limit` win condition.
+- **`main.ts`** — token-cookie identity, typed WS client, lobby/board/end-screen rendering, team picker, settings form (host-only), board grid with claim prompts.
+- The original Stage 1 chat-only mode is gone — superseded by the full envelope flow.
+
+### What Stage 3 will add
+
+- React UI, design tokens, real CSS (no more inline styles).
+- Settings form polish, claim dialog, chat panel.
+- Deploy automation to Cloudflare Workers + Pages.

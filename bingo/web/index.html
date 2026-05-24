@@ -3,39 +3,64 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Bingo — Stage 1 Relay Test</title>
+  <title>Neon White — Bingo Mode</title>
   <style>
-    body { font-family: monospace; max-width: 640px; margin: 40px auto; padding: 0 16px; background: #111; color: #eee; }
-    h1 { font-size: 1.2rem; margin-bottom: 24px; }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: monospace; max-width: 800px; margin: 40px auto; padding: 0 16px; background: #111; color: #eee; }
+    h1 { font-size: 1.3rem; margin-bottom: 24px; }
+    h2 { font-size: 1.1rem; margin-bottom: 12px; }
+    h3 { font-size: 0.95rem; margin-bottom: 8px; color: #ccc; }
     label { display: block; margin-bottom: 4px; font-size: 0.85rem; color: #aaa; }
-    input[type="text"] { width: 100%; box-sizing: border-box; padding: 8px; background: #222; border: 1px solid #444; color: #eee; font-family: monospace; border-radius: 3px; margin-bottom: 12px; }
-    button { padding: 8px 16px; background: #2563eb; color: #fff; border: none; border-radius: 3px; cursor: pointer; font-family: monospace; }
-    button:disabled { background: #444; cursor: default; }
+    input[type="text"], input[type="number"] { width: 100%; padding: 8px; background: #222; border: 1px solid #444; color: #eee; font-family: monospace; border-radius: 3px; margin-bottom: 12px; }
+    button { padding: 8px 16px; background: #374151; color: #eee; border: 1px solid #555; border-radius: 3px; cursor: pointer; font-family: monospace; }
+    button:disabled { opacity: 0.4; cursor: default; }
+    ul { margin: 4px 0; padding-left: 20px; }
+    li { margin-bottom: 2px; }
     #status { margin: 12px 0; font-size: 0.85rem; color: #aaa; }
-    #log { border: 1px solid #333; background: #1a1a1a; padding: 12px; height: 260px; overflow-y: auto; border-radius: 3px; margin-bottom: 12px; font-size: 0.85rem; line-height: 1.5; }
-    .log-entry { margin-bottom: 4px; }
-    .log-entry .ts { color: #555; }
-    #send-row { display: flex; gap: 8px; }
-    #send-row input { flex: 1; margin-bottom: 0; }
+
+    /* Log section */
+    #log { border: 1px solid #333; padding: 8px; border-radius: 3px; margin-top: 24px; }
+    #log-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+    #log-content { background: #1a1a1a; padding: 8px; height: 180px; overflow-y: auto; font-size: 0.75rem; line-height: 1.5; border-radius: 3px; }
   </style>
 </head>
 <body>
-  <h1>Bingo Stage 1 — WebSocket relay smoke test</h1>
+  <h1>Neon White — Bingo Mode</h1>
 
-  <label for="nickname">Nickname</label>
-  <input id="nickname" type="text" placeholder="e.g. Ferex" />
+  <!-- Join section -->
+  <div id="join">
+    <label for="nickname">Nickname</label>
+    <input id="nickname" type="text" placeholder="e.g. Ferex" />
 
-  <label for="room-code">Room code</label>
-  <input id="room-code" type="text" placeholder="e.g. ROOM1" />
+    <label for="room-code">Room code</label>
+    <input id="room-code" type="text" placeholder="e.g. TEST" />
 
-  <button id="connect-btn">Connect</button>
-  <div id="status">Not connected.</div>
+    <button id="connect-btn">Connect</button>
+    <div id="status">Not connected.</div>
+  </div>
 
-  <div id="log"></div>
+  <!-- Lobby section -->
+  <div id="lobby" style="display:none;">
+    <div id="lobby-inner"></div>
+  </div>
 
-  <div id="send-row">
-    <input id="message-input" type="text" placeholder="Type a message…" disabled />
-    <button id="send-btn" disabled>Send</button>
+  <!-- Board section -->
+  <div id="board" style="display:none;">
+    <div id="board-inner"></div>
+  </div>
+
+  <!-- End section -->
+  <div id="end" style="display:none;">
+    <div id="end-inner"></div>
+  </div>
+
+  <!-- Debug log — always visible, collapsible -->
+  <div id="log">
+    <div id="log-header">
+      <span style="font-size:0.8rem;color:#666;">Debug log</span>
+      <button id="log-toggle" style="font-size:0.75rem;padding:2px 8px;">Hide log</button>
+    </div>
+    <div id="log-content"></div>
   </div>
 
   <script type="module" src="/src/main.ts"></script>
