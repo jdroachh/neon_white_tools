@@ -72,6 +72,15 @@ logToggle.addEventListener("click", () => {
   logToggle.textContent = hidden ? "Hide log" : "Show log";
 });
 
+// Delegated click handler — survives the lobby's full-DOM rebuild on every state echo.
+// Without this, the Start button can be replaced mid-click and the event is lost.
+lobbySection.addEventListener("click", (e) => {
+  const target = e.target as HTMLElement | null;
+  if (target?.id === "start-btn" && !(target as HTMLButtonElement).disabled) {
+    send({ t: "start", data: {} });
+  }
+});
+
 // ─── Send ─────────────────────────────────────────────────────────────────────
 
 function send(envelope: Omit<Envelope, "ts">): void {
@@ -316,14 +325,13 @@ function renderLobby(): void {
     const canStart = teamsWithMembers.length >= 1 && allHaveLeaders;
 
     const startBtn = el("button", {
+      id: "start-btn",
       style: "padding:10px 24px;background:#2563eb;color:#fff;border:none;border-radius:4px;cursor:pointer;font-family:monospace;font-size:1rem;margin-top:12px;",
     }) as HTMLButtonElement;
     startBtn.textContent = "Start Game";
     startBtn.disabled = !canStart;
     startBtn.title = canStart ? "" : "Need at least one team with a leader";
-    startBtn.addEventListener("click", () => {
-      send({ t: "start", data: {} });
-    });
+    // Click handled via delegation on lobbySection (see init).
     container.appendChild(startBtn);
   } else {
     const waiting = el("div", { style: "margin-top:12px;color:#aaa;" });
