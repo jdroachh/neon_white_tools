@@ -1,0 +1,14 @@
+{
+  "name": "bingo-worker",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "type-check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250515.0",
+    "typescript": "^5.5.0",
+    "wrangler": "^4.94.0"
+  }
+}
