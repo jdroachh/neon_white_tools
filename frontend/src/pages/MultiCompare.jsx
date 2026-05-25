@@ -7,7 +7,7 @@ import {
   loadRosters, saveRosters, addRoster, removeRoster, MAX as MAX_ROSTERS,
 } from "../lib/savedRosters.js";
 import { PLAYER_COLORS, hexFor, nextAvailableColor } from "../lib/playerColors.js";
-import { getLevels, getChapters, runMultiCompare, stopMultiCompare } from "../api.js";
+import { getLevels, getChapters, runMultiCompare, stopMultiCompare, getGlobalNeonRank } from "../api.js";
 
 const STEAM_ID_RE = /^\d{17}$/;
 const MIN_ROWS = 1;
@@ -97,6 +97,7 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
   const [drill, setDrill] = useState(null);  // {chapterKey, levelDisplay, cellKey} | null
   const [filterPlayer, setFilterPlayer] = useState(null);  // steam_id | null
   const [sortMode, setSortMode] = useState("chapter");  // chapter | most contested | biggest Δ
+  const [neonRanks, setNeonRanks] = useState({});  // sid -> {ok, rank, score_ms, time}
 
   const runIdRef = useRef(0);
 
@@ -185,12 +186,40 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
     (mode === "chapter" && !!chapterTarget)
   );
 
+  // ── Global Neon Rankings fetch (whole-game mode only) ──────────────────
+  // Fired post-completion, sequentially per player. Story-only — see
+  // project_global_neon_rankings.md. Sequential to avoid two concurrent
+  // SteamAPI_RunCallbacks pumps from overlapping calls.
+  useEffect(() => {
+    if (mode !== "game" || running) return;
+    if (Object.keys(results).length === 0) return;
+    const pending = validRoster.filter(r => !(r.steam_id in neonRanks));
+    if (pending.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      for (const r of pending) {
+        if (cancelled) return;
+        const sid = r.steam_id;
+        try {
+          const result = await getGlobalNeonRank(sid);
+          if (cancelled) return;
+          setNeonRanks(prev => ({ ...prev, [sid]: result }));
+        } catch {
+          if (cancelled) return;
+          setNeonRanks(prev => ({ ...prev, [sid]: { ok: false } }));
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [running, mode, results, validRoster, neonRanks]);
+
   function handleRun() {
     if (!canRun) return;
     setResults({});
     setProgress({ done: 0, total: 0 });
     setDrill(null);
     setFilterPlayer(null);
+    setNeonRanks({});
     runIdRef.current += 1;
     setRunning(true);
     const steam_ids = validRoster.map(r => r.steam_id.trim());
@@ -459,6 +488,10 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
             searchHint={searchHint}
             runStatusHint={runStatusHint}
           />
+
+          {mode === "game" && Object.keys(neonRanks).length > 0 && (
+            <GlobalRanksStrip standings={standings} neonRanks={neonRanks} />
+          )}
 
           {mode !== "level" && standings.some(s => s.wins > 0) && (
             <StandingsStrip standings={standings} totalLevels={scopeLevelCount} />
@@ -844,6 +877,32 @@ function SearchModePanel({
 }
 
 // ── Standings strip ──────────────────────────────────────────────────────
+function GlobalRanksStrip({ standings, neonRanks }) {
+  return (
+    <div className="nwt-sum-strip">
+      <span className="lbl">
+        Global rank
+        <span title="Steam stores story-level total only. The in-game 'Global Neon Rankings' adds Sidequest level times client-side per player, which is not Steam-queryable — so the rank may differ slightly from in-game."
+              style={{ color: "var(--accent)", cursor: "help", marginLeft: 2 }}>*</span>
+      </span>
+      {standings.map((s, i) => {
+        const nr = neonRanks[s.sid];
+        const label = nr === undefined ? "…" : nr?.ok ? `#${nr.rank.toLocaleString()}` : "—";
+        return (
+          <React.Fragment key={s.sid}>
+            <span className="nwt-sum-chip">
+              <span className="sw" style={{ background: hexFor(s.row.color) }} />
+              <span>{s.row.name || truncateSid(s.sid)}</span>
+              <span className="n">{label}</span>
+            </span>
+            {i < standings.length - 1 && <span className="sep">·</span>}
+          </React.Fragment>
+        );
+      })}
+    </div>
+  );
+}
+
 function StandingsStrip({ standings, totalLevels }) {
   return (
     <div className="nwt-sum-strip">

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { PageHead, Field, Seg, Btn, ErrorBanner, MedalBadge, MedalToggle } from "../shared.jsx";
-import { getLevels, getChapters, getSteamStatus, runComparePlayers, stopLeaderboard, pickFolder } from "../api.js";
+import { getLevels, getChapters, getSteamStatus, runComparePlayers, stopLeaderboard, pickFolder, getGlobalNeonRank } from "../api.js";
 import { loadProfiles, saveProfiles, addProfile, isValidNewId } from "../lib/savedProfiles.js";
 import SavedProfilesDropdown from "../components/SavedProfilesDropdown.jsx";
 import { loadLevelsWithRetry } from "../lib/retryLevels.js";
@@ -41,6 +41,19 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
   const [savedProfiles, setSavedProfiles] = useState([]);
   const [sortKey, setSortKey]             = useState("level");
   const [filterKey, setFilterKey]         = useState("all");
+  const [neonRank1, setNeonRank1]         = useState(null);
+  const [neonRank2, setNeonRank2]         = useState(null);
+
+  // Whole-game mode: fetch each player's GlobalNeonRankings entry after the
+  // compare finishes. Story-only — see project_global_neon_rankings.md.
+  useEffect(() => {
+    if (mode === "game" && !running && rows.length > 0 && steamId1 && neonRank1 === null) {
+      getGlobalNeonRank(steamId1).then(setNeonRank1).catch(() => setNeonRank1({ ok: false }));
+    }
+    if (mode === "game" && !running && rows.length > 0 && steamId2 && neonRank2 === null) {
+      getGlobalNeonRank(steamId2).then(setNeonRank2).catch(() => setNeonRank2({ ok: false }));
+    }
+  }, [running, mode, rows.length, steamId1, steamId2, neonRank1, neonRank2]);
 
   useEffect(() => {
     const cancelLevels = loadLevelsWithRetry(getLevels, {
@@ -121,6 +134,7 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
 
   async function handleRun() {
     setError(""); setStatus(""); setRows([]); setPlayerName1(""); setPlayerName2("");
+    setNeonRank1(null); setNeonRank2(null);
     setSortKey("level"); setFilterKey("all");
     const target = mode === "level" ? levelName : mode === "chapter" ? chapterName : "";
     const r = await runComparePlayers(steamId1, steamId2, mode, target, outMode, folder);
@@ -321,6 +335,22 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
                   padding: "8px 16px 6px",
                   flexShrink: 0,
                 }}>
+                  {mode === "game" && (neonRank1 || neonRank2) && (
+                    <div style={{ fontSize: 11, color: "var(--text-3)", lineHeight: 1.7, marginBottom: 2 }}>
+                      Global rank:{" "}
+                      <span style={{ color: P1_COLOR }}>{playerName1 || "P1"}</span>{" "}
+                      <span style={{ color: "var(--text)" }}>
+                        {neonRank1?.ok ? `#${neonRank1.rank.toLocaleString()}` : "—"}
+                      </span>
+                      {"  ·  "}
+                      <span style={{ color: P2_COLOR }}>{playerName2 || "P2"}</span>{" "}
+                      <span style={{ color: "var(--text)" }}>
+                        {neonRank2?.ok ? `#${neonRank2.rank.toLocaleString()}` : "—"}
+                      </span>
+                      <span title="Steam stores story-level total only. The in-game 'Global Neon Rankings' adds Sidequest level times client-side per player, which is not Steam-queryable — so the rank may differ slightly from in-game."
+                            style={{ color: "var(--accent)", cursor: "help", marginLeft: 2 }}>*</span>
+                    </div>
+                  )}
                   <div style={{ fontSize: 11, color: "var(--text-2)", lineHeight: 1.7 }}>
                     <span style={{ fontWeight: 600, color: "var(--text)" }}>{playerName1 || "Player 1"}</span>
                     {" "}{stats.p1Wins}–{stats.p2Wins}{" "}

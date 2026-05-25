@@ -301,7 +301,6 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "", visible
                           <span style={{ color: "var(--text)" }}>#{neonRank.rank.toLocaleString()}</span>
                           <span title="Steam stores story-level total only. The in-game 'Global Neon Rankings' adds Sidequest level times client-side per player, which is not Steam-queryable — so the rank may differ slightly from in-game."
                                 style={{ color: "var(--accent)", cursor: "help", marginLeft: 2 }}>*</span>
-                          <span style={{ color: "var(--text-3)", marginLeft: 6, fontStyle: "italic" }}>story only</span>
                         </>
                       ) : (
                         <span style={{ color: "var(--text-3)" }}>— (no entry on Global Rankings)</span>
