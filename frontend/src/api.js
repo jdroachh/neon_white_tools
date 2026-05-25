@@ -171,6 +171,16 @@ export async function runGlobalExport(count, outMode = "display", folder = "") {
   return api.run_global_export(String(count), outMode, folder);
 }
 
+export async function runGlobalNeonRankings(count, outMode = "display", folder = "") {
+  const api = await waitForApi();
+  return api.run_global_neon_rankings(String(count), outMode, folder);
+}
+
+export async function getGlobalNeonRank(steamId) {
+  const api = await waitForApi();
+  return api.get_global_neon_rank(String(steamId));
+}
+
 export async function runLevelSearch(levelName, count, outMode = "display", folder = "") {
   const api = await waitForApi();
   return api.run_level_search(levelName, String(count), outMode, folder);

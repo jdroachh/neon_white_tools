@@ -12,6 +12,7 @@ import Standardize   from "./pages/Standardize.jsx";
 import SeedFinder    from "./pages/SeedFinder.jsx";
 import RunTimer      from "./pages/RunTimer.jsx";
 import GlobalExport  from "./pages/GlobalExport.jsx";
+import GlobalNeonRankings from "./pages/GlobalNeonRankings.jsx";
 import LevelSearch   from "./pages/LevelSearch.jsx";
 import PlayerLookup   from "./pages/PlayerLookup.jsx";
 import ComparePlayers from "./pages/ComparePlayers.jsx";
@@ -31,6 +32,7 @@ const PAGE_TITLES = {
   find:        "Seed Finder",
   timer:       "Run Timer",
   global:      "Global Export",
+  neonrankings: "Global Neon Rankings",
   levelsearch: "Level Search",
   lookup:      "Player Lookup",
   compare:     "Compare Players",
@@ -54,6 +56,7 @@ const RUSH_PAGES = [
 ];
 const LB_PAGES = [
   { key: "global",      Component: GlobalExport   },
+  { key: "neonrankings", Component: GlobalNeonRankings },
   { key: "levelsearch", Component: LevelSearch    },
   { key: "lookup",      Component: PlayerLookup   },
   { key: "compare",     Component: ComparePlayers },
@@ -83,7 +86,7 @@ function Placeholder({ pageName }) {
 
 const VALID_LAST_TABS = new Set([
   "parse", "splits", "std", "find", "timer",
-  "global", "levelsearch", "lookup", "compare", "multicompare",
+  "global", "neonrankings", "levelsearch", "lookup", "compare", "multicompare",
   "ghosts", "videos", "wrs", "guides", "links",
 ]);
 

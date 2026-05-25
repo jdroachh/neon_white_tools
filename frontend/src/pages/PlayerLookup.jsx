@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { PageHead, Field, Seg, Btn, ErrorBanner, MedalBadge, MedalToggle } from "../shared.jsx";
-import { getLevels, getChapters, getSteamStatus, runPlayerLookup, stopLeaderboard, pickFolder } from "../api.js";
+import { getLevels, getChapters, getSteamStatus, runPlayerLookup, stopLeaderboard, pickFolder, getGlobalNeonRank } from "../api.js";
 import { loadLevelsWithRetry } from "../lib/retryLevels.js";
 import { loadProfiles, saveProfiles, addProfile, isValidNewId } from "../lib/savedProfiles.js";
 import SavedProfilesDropdown from "../components/SavedProfilesDropdown.jsx";
@@ -29,6 +29,7 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "", visible
   const [sortKey, setSortKey]         = useState("level");
   const [filterKey, setFilterKey]     = useState("all");
   const [savedProfiles, setSavedProfiles] = useState([]);
+  const [neonRank, setNeonRank]       = useState(null);
 
   useEffect(() => {
     const cancelLevels = loadLevelsWithRetry(getLevels, {
@@ -98,12 +99,21 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "", visible
 
   async function handleRun() {
     setError(""); setStatus(""); setRows([]); setPlayerName(""); setTotalLevels(0);
-    setSortKey("level"); setFilterKey("all");
+    setSortKey("level"); setFilterKey("all"); setNeonRank(null);
     const target = mode === "level" ? levelName : mode === "chapter" ? chapterName : "";
     const r = await runPlayerLookup(steamId, mode, target, outMode, folder);
     if (!r.ok) { setError(r.error); return; }
     setRunning(true);
   }
+
+  // After a whole-game lookup finishes, fetch the player's GlobalNeonRankings
+  // entry. Story-only — in-game total adds Sidequest client-side (see project memory).
+  // Fired post-completion to avoid two threads sharing SteamAPI_RunCallbacks.
+  useEffect(() => {
+    if (mode === "game" && !running && rows.length > 0 && steamId && neonRank === null) {
+      getGlobalNeonRank(steamId).then(setNeonRank).catch(() => setNeonRank({ ok: false }));
+    }
+  }, [running, mode, rows.length, steamId, neonRank]);
 
   async function handleStop() {
     await stopLeaderboard();
@@ -283,6 +293,21 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "", visible
                     {"  ·  "}Top 500: <span style={{ color: "var(--text-2)" }}>{stats.top500}</span>
                     {"  ·  "}Total time: <span style={{ color: "var(--text-2)" }}>{formatDuration(stats.totalTimeMs)}</span>
                   </div>
+                  {mode === "game" && neonRank && (
+                    <div style={{ fontSize: 11, color: "var(--text-3)", lineHeight: 1.7 }}>
+                      Global rank:{" "}
+                      {neonRank.ok ? (
+                        <>
+                          <span style={{ color: "var(--text)" }}>#{neonRank.rank.toLocaleString()}</span>
+                          <span title="Steam stores story-level total only. The in-game 'Global Neon Rankings' adds Sidequest level times client-side per player, which is not Steam-queryable — so the rank may differ slightly from in-game."
+                                style={{ color: "var(--accent)", cursor: "help", marginLeft: 2 }}>*</span>
+                          <span style={{ color: "var(--text-3)", marginLeft: 6, fontStyle: "italic" }}>story only</span>
+                        </>
+                      ) : (
+                        <span style={{ color: "var(--text-3)" }}>— (no entry on Global Rankings)</span>
+                      )}
+                    </div>
+                  )}
                   {showMedals && MEDAL_TIER_ORDER.some(t => medalCounts[t]) && (
                     <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 8px", marginTop: 4, fontSize: 11, color: "var(--text-3)" }}>
                       {MEDAL_TIER_ORDER.filter(t => medalCounts[t]).map(t => (

@@ -118,3 +118,6 @@ tools/build_ghosts_sheet.py
 
 # ── SteamScraper untracked loose files ───────────────────────────────────────
 SteamScraper/_seed_repro.py
+SteamScraper/_probe_leaderboards.py
+SteamScraper/_dump_global_neon.py
+SteamScraper/_probe_leaderboards2.py

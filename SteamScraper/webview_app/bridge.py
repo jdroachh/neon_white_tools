@@ -837,6 +837,114 @@ class JsApi:
         threading.Thread(target=worker, daemon=True).start()
         return {"ok": True}
 
+    def run_global_neon_rankings(self, count: str, out_mode: str = "display", folder: str = "") -> dict:
+        """Top-N entries from the GlobalNeonRankings aggregate board.
+
+        Story-only sum of all level times (in ms). In-game total adds Sidequest
+        client-side per modders — that's not Steam-queryable. See memory
+        [[project-global-neon-rankings]] for the discrepancy.
+        """
+        import steam_api, time as _time, csv as _csv
+        if not steam_api.steam_ready:
+            return {"ok": False, "error": "Steam not connected. Connect in Settings first."}
+        if getattr(self, "_lb_running", False):
+            return {"ok": False, "error": "An operation is already running."}
+        try:
+            count_int = max(1, int(str(count).strip()))
+        except ValueError:
+            return {"ok": False, "error": "Entry count must be a number."}
+        if out_mode in ("csv", "both") and not str(folder).strip():
+            return {"ok": False, "error": "Select an output folder."}
+
+        self._lb_stop_event = threading.Event()
+        self._lb_running = True
+
+        def worker():
+            csv_path = None
+            csv_file = None
+            writer = None
+            if out_mode in ("csv", "both"):
+                csv_path = os.path.join(folder.strip(), f"neon_white_global_rankings_top_{count_int}.csv")
+                csv_file = open(csv_path, "w", newline="", encoding="utf-8")
+                writer = _csv.DictWriter(csv_file, fieldnames=["rank", "name", "score_ms", "time"])
+                writer.writeheader()
+
+            _emit_to("_nwNeonRankingsEvent", {"type": "status", "message": "Finding leaderboard..."})
+            lb = steam_api.find_leaderboard("GlobalNeonRankings")
+            if not lb:
+                _emit_to("_nwNeonRankingsEvent", {"type": "error",
+                                                  "message": "GlobalNeonRankings leaderboard not found."})
+                if csv_file:
+                    csv_file.close()
+                self._lb_running = False
+                return
+
+            total_lb = steam_api.steam.SteamAPI_ISteamUserStats_GetLeaderboardEntryCount(
+                steam_api.user_stats, lb)
+            fetch = min(total_lb, count_int)
+            all_rows = 0
+            start = 1
+            while start <= fetch and not self._lb_stop_event.is_set():
+                end = min(start + steam_api.BATCH_SIZE - 1, fetch)
+                _emit_to("_nwNeonRankingsEvent", {"type": "progress",
+                                                  "current": end, "total": fetch})
+                batch = steam_api.fetch_batch(lb, start, end)
+                if not batch:
+                    break
+                for e in batch:
+                    if out_mode in ("display", "both"):
+                        _emit_to("_nwNeonRankingsEvent", {
+                            "type": "row", "rank": e["rank"],
+                            "name": e["name"], "time": e["time"], "score_ms": e["score_ms"],
+                        })
+                    if writer:
+                        writer.writerow({"rank": e["rank"], "name": e["name"],
+                                         "score_ms": e["score_ms"], "time": e["time"]})
+                all_rows += len(batch)
+                start = end + 1
+                _time.sleep(0.05)
+                if csv_file:
+                    csv_file.flush()
+
+            if csv_file:
+                csv_file.close()
+            stopped = self._lb_stop_event.is_set()
+            _emit_to("_nwNeonRankingsEvent", {
+                "type": "done", "total_rows": all_rows, "stopped": stopped,
+                "csv_path": csv_path or "",
+                "message": (f"Stopped. {all_rows} entries fetched." if stopped
+                            else f"Done. {all_rows} entries fetched."),
+            })
+            self._lb_running = False
+
+        threading.Thread(target=worker, daemon=True).start()
+        return {"ok": True}
+
+    def get_global_neon_rank(self, steam_id: str) -> dict:
+        """Single-player lookup on GlobalNeonRankings. Story-only — see
+        [[project-global-neon-rankings]]. Returns {ok, rank, score_ms, time}
+        or {ok: False, error} when the player has no entry."""
+        import steam_api
+        if not steam_api.steam_ready:
+            return {"ok": False, "error": "Steam not connected."}
+        try:
+            sid = int(str(steam_id).strip())
+        except ValueError:
+            return {"ok": False, "error": "Invalid Steam ID."}
+
+        lb = steam_api.find_leaderboard("GlobalNeonRankings")
+        if not lb:
+            return {"ok": False, "error": "GlobalNeonRankings leaderboard not found."}
+        entry = steam_api.get_player_entry(lb, sid)
+        if not entry:
+            return {"ok": False, "error": "No entry on Global Rankings."}
+        return {
+            "ok": True,
+            "rank": entry.global_rank,
+            "score_ms": entry.score,
+            "time": f"{entry.score / 1000:.3f}",
+        }
+
     def run_level_search(self, level_name: str, count: str,
                          out_mode: str = "display", folder: str = "") -> dict:
         import steam_api, time as _time, csv as _csv
