@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { PageHead, Field, Seg, Btn, ErrorBanner, MedalBadge, MedalToggle } from "../shared.jsx";
 import { getLevels, runLevelSearch, stopLeaderboard, pickFolder, getCheaterCount } from "../api.js";
 import { loadLevelsWithRetry } from "../lib/retryLevels.js";
@@ -20,6 +20,13 @@ export default function LevelSearch({ outputFolder: defaultFolder = "" }) {
   const [showMedals, setShowMedals]     = useState(false);
   const [largeText, setLargeText]       = useState(false);
   const [cheaterCount, setCheaterCount] = useState(0);
+  const [nameFilter, setNameFilter]     = useState("");
+
+  const filteredRows = useMemo(() => {
+    const q = nameFilter.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter(r => r.name.toLowerCase().includes(q));
+  }, [rows, nameFilter]);
 
   useEffect(() => { getCheaterCount().then(n => { if (n > 0) setCheaterCount(n); }); }, []);
 
@@ -54,7 +61,7 @@ export default function LevelSearch({ outputFolder: defaultFolder = "" }) {
   }
 
   async function handleRun() {
-    setError(""); setStatus(""); setRows([]);
+    setError(""); setStatus(""); setRows([]); setNameFilter("");
     const r = await runLevelSearch(levelName, count, outMode, folder);
     if (!r.ok) { setError(r.error); return; }
     setRunning(true);
@@ -66,7 +73,7 @@ export default function LevelSearch({ outputFolder: defaultFolder = "" }) {
   }
 
   function handleCopy() {
-    const text = rows.map(r => `${r.rank}\t${r.name}\t${r.time}`).join("\n");
+    const text = filteredRows.map(r => `${r.rank}\t${r.name}\t${r.time}`).join("\n");
     navigator.clipboard.writeText(text).catch(() => {});
   }
 
@@ -76,7 +83,7 @@ export default function LevelSearch({ outputFolder: defaultFolder = "" }) {
     <>
       <PageHead crumb="Leaderboard Tools" title="LEVEL" accentWord="SEARCH"
         actions={<>
-          {rows.length > 0 && !running && outMode !== "csv" &&
+          {filteredRows.length > 0 && !running && outMode !== "csv" &&
             <Btn kind="ghost" size="sm" icn="copy" onClick={handleCopy}>Copy</Btn>}
         </>}
       />
@@ -127,7 +134,21 @@ export default function LevelSearch({ outputFolder: defaultFolder = "" }) {
           ) : rows.length > 0 ? (
             <>
               <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px 6px", flexShrink: 0 }}>
-                <span style={{ fontSize: 12, fontWeight: 600, flex: 1 }}>{levelName}</span>
+                <span style={{ fontSize: 12, fontWeight: 600 }}>
+                  {levelName}
+                  {nameFilter.trim() && (
+                    <span style={{ color: "var(--text-3)", fontWeight: 400 }}>
+                      {" "}· {filteredRows.length.toLocaleString()} of {rows.length.toLocaleString()}
+                    </span>
+                  )}
+                </span>
+                <input
+                  className="input"
+                  value={nameFilter}
+                  onChange={e => setNameFilter(e.target.value)}
+                  placeholder="Filter by player name…"
+                  style={{ width: 200, fontSize: 11 }}
+                />
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginLeft: "auto" }}>
                   {cheaterCount > 0 && <span style={{ fontSize: 10, color: "var(--accent)" }}>{cheaterCount} cheaters filtered</span>}
                   <MedalToggle value={showMedals} onChange={setShowMedals} />
@@ -136,7 +157,13 @@ export default function LevelSearch({ outputFolder: defaultFolder = "" }) {
                 </div>
               </div>
               <div style={{ fontSize: largeText ? 14 : 11, overflow: "auto", flex: 1 }}>
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
+                  <colgroup>
+                    <col style={{ width: 80 }} />
+                    <col />
+                    <col style={{ width: 120 }} />
+                    {showMedals && <col style={{ width: 100 }} />}
+                  </colgroup>
                   <thead style={{ position: "sticky", top: 0, background: "var(--bg-2)" }}>
                     <tr>
                       <th style={TH}>Rank</th>
@@ -146,7 +173,7 @@ export default function LevelSearch({ outputFolder: defaultFolder = "" }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map((r, i) => (
+                    {filteredRows.map(r => (
                       <tr key={r.rank} style={{ borderBottom: "1px solid var(--border)" }}>
                         <td style={TD}>{r.rank}</td>
                         <td style={TD}>{r.name}</td>

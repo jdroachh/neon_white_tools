@@ -180,7 +180,11 @@ export default function GlobalNeonRankings({ outputFolder: defaultFolder = "" })
                 </div>
               </div>
               <div style={{ fontSize: largeText ? 14 : 11, overflow: "auto", flex: 1 }}>
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
+                  <colgroup>
+                    <col style={{ width: 80 }} />
+                    <col />
+                  </colgroup>
                   <thead style={{ position: "sticky", top: 0, background: "var(--bg-2)" }}>
                     <tr>
                       <th style={TH}>Rank</th>
