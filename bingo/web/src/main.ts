@@ -74,6 +74,34 @@ const chatSection    = document.getElementById("chat")          as HTMLDivElemen
 const chatMessages   = document.getElementById("chat-messages") as HTMLDivElement;
 const chatInput      = document.getElementById("chat-input")    as HTMLInputElement;
 const chatSend       = document.getElementById("chat-send")     as HTMLButtonElement;
+const sfxVolume      = document.getElementById("sfx-volume")       as HTMLInputElement;
+const sfxVolumeLabel = document.getElementById("sfx-volume-label") as HTMLSpanElement;
+
+// ─── Win SFX ─────────────────────────────────────────────────────────────────
+const SFX_VOLUME_KEY = "bingo.sfxVolume";
+const winSfx = new Audio("/gruntbirthdayparty.wav");
+winSfx.preload = "auto";
+const rareSfx = new Audio("/itsfreerealestate.wav");
+rareSfx.preload = "auto";
+const RARE_SFX_CHANCE = 0.05;
+
+function loadSfxVolume(): number {
+  const raw = localStorage.getItem(SFX_VOLUME_KEY);
+  const n = raw == null ? 60 : Number(raw);
+  return Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 60;
+}
+function applySfxVolume(pct: number): void {
+  winSfx.volume = pct / 100;
+  rareSfx.volume = pct / 100;
+  sfxVolume.value = String(pct);
+  sfxVolumeLabel.textContent = `${pct}%`;
+}
+applySfxVolume(loadSfxVolume());
+sfxVolume.addEventListener("input", () => {
+  const pct = Number(sfxVolume.value);
+  applySfxVolume(pct);
+  localStorage.setItem(SFX_VOLUME_KEY, String(pct));
+});
 
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) =>
@@ -274,6 +302,22 @@ function handleMessage(raw: string): void {
     }
     case "end": {
       appendLog(`*** Game over! Team ${env.data.teamId + 1} won by ${env.data.condition}`);
+      if (winSfx.volume > 0) {
+        const rolled = Math.random() < RARE_SFX_CHANCE;
+        const onEnd = (): void => {
+          winSfx.removeEventListener("ended", onEnd);
+          if (!rolled) return;
+          rareSfx.currentTime = 0;
+          rareSfx.play().catch((err) => appendLog(`[rare sfx blocked] ${err?.message ?? err}`));
+          appendLog(`*** Rare SFX rolled!`);
+        };
+        winSfx.addEventListener("ended", onEnd);
+        winSfx.currentTime = 0;
+        winSfx.play().catch((err) => {
+          winSfx.removeEventListener("ended", onEnd);
+          appendLog(`[sfx blocked] ${err?.message ?? err}`);
+        });
+      }
       break;
     }
     case "chat": {
