@@ -5,14 +5,18 @@
       "name": "Square text shown on the tile",
       "mods_required": "Array of mod names. Empty = vanilla. Modded squares are excluded unless lobby toggles 'allow_modded'.",
       "verification": "'honor' | 'duel' | 'dice'. v1 includes honor and dice in the sampling pool; duel is parked for Phase 2.",
-      "chapter": "Only on level_completion entries — display label from CHAPTERS in rush_data.py.",
-      "stat_code": "Only on level_completion entries — Steam leaderboard stat code from rush_data.LEVELS."
+      "chapter": "Only on level_completion entries \u2014 display label from CHAPTERS in rush_data.py.",
+      "stat_code": "Only on level_completion entries \u2014 Steam leaderboard stat code from rush_data.LEVELS.",
+      "medal_tier": "Only on medals entries \u2014 'dev' | 'emerald' | 'amethyst' | 'sapphire'. Topaz/BD are mean-only.",
+      "medal_kind": "Only on medals entries \u2014 \"per_level\" | \"aggregated\". Per-level entries are further gated by Settings.perLevelMedalTiers.",
+      "rush": "Optional boolean. True = chapter-rush completion square (Violet/Red/Yellow \u00d7 Heaven/Hell). Gated by Settings.allowRushes."
     },
     "sections": [
       "standard",
       "level_completion",
       "modded",
-      "mean"
+      "mean",
+      "medals"
     ],
     "lobby_filtering": "Lobby settings pick which sections to draw from. Board = uniform random sample from union, filtered by allow_modded and verification in ('honor', 'dice') for v1.",
     "mods_referenced": [
@@ -26,10 +30,10 @@
       "EventTracker"
     ],
     "review_needed": [
-      "mods_required tags in the modded section are best-effort. Worth a manual pass before Stage 1 — especially the EventTracker / NeonLite / SecretShop assignments which I inferred from square text rather than known mod docs.",
-      "Square 'Kill any non-balloon demon without the use of a card during the level' — original list had no count. Left as worded; consider whether it should specify N levels.",
-      "Square 'Complete any level with a comically small window size' — pure honor, no real verification path. Fine for v1, but worth flagging in the README so testers don't argue about what 'comically small' means.",
-      "Squares 'Take a vacation to Idiot Island' and 'Let Red get away' — assumed honor. If they actually depend on a mod, retag.",
+      "mods_required tags in the modded section are best-effort. Worth a manual pass before Stage 1 \u2014 especially the EventTracker / NeonLite / SecretShop assignments which I inferred from square text rather than known mod docs.",
+      "Square 'Kill any non-balloon demon without the use of a card during the level' \u2014 original list had no count. Left as worded; consider whether it should specify N levels.",
+      "Square 'Complete any level with a comically small window size' \u2014 pure honor, no real verification path. Fine for v1, but worth flagging in the README so testers don't argue about what 'comically small' means.",
+      "Squares 'Take a vacation to Idiot Island' and 'Let Red get away' \u2014 assumed honor. If they actually depend on a mod, retag.",
       "The Phase 1 chapter-without-discarding squares cover chapters 1,2,3,5,6,7,8,9. Chapters 4, 10, 11, 12 are intentionally absent in the user's list. Did not invent entries for them; can add later if desired."
     ]
   },
@@ -84,7 +88,7 @@
     },
     {
       "id": "std-beat-4-developer-times-6b4674",
-      "name": "Beat 4 developer times",
+      "name": "Beat 6 developer times",
       "mods_required": [],
       "verification": "honor"
     },
@@ -110,37 +114,43 @@
       "id": "std-complete-violet-s-heaven-rush-9fecc1",
       "name": "Complete Violet's Heaven Rush",
       "mods_required": [],
-      "verification": "honor"
+      "verification": "honor",
+      "rush": true
     },
     {
       "id": "std-complete-violet-s-hell-rush-a67d22",
       "name": "Complete Violet's Hell Rush",
       "mods_required": [],
-      "verification": "honor"
+      "verification": "honor",
+      "rush": true
     },
     {
       "id": "std-complete-red-s-heaven-rush-737231",
       "name": "Complete Red's Heaven Rush",
       "mods_required": [],
-      "verification": "honor"
+      "verification": "honor",
+      "rush": true
     },
     {
       "id": "std-complete-red-s-hell-rush-f8dab6",
       "name": "Complete Red's Hell Rush",
       "mods_required": [],
-      "verification": "honor"
+      "verification": "honor",
+      "rush": true
     },
     {
       "id": "std-complete-yellow-s-heaven-rush-f2ae24",
       "name": "Complete Yellow's Heaven Rush",
       "mods_required": [],
-      "verification": "honor"
+      "verification": "honor",
+      "rush": true
     },
     {
       "id": "std-complete-yellow-s-hell-rush-3d0c47",
       "name": "Complete Yellow's Hell Rush",
       "mods_required": [],
-      "verification": "honor"
+      "verification": "honor",
+      "rush": true
     },
     {
       "id": "std-kill-4-unique-demons-using-a-guardian-d9c550",
@@ -537,6 +547,12 @@
     {
       "id": "mean-get-a-bd-time-on-any-individual-level-0492f9",
       "name": "Achieve a BD on any IL",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "mean-beat-2-topaz-medals-500f80",
+      "name": "Beat 2 Topaz medals",
       "mods_required": [],
       "verification": "honor"
     }
@@ -1730,6 +1746,3904 @@
       "chapter": "Sidequests - Yellow",
       "mods_required": [],
       "verification": "honor"
+    }
+  ],
+  "medals": [
+    {
+      "id": "med-beat-5-emerald-medals-de6785",
+      "name": "Beat 5 Emerald medals",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "aggregated"
+    },
+    {
+      "id": "med-beat-4-amethyst-medals-1123d4",
+      "name": "Beat 4 Amethyst medals",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "aggregated"
+    },
+    {
+      "id": "med-beat-3-sapphire-medals-154c90",
+      "name": "Beat 3 Sapphire medals",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "aggregated"
+    },
+    {
+      "id": "med-achieve-a-movement-dev-ecea57",
+      "name": "Achieve a Movement Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-movement-emerald-7e2859",
+      "name": "Achieve a Movement Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-movement-amethyst-68ed19",
+      "name": "Achieve a Movement Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-movement-sapphire-db9f40",
+      "name": "Achieve a Movement Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-pummel-dev-eb8280",
+      "name": "Achieve a Pummel Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-pummel-emerald-cd1995",
+      "name": "Achieve a Pummel Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-pummel-amethyst-4e8f23",
+      "name": "Achieve a Pummel Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-pummel-sapphire-8ca43f",
+      "name": "Achieve a Pummel Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-gunner-dev-e43618",
+      "name": "Achieve a Gunner Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-gunner-emerald-91ea68",
+      "name": "Achieve a Gunner Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-gunner-amethyst-b60340",
+      "name": "Achieve a Gunner Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-gunner-sapphire-e9dd39",
+      "name": "Achieve a Gunner Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-cascade-dev-fb0cf0",
+      "name": "Achieve a Cascade Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-cascade-emerald-76cbe9",
+      "name": "Achieve a Cascade Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-cascade-amethyst-e35883",
+      "name": "Achieve a Cascade Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-cascade-sapphire-191b38",
+      "name": "Achieve a Cascade Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-elevate-dev-5c7a47",
+      "name": "Achieve a Elevate Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-elevate-emerald-ad9421",
+      "name": "Achieve a Elevate Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-elevate-amethyst-48ef6d",
+      "name": "Achieve a Elevate Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-elevate-sapphire-672888",
+      "name": "Achieve a Elevate Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-bounce-dev-d4d1d0",
+      "name": "Achieve a Bounce Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-bounce-emerald-ecb797",
+      "name": "Achieve a Bounce Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-bounce-amethyst-1bcea3",
+      "name": "Achieve a Bounce Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-bounce-sapphire-ccdab8",
+      "name": "Achieve a Bounce Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-purify-dev-f8c81f",
+      "name": "Achieve a Purify Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-purify-emerald-101f9a",
+      "name": "Achieve a Purify Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-purify-amethyst-1dd877",
+      "name": "Achieve a Purify Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-purify-sapphire-8dcd55",
+      "name": "Achieve a Purify Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-climb-dev-d6f99c",
+      "name": "Achieve a Climb Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-climb-emerald-46fe99",
+      "name": "Achieve a Climb Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-climb-amethyst-809932",
+      "name": "Achieve a Climb Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-climb-sapphire-8ffe89",
+      "name": "Achieve a Climb Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-fasttrack-dev-0f4502",
+      "name": "Achieve a Fasttrack Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-fasttrack-emerald-33c492",
+      "name": "Achieve a Fasttrack Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-fasttrack-amethyst-86f146",
+      "name": "Achieve a Fasttrack Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-fasttrack-sapphire-11a875",
+      "name": "Achieve a Fasttrack Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-glass-port-dev-2d3825",
+      "name": "Achieve a Glass Port Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-glass-port-emerald-352b74",
+      "name": "Achieve a Glass Port Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-glass-port-amethyst-31b41c",
+      "name": "Achieve a Glass Port Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-glass-port-sapphire-cc3afa",
+      "name": "Achieve a Glass Port Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-take-flight-dev-63235b",
+      "name": "Achieve a Take Flight Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-take-flight-emerald-46187c",
+      "name": "Achieve a Take Flight Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-take-flight-amethyst-a43e80",
+      "name": "Achieve a Take Flight Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-take-flight-sapphire-7a5609",
+      "name": "Achieve a Take Flight Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-godspeed-dev-88db21",
+      "name": "Achieve a Godspeed Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-godspeed-emerald-fe78aa",
+      "name": "Achieve a Godspeed Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-godspeed-amethyst-bb3b52",
+      "name": "Achieve a Godspeed Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-godspeed-sapphire-f81834",
+      "name": "Achieve a Godspeed Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-dasher-dev-3452d0",
+      "name": "Achieve a Dasher Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-dasher-emerald-603361",
+      "name": "Achieve a Dasher Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-dasher-amethyst-333e98",
+      "name": "Achieve a Dasher Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-dasher-sapphire-3b5124",
+      "name": "Achieve a Dasher Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-thrasher-dev-d6181b",
+      "name": "Achieve a Thrasher Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-thrasher-emerald-df03db",
+      "name": "Achieve a Thrasher Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-thrasher-amethyst-8218d8",
+      "name": "Achieve a Thrasher Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-thrasher-sapphire-7fa650",
+      "name": "Achieve a Thrasher Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-outstretched-dev-502156",
+      "name": "Achieve a Outstretched Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-outstretched-emerald-a8825b",
+      "name": "Achieve a Outstretched Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-outstretched-amethyst-4eb1b9",
+      "name": "Achieve a Outstretched Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-outstretched-sapphire-45f640",
+      "name": "Achieve a Outstretched Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-smackdown-dev-c3f44e",
+      "name": "Achieve a Smackdown Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-smackdown-emerald-908a67",
+      "name": "Achieve a Smackdown Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-smackdown-amethyst-f91f26",
+      "name": "Achieve a Smackdown Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-smackdown-sapphire-d297a7",
+      "name": "Achieve a Smackdown Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-catwalk-dev-a33d56",
+      "name": "Achieve a Catwalk Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-catwalk-emerald-e883a5",
+      "name": "Achieve a Catwalk Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-catwalk-amethyst-3b52a2",
+      "name": "Achieve a Catwalk Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-catwalk-sapphire-1d0331",
+      "name": "Achieve a Catwalk Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-fastlane-dev-ddf451",
+      "name": "Achieve a Fastlane Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-fastlane-emerald-a0776b",
+      "name": "Achieve a Fastlane Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-fastlane-amethyst-a7d3a5",
+      "name": "Achieve a Fastlane Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-fastlane-sapphire-cfebaf",
+      "name": "Achieve a Fastlane Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-distinguish-dev-8e94ba",
+      "name": "Achieve a Distinguish Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-distinguish-emerald-579b14",
+      "name": "Achieve a Distinguish Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-distinguish-amethyst-2d40a5",
+      "name": "Achieve a Distinguish Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-distinguish-sapphire-5a1d8e",
+      "name": "Achieve a Distinguish Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-dancer-dev-9658f7",
+      "name": "Achieve a Dancer Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-dancer-emerald-3589b3",
+      "name": "Achieve a Dancer Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-dancer-amethyst-262811",
+      "name": "Achieve a Dancer Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-dancer-sapphire-086413",
+      "name": "Achieve a Dancer Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-guardian-dev-531bb7",
+      "name": "Achieve a Guardian Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-guardian-emerald-94b5e0",
+      "name": "Achieve a Guardian Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-guardian-amethyst-1e45c0",
+      "name": "Achieve a Guardian Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-guardian-sapphire-fdeb4b",
+      "name": "Achieve a Guardian Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-stomp-dev-a62f67",
+      "name": "Achieve a Stomp Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-stomp-emerald-77e91c",
+      "name": "Achieve a Stomp Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-stomp-amethyst-106119",
+      "name": "Achieve a Stomp Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-stomp-sapphire-73ee77",
+      "name": "Achieve a Stomp Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-jumper-dev-27732a",
+      "name": "Achieve a Jumper Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-jumper-emerald-0f5f28",
+      "name": "Achieve a Jumper Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-jumper-amethyst-368066",
+      "name": "Achieve a Jumper Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-jumper-sapphire-bcd5fd",
+      "name": "Achieve a Jumper Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-dash-tower-dev-ee3729",
+      "name": "Achieve a Dash Tower Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-dash-tower-emerald-76ec04",
+      "name": "Achieve a Dash Tower Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-dash-tower-amethyst-8cb82c",
+      "name": "Achieve a Dash Tower Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-dash-tower-sapphire-7c3725",
+      "name": "Achieve a Dash Tower Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-descent-dev-47b0fb",
+      "name": "Achieve a Descent Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-descent-emerald-0fe835",
+      "name": "Achieve a Descent Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-descent-amethyst-4ad4d9",
+      "name": "Achieve a Descent Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-descent-sapphire-bd7745",
+      "name": "Achieve a Descent Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-driller-dev-914a2d",
+      "name": "Achieve a Driller Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-driller-emerald-cdc86c",
+      "name": "Achieve a Driller Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-driller-amethyst-c9a0b9",
+      "name": "Achieve a Driller Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-driller-sapphire-59f554",
+      "name": "Achieve a Driller Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-canals-dev-838ab7",
+      "name": "Achieve a Canals Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-canals-emerald-664e41",
+      "name": "Achieve a Canals Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-canals-amethyst-f4b746",
+      "name": "Achieve a Canals Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-canals-sapphire-63fcca",
+      "name": "Achieve a Canals Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-sprint-dev-1255e8",
+      "name": "Achieve a Sprint Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-sprint-emerald-00aae2",
+      "name": "Achieve a Sprint Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-sprint-amethyst-708fdb",
+      "name": "Achieve a Sprint Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-sprint-sapphire-15c731",
+      "name": "Achieve a Sprint Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-mountain-dev-8b1460",
+      "name": "Achieve a Mountain Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-mountain-emerald-11f24e",
+      "name": "Achieve a Mountain Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-mountain-amethyst-d09329",
+      "name": "Achieve a Mountain Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-mountain-sapphire-6374e8",
+      "name": "Achieve a Mountain Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-superkinetic-dev-1f0a2d",
+      "name": "Achieve a Superkinetic Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-superkinetic-emerald-4d21d4",
+      "name": "Achieve a Superkinetic Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-superkinetic-amethyst-f0b62b",
+      "name": "Achieve a Superkinetic Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-superkinetic-sapphire-00e6e7",
+      "name": "Achieve a Superkinetic Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-arrival-dev-4e6b23",
+      "name": "Achieve a Arrival Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-arrival-emerald-3487ee",
+      "name": "Achieve a Arrival Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-arrival-amethyst-99859c",
+      "name": "Achieve a Arrival Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-arrival-sapphire-1acfd8",
+      "name": "Achieve a Arrival Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-forgotten-city-dev-715b62",
+      "name": "Achieve a Forgotten City Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-forgotten-city-emerald-4ee3e1",
+      "name": "Achieve a Forgotten City Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-forgotten-city-amethyst-c702e2",
+      "name": "Achieve a Forgotten City Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-forgotten-city-sapphire-a136ae",
+      "name": "Achieve a Forgotten City Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-the-clocktower-dev-431d51",
+      "name": "Achieve a The Clocktower Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-the-clocktower-emerald-08ce2d",
+      "name": "Achieve a The Clocktower Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-the-clocktower-amethyst-5bf504",
+      "name": "Achieve a The Clocktower Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-the-clocktower-sapphire-02da5a",
+      "name": "Achieve a The Clocktower Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-fireball-dev-455fff",
+      "name": "Achieve a Fireball Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-fireball-emerald-48da12",
+      "name": "Achieve a Fireball Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-fireball-amethyst-d0f6a3",
+      "name": "Achieve a Fireball Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-fireball-sapphire-b9b76f",
+      "name": "Achieve a Fireball Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-ringer-dev-ec8108",
+      "name": "Achieve a Ringer Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-ringer-emerald-d611c5",
+      "name": "Achieve a Ringer Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-ringer-amethyst-67b5fd",
+      "name": "Achieve a Ringer Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-ringer-sapphire-3a1c86",
+      "name": "Achieve a Ringer Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-cleaner-dev-893781",
+      "name": "Achieve a Cleaner Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-cleaner-emerald-45c63a",
+      "name": "Achieve a Cleaner Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-cleaner-amethyst-d887a7",
+      "name": "Achieve a Cleaner Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-cleaner-sapphire-e74ff7",
+      "name": "Achieve a Cleaner Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-warehouse-dev-256290",
+      "name": "Achieve a Warehouse Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-warehouse-emerald-869618",
+      "name": "Achieve a Warehouse Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-warehouse-amethyst-6a4d35",
+      "name": "Achieve a Warehouse Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-warehouse-sapphire-de6aa1",
+      "name": "Achieve a Warehouse Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-boom-dev-af7489",
+      "name": "Achieve a Boom Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-boom-emerald-d1eba3",
+      "name": "Achieve a Boom Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-boom-amethyst-159a76",
+      "name": "Achieve a Boom Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-boom-sapphire-531186",
+      "name": "Achieve a Boom Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-streets-dev-cb90f9",
+      "name": "Achieve a Streets Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-streets-emerald-2d72fb",
+      "name": "Achieve a Streets Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-streets-amethyst-c33106",
+      "name": "Achieve a Streets Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-streets-sapphire-dfdcb1",
+      "name": "Achieve a Streets Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-steps-dev-bb5f5a",
+      "name": "Achieve a Steps Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-steps-emerald-405f1b",
+      "name": "Achieve a Steps Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-steps-amethyst-b8ed4e",
+      "name": "Achieve a Steps Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-steps-sapphire-ea38a1",
+      "name": "Achieve a Steps Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-demolition-dev-29b9f7",
+      "name": "Achieve a Demolition Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-demolition-emerald-f73ee4",
+      "name": "Achieve a Demolition Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-demolition-amethyst-e29852",
+      "name": "Achieve a Demolition Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-demolition-sapphire-2196bd",
+      "name": "Achieve a Demolition Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-arcs-dev-55c7e0",
+      "name": "Achieve a Arcs Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-arcs-emerald-60dc56",
+      "name": "Achieve a Arcs Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-arcs-amethyst-c07d93",
+      "name": "Achieve a Arcs Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-arcs-sapphire-c2cdf9",
+      "name": "Achieve a Arcs Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-apartment-dev-a4e211",
+      "name": "Achieve a Apartment Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-apartment-emerald-e0524b",
+      "name": "Achieve a Apartment Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-apartment-amethyst-57bf17",
+      "name": "Achieve a Apartment Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-apartment-sapphire-5a1589",
+      "name": "Achieve a Apartment Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-hanging-gardens-dev-6bc6e2",
+      "name": "Achieve a Hanging Gardens Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-hanging-gardens-emerald-e3f9a9",
+      "name": "Achieve a Hanging Gardens Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-hanging-gardens-amethyst-8fb88d",
+      "name": "Achieve a Hanging Gardens Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-hanging-gardens-sapphire-9ae718",
+      "name": "Achieve a Hanging Gardens Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-tangled-dev-7a571d",
+      "name": "Achieve a Tangled Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-tangled-emerald-15117b",
+      "name": "Achieve a Tangled Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-tangled-amethyst-de9cbc",
+      "name": "Achieve a Tangled Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-tangled-sapphire-05de0c",
+      "name": "Achieve a Tangled Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-waterworks-dev-2aed4d",
+      "name": "Achieve a Waterworks Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-waterworks-emerald-1d359a",
+      "name": "Achieve a Waterworks Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-waterworks-amethyst-f2988c",
+      "name": "Achieve a Waterworks Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-waterworks-sapphire-a03ca7",
+      "name": "Achieve a Waterworks Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-killswitch-dev-c55ae9",
+      "name": "Achieve a Killswitch Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-killswitch-emerald-4fddfa",
+      "name": "Achieve a Killswitch Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-killswitch-amethyst-5d884a",
+      "name": "Achieve a Killswitch Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-killswitch-sapphire-09337a",
+      "name": "Achieve a Killswitch Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-falling-dev-c5b8b9",
+      "name": "Achieve a Falling Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-falling-emerald-9e67a9",
+      "name": "Achieve a Falling Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-falling-amethyst-7378a4",
+      "name": "Achieve a Falling Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-falling-sapphire-91a1ed",
+      "name": "Achieve a Falling Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-shocker-dev-40c802",
+      "name": "Achieve a Shocker Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-shocker-emerald-0f15af",
+      "name": "Achieve a Shocker Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-shocker-amethyst-8db06c",
+      "name": "Achieve a Shocker Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-shocker-sapphire-ca08ba",
+      "name": "Achieve a Shocker Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-bouquet-dev-667ef1",
+      "name": "Achieve a Bouquet Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-bouquet-emerald-591381",
+      "name": "Achieve a Bouquet Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-bouquet-amethyst-fa1065",
+      "name": "Achieve a Bouquet Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-bouquet-sapphire-e3b62f",
+      "name": "Achieve a Bouquet Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-prepare-dev-ac40d5",
+      "name": "Achieve a Prepare Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-prepare-emerald-44ac4b",
+      "name": "Achieve a Prepare Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-prepare-amethyst-51ffc8",
+      "name": "Achieve a Prepare Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-prepare-sapphire-d8a90b",
+      "name": "Achieve a Prepare Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-triptrack-dev-a2bc17",
+      "name": "Achieve a Triptrack Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-triptrack-emerald-fc1acf",
+      "name": "Achieve a Triptrack Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-triptrack-amethyst-f7b050",
+      "name": "Achieve a Triptrack Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-triptrack-sapphire-938001",
+      "name": "Achieve a Triptrack Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-race-dev-9b78d0",
+      "name": "Achieve a Race Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-race-emerald-349356",
+      "name": "Achieve a Race Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-race-amethyst-227e8d",
+      "name": "Achieve a Race Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-race-sapphire-018cf1",
+      "name": "Achieve a Race Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-bubble-dev-b101a7",
+      "name": "Achieve a Bubble Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-bubble-emerald-a369f4",
+      "name": "Achieve a Bubble Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-bubble-amethyst-560b46",
+      "name": "Achieve a Bubble Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-bubble-sapphire-1dec96",
+      "name": "Achieve a Bubble Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-shield-dev-21b3e3",
+      "name": "Achieve a Shield Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-shield-emerald-ba61ea",
+      "name": "Achieve a Shield Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-shield-amethyst-51d17c",
+      "name": "Achieve a Shield Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-shield-sapphire-d75993",
+      "name": "Achieve a Shield Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-overlook-dev-28c57e",
+      "name": "Achieve a Overlook Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-overlook-emerald-32a31e",
+      "name": "Achieve a Overlook Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-overlook-amethyst-e57507",
+      "name": "Achieve a Overlook Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-overlook-sapphire-71e9cd",
+      "name": "Achieve a Overlook Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-pop-dev-8f1518",
+      "name": "Achieve a Pop Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-pop-emerald-ee92df",
+      "name": "Achieve a Pop Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-pop-amethyst-09210e",
+      "name": "Achieve a Pop Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-pop-sapphire-ecfdc4",
+      "name": "Achieve a Pop Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-minefield-dev-0a0907",
+      "name": "Achieve a Minefield Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-minefield-emerald-af4a57",
+      "name": "Achieve a Minefield Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-minefield-amethyst-515001",
+      "name": "Achieve a Minefield Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-minefield-sapphire-7e927c",
+      "name": "Achieve a Minefield Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-mimic-dev-9ca9fd",
+      "name": "Achieve a Mimic Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-mimic-emerald-1ac16e",
+      "name": "Achieve a Mimic Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-mimic-amethyst-8c4554",
+      "name": "Achieve a Mimic Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-mimic-sapphire-d3747c",
+      "name": "Achieve a Mimic Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-trigger-dev-1b32db",
+      "name": "Achieve a Trigger Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-trigger-emerald-47f1a3",
+      "name": "Achieve a Trigger Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-trigger-amethyst-761fc4",
+      "name": "Achieve a Trigger Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-trigger-sapphire-50d726",
+      "name": "Achieve a Trigger Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-greenhouse-dev-47f2b5",
+      "name": "Achieve a Greenhouse Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-greenhouse-emerald-7191de",
+      "name": "Achieve a Greenhouse Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-greenhouse-amethyst-722ae3",
+      "name": "Achieve a Greenhouse Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-greenhouse-sapphire-02f95b",
+      "name": "Achieve a Greenhouse Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-sweep-dev-895ae6",
+      "name": "Achieve a Sweep Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-sweep-emerald-7b544f",
+      "name": "Achieve a Sweep Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-sweep-amethyst-a8fca0",
+      "name": "Achieve a Sweep Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-sweep-sapphire-aa2255",
+      "name": "Achieve a Sweep Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-fuse-dev-c2e51c",
+      "name": "Achieve a Fuse Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-fuse-emerald-e4d3ec",
+      "name": "Achieve a Fuse Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-fuse-amethyst-7a1af5",
+      "name": "Achieve a Fuse Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-fuse-sapphire-5635d0",
+      "name": "Achieve a Fuse Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-heaven-s-edge-dev-b4f53b",
+      "name": "Achieve a Heaven's Edge Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-heaven-s-edge-emerald-aaea5a",
+      "name": "Achieve a Heaven's Edge Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-heaven-s-edge-amethyst-b5c9c5",
+      "name": "Achieve a Heaven's Edge Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-heaven-s-edge-sapphire-f86ea1",
+      "name": "Achieve a Heaven's Edge Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-zipline-dev-7730f1",
+      "name": "Achieve a Zipline Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-zipline-emerald-9fa0fe",
+      "name": "Achieve a Zipline Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-zipline-amethyst-d3f29b",
+      "name": "Achieve a Zipline Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-zipline-sapphire-dbf284",
+      "name": "Achieve a Zipline Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-swing-dev-6e31ef",
+      "name": "Achieve a Swing Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-swing-emerald-177d2e",
+      "name": "Achieve a Swing Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-swing-amethyst-8fd682",
+      "name": "Achieve a Swing Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-swing-sapphire-009fe2",
+      "name": "Achieve a Swing Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-chute-dev-b7133d",
+      "name": "Achieve a Chute Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-chute-emerald-4e1ea6",
+      "name": "Achieve a Chute Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-chute-amethyst-b50469",
+      "name": "Achieve a Chute Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-chute-sapphire-2a9eb2",
+      "name": "Achieve a Chute Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-crash-dev-3101c5",
+      "name": "Achieve a Crash Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-crash-emerald-863795",
+      "name": "Achieve a Crash Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-crash-amethyst-a3c09f",
+      "name": "Achieve a Crash Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-crash-sapphire-f5b861",
+      "name": "Achieve a Crash Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-ascent-dev-1a2f1d",
+      "name": "Achieve a Ascent Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-ascent-emerald-396186",
+      "name": "Achieve a Ascent Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-ascent-amethyst-e09ec9",
+      "name": "Achieve a Ascent Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-ascent-sapphire-b6d56a",
+      "name": "Achieve a Ascent Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-straightaway-dev-d9878b",
+      "name": "Achieve a Straightaway Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-straightaway-emerald-71aa94",
+      "name": "Achieve a Straightaway Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-straightaway-amethyst-0799c7",
+      "name": "Achieve a Straightaway Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-straightaway-sapphire-5f62e1",
+      "name": "Achieve a Straightaway Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-firecracker-dev-19f0fb",
+      "name": "Achieve a Firecracker Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-firecracker-emerald-b66ed5",
+      "name": "Achieve a Firecracker Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-firecracker-amethyst-160a5c",
+      "name": "Achieve a Firecracker Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-firecracker-sapphire-39ab4c",
+      "name": "Achieve a Firecracker Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-streak-dev-80d7a3",
+      "name": "Achieve a Streak Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-streak-emerald-56aa92",
+      "name": "Achieve a Streak Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-streak-amethyst-6b1fa0",
+      "name": "Achieve a Streak Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-streak-sapphire-c4c679",
+      "name": "Achieve a Streak Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-mirror-dev-2ba995",
+      "name": "Achieve a Mirror Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-mirror-emerald-1df30c",
+      "name": "Achieve a Mirror Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-mirror-amethyst-932fa9",
+      "name": "Achieve a Mirror Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-mirror-sapphire-e92dec",
+      "name": "Achieve a Mirror Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-escalation-dev-cec3ea",
+      "name": "Achieve a Escalation Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-escalation-emerald-ee2ee7",
+      "name": "Achieve a Escalation Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-escalation-amethyst-7c1c30",
+      "name": "Achieve a Escalation Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-escalation-sapphire-c815a0",
+      "name": "Achieve a Escalation Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-bolt-dev-a336a0",
+      "name": "Achieve a Bolt Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-bolt-emerald-e54396",
+      "name": "Achieve a Bolt Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-bolt-amethyst-cb9b58",
+      "name": "Achieve a Bolt Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-bolt-sapphire-1f436c",
+      "name": "Achieve a Bolt Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-godstreak-dev-5e75e5",
+      "name": "Achieve a Godstreak Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-godstreak-emerald-c4dbfc",
+      "name": "Achieve a Godstreak Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-godstreak-amethyst-826865",
+      "name": "Achieve a Godstreak Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-godstreak-sapphire-914f07",
+      "name": "Achieve a Godstreak Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-plunge-dev-0b45d3",
+      "name": "Achieve a Plunge Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-plunge-emerald-f6ea5e",
+      "name": "Achieve a Plunge Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-plunge-amethyst-ca2bba",
+      "name": "Achieve a Plunge Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-plunge-sapphire-d8949b",
+      "name": "Achieve a Plunge Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-mayhem-dev-3a82f4",
+      "name": "Achieve a Mayhem Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-mayhem-emerald-7f0823",
+      "name": "Achieve a Mayhem Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-mayhem-amethyst-737f58",
+      "name": "Achieve a Mayhem Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-mayhem-sapphire-57f00f",
+      "name": "Achieve a Mayhem Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-barrage-dev-179c8d",
+      "name": "Achieve a Barrage Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-barrage-emerald-ed0a55",
+      "name": "Achieve a Barrage Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-barrage-amethyst-91b6b3",
+      "name": "Achieve a Barrage Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-barrage-sapphire-f9afd8",
+      "name": "Achieve a Barrage Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-estate-dev-ee81cf",
+      "name": "Achieve a Estate Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-estate-emerald-d1d8b1",
+      "name": "Achieve a Estate Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-estate-amethyst-8dfc62",
+      "name": "Achieve a Estate Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-estate-sapphire-1f0885",
+      "name": "Achieve a Estate Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-trapwire-dev-fa0bfa",
+      "name": "Achieve a Trapwire Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-trapwire-emerald-c7f7af",
+      "name": "Achieve a Trapwire Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-trapwire-amethyst-a17c5b",
+      "name": "Achieve a Trapwire Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-trapwire-sapphire-1020e9",
+      "name": "Achieve a Trapwire Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-ricochet-dev-7e671a",
+      "name": "Achieve a Ricochet Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-ricochet-emerald-20aa2c",
+      "name": "Achieve a Ricochet Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-ricochet-amethyst-0ff120",
+      "name": "Achieve a Ricochet Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-ricochet-sapphire-eba5eb",
+      "name": "Achieve a Ricochet Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-fortress-dev-1f9829",
+      "name": "Achieve a Fortress Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-fortress-emerald-5c90cf",
+      "name": "Achieve a Fortress Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-fortress-amethyst-4fe839",
+      "name": "Achieve a Fortress Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-fortress-sapphire-da92a5",
+      "name": "Achieve a Fortress Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-holy-ground-dev-31c546",
+      "name": "Achieve a Holy Ground Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-holy-ground-emerald-f23083",
+      "name": "Achieve a Holy Ground Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-holy-ground-amethyst-695418",
+      "name": "Achieve a Holy Ground Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-holy-ground-sapphire-c9cdf6",
+      "name": "Achieve a Holy Ground Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-the-third-temple-dev-a4a10e",
+      "name": "Achieve a The Third Temple Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-the-third-temple-emerald-0017a3",
+      "name": "Achieve a The Third Temple Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-the-third-temple-amethyst-403497",
+      "name": "Achieve a The Third Temple Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-the-third-temple-sapphire-37b020",
+      "name": "Achieve a The Third Temple Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-spree-dev-984883",
+      "name": "Achieve a Spree Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-spree-emerald-a9f262",
+      "name": "Achieve a Spree Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-spree-amethyst-83abc6",
+      "name": "Achieve a Spree Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-spree-sapphire-d4156e",
+      "name": "Achieve a Spree Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-breakthrough-dev-0d79ed",
+      "name": "Achieve a Breakthrough Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-breakthrough-emerald-1f5329",
+      "name": "Achieve a Breakthrough Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-breakthrough-amethyst-ffa4cc",
+      "name": "Achieve a Breakthrough Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-breakthrough-sapphire-8b1a0f",
+      "name": "Achieve a Breakthrough Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-glide-dev-af0a5a",
+      "name": "Achieve a Glide Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-glide-emerald-616e1a",
+      "name": "Achieve a Glide Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-glide-amethyst-7dbe05",
+      "name": "Achieve a Glide Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-glide-sapphire-aa4744",
+      "name": "Achieve a Glide Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-closer-dev-126fc0",
+      "name": "Achieve a Closer Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-closer-emerald-3e703d",
+      "name": "Achieve a Closer Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-closer-amethyst-f2ad0e",
+      "name": "Achieve a Closer Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-closer-sapphire-d2839d",
+      "name": "Achieve a Closer Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-hike-dev-17dc9b",
+      "name": "Achieve a Hike Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-hike-emerald-7dfce2",
+      "name": "Achieve a Hike Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-hike-amethyst-91aac1",
+      "name": "Achieve a Hike Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-hike-sapphire-b42231",
+      "name": "Achieve a Hike Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-switch-dev-dae67b",
+      "name": "Achieve a Switch Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-switch-emerald-f271ec",
+      "name": "Achieve a Switch Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-switch-amethyst-56044f",
+      "name": "Achieve a Switch Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-switch-sapphire-81b4d5",
+      "name": "Achieve a Switch Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-access-dev-a03b7e",
+      "name": "Achieve a Access Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-access-emerald-1ca5a9",
+      "name": "Achieve a Access Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-access-amethyst-9052a9",
+      "name": "Achieve a Access Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-access-sapphire-d56253",
+      "name": "Achieve a Access Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-congregation-dev-8910ee",
+      "name": "Achieve a Congregation Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-congregation-emerald-8e7991",
+      "name": "Achieve a Congregation Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-congregation-amethyst-41d15b",
+      "name": "Achieve a Congregation Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-congregation-sapphire-af82e2",
+      "name": "Achieve a Congregation Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-sequence-dev-a5b107",
+      "name": "Achieve a Sequence Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-sequence-emerald-c2bb41",
+      "name": "Achieve a Sequence Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-sequence-amethyst-aaec8c",
+      "name": "Achieve a Sequence Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-sequence-sapphire-0f2aff",
+      "name": "Achieve a Sequence Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-marathon-dev-35889d",
+      "name": "Achieve a Marathon Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-marathon-emerald-82c325",
+      "name": "Achieve a Marathon Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-marathon-amethyst-d17e43",
+      "name": "Achieve a Marathon Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-marathon-sapphire-02719c",
+      "name": "Achieve a Marathon Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-sacrifice-dev-4c72d9",
+      "name": "Achieve a Sacrifice Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-sacrifice-emerald-b64d90",
+      "name": "Achieve a Sacrifice Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-sacrifice-amethyst-357c26",
+      "name": "Achieve a Sacrifice Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-sacrifice-sapphire-91e933",
+      "name": "Achieve a Sacrifice Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-absolution-dev-eea0d8",
+      "name": "Achieve a Absolution Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-absolution-emerald-626ec3",
+      "name": "Achieve a Absolution Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-absolution-amethyst-d82952",
+      "name": "Achieve a Absolution Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-absolution-sapphire-5e3e06",
+      "name": "Achieve a Absolution Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-elevate-traversal-i-dev-89d111",
+      "name": "Achieve a Elevate Traversal I Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-elevate-traversal-i-emerald-36cf0e",
+      "name": "Achieve a Elevate Traversal I Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-elevate-traversal-i-amethyst-b854da",
+      "name": "Achieve a Elevate Traversal I Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-elevate-traversal-i-sapphire-f0aea7",
+      "name": "Achieve a Elevate Traversal I Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-elevate-traversal-ii-dev-bb2e9a",
+      "name": "Achieve a Elevate Traversal II Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-elevate-traversal-ii-emerald-aceac2",
+      "name": "Achieve a Elevate Traversal II Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-elevate-traversal-ii-amethyst-d3b063",
+      "name": "Achieve a Elevate Traversal II Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-elevate-traversal-ii-sapphire-32281e",
+      "name": "Achieve a Elevate Traversal II Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-purify-traversal-dev-a60480",
+      "name": "Achieve a Purify Traversal Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-purify-traversal-emerald-d803ab",
+      "name": "Achieve a Purify Traversal Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-purify-traversal-amethyst-63ed25",
+      "name": "Achieve a Purify Traversal Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-purify-traversal-sapphire-d2e706",
+      "name": "Achieve a Purify Traversal Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-godspeed-traversal-dev-a5496e",
+      "name": "Achieve a Godspeed Traversal Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-godspeed-traversal-emerald-7c350f",
+      "name": "Achieve a Godspeed Traversal Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-godspeed-traversal-amethyst-ca12c1",
+      "name": "Achieve a Godspeed Traversal Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-godspeed-traversal-sapphire-3b94ba",
+      "name": "Achieve a Godspeed Traversal Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-stomp-traversal-dev-ffcaaf",
+      "name": "Achieve a Stomp Traversal Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-stomp-traversal-emerald-758317",
+      "name": "Achieve a Stomp Traversal Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-stomp-traversal-amethyst-1a42a3",
+      "name": "Achieve a Stomp Traversal Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-stomp-traversal-sapphire-7ff84d",
+      "name": "Achieve a Stomp Traversal Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-fireball-traversal-dev-7a5579",
+      "name": "Achieve a Fireball Traversal Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-fireball-traversal-emerald-8cae43",
+      "name": "Achieve a Fireball Traversal Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-fireball-traversal-amethyst-22122e",
+      "name": "Achieve a Fireball Traversal Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-fireball-traversal-sapphire-2cd911",
+      "name": "Achieve a Fireball Traversal Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-dominion-traversal-dev-ab3758",
+      "name": "Achieve a Dominion Traversal Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-dominion-traversal-emerald-f45dfb",
+      "name": "Achieve a Dominion Traversal Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-dominion-traversal-amethyst-a47495",
+      "name": "Achieve a Dominion Traversal Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-dominion-traversal-sapphire-27c382",
+      "name": "Achieve a Dominion Traversal Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-book-of-life-traversal-dev-767e44",
+      "name": "Achieve a Book of Life Traversal Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-book-of-life-traversal-emerald-07593f",
+      "name": "Achieve a Book of Life Traversal Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-book-of-life-traversal-amethyst-792063",
+      "name": "Achieve a Book of Life Traversal Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-book-of-life-traversal-sapphire-87da7a",
+      "name": "Achieve a Book of Life Traversal Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-doghouse-dev-bd2460",
+      "name": "Achieve a Doghouse Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-doghouse-emerald-accbd9",
+      "name": "Achieve a Doghouse Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-doghouse-amethyst-1d4666",
+      "name": "Achieve a Doghouse Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-doghouse-sapphire-444d23",
+      "name": "Achieve a Doghouse Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-choker-dev-642fa0",
+      "name": "Achieve a Choker Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-choker-emerald-9275bf",
+      "name": "Achieve a Choker Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-choker-amethyst-c904d8",
+      "name": "Achieve a Choker Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-choker-sapphire-f57a69",
+      "name": "Achieve a Choker Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-chain-dev-4d1b6b",
+      "name": "Achieve a Chain Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-chain-emerald-1cb3b7",
+      "name": "Achieve a Chain Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-chain-amethyst-be775b",
+      "name": "Achieve a Chain Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-chain-sapphire-74539d",
+      "name": "Achieve a Chain Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-hellevator-dev-a9ae5f",
+      "name": "Achieve a Hellevator Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-hellevator-emerald-cc4736",
+      "name": "Achieve a Hellevator Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-hellevator-amethyst-d74ba4",
+      "name": "Achieve a Hellevator Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-hellevator-sapphire-9f683d",
+      "name": "Achieve a Hellevator Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-razor-dev-460208",
+      "name": "Achieve a Razor Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-razor-emerald-f58ab7",
+      "name": "Achieve a Razor Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-razor-amethyst-2549aa",
+      "name": "Achieve a Razor Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-razor-sapphire-e8847a",
+      "name": "Achieve a Razor Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-all-seeing-eye-dev-c0e2a7",
+      "name": "Achieve a All Seeing Eye Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-all-seeing-eye-emerald-6b9a97",
+      "name": "Achieve a All Seeing Eye Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-all-seeing-eye-amethyst-a08ea3",
+      "name": "Achieve a All Seeing Eye Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-all-seeing-eye-sapphire-5cc6ba",
+      "name": "Achieve a All Seeing Eye Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-resident-saw-i-dev-cae429",
+      "name": "Achieve a Resident Saw I Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-resident-saw-i-emerald-11ed97",
+      "name": "Achieve a Resident Saw I Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-resident-saw-i-amethyst-486998",
+      "name": "Achieve a Resident Saw I Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-resident-saw-i-sapphire-8fc9b5",
+      "name": "Achieve a Resident Saw I Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-resident-saw-ii-dev-1a3348",
+      "name": "Achieve a Resident Saw II Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-resident-saw-ii-emerald-e16b80",
+      "name": "Achieve a Resident Saw II Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-resident-saw-ii-amethyst-756abf",
+      "name": "Achieve a Resident Saw II Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-resident-saw-ii-sapphire-4fe49d",
+      "name": "Achieve a Resident Saw II Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-sunset-flip-powerbomb-dev-d37272",
+      "name": "Achieve a Sunset Flip Powerbomb Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-sunset-flip-powerbomb-emerald-8b0238",
+      "name": "Achieve a Sunset Flip Powerbomb Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-sunset-flip-powerbomb-amethyst-ab57b8",
+      "name": "Achieve a Sunset Flip Powerbomb Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-sunset-flip-powerbomb-sapphire-1c4f18",
+      "name": "Achieve a Sunset Flip Powerbomb Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-balloon-mountain-dev-864019",
+      "name": "Achieve a Balloon Mountain Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-balloon-mountain-emerald-382485",
+      "name": "Achieve a Balloon Mountain Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-balloon-mountain-amethyst-81d99e",
+      "name": "Achieve a Balloon Mountain Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-balloon-mountain-sapphire-e2442c",
+      "name": "Achieve a Balloon Mountain Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-climbing-gym-dev-d7f4a0",
+      "name": "Achieve a Climbing Gym Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-climbing-gym-emerald-153694",
+      "name": "Achieve a Climbing Gym Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-climbing-gym-amethyst-38537f",
+      "name": "Achieve a Climbing Gym Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-climbing-gym-sapphire-d4cb78",
+      "name": "Achieve a Climbing Gym Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-fisherman-suplex-dev-c08125",
+      "name": "Achieve a Fisherman Suplex Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-fisherman-suplex-emerald-d71775",
+      "name": "Achieve a Fisherman Suplex Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-fisherman-suplex-amethyst-0f9578",
+      "name": "Achieve a Fisherman Suplex Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-fisherman-suplex-sapphire-283b25",
+      "name": "Achieve a Fisherman Suplex Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-stf-dev-078f97",
+      "name": "Achieve a STF Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-stf-emerald-00de36",
+      "name": "Achieve a STF Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-stf-amethyst-f04a44",
+      "name": "Achieve a STF Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-stf-sapphire-64a08c",
+      "name": "Achieve a STF Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-arena-dev-869f2b",
+      "name": "Achieve a Arena Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-arena-emerald-611e3f",
+      "name": "Achieve a Arena Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-arena-amethyst-628556",
+      "name": "Achieve a Arena Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-arena-sapphire-2fe365",
+      "name": "Achieve a Arena Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-attitude-adjustment-dev-69d7a5",
+      "name": "Achieve a Attitude Adjustment Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-attitude-adjustment-emerald-25da00",
+      "name": "Achieve a Attitude Adjustment Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-attitude-adjustment-amethyst-1139a4",
+      "name": "Achieve a Attitude Adjustment Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-attitude-adjustment-sapphire-62248d",
+      "name": "Achieve a Attitude Adjustment Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-rocket-dev-418a13",
+      "name": "Achieve a Rocket Dev",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "dev",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-rocket-emerald-546ed9",
+      "name": "Achieve a Rocket Emerald",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "emerald",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-rocket-amethyst-7113f2",
+      "name": "Achieve a Rocket Amethyst",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "amethyst",
+      "medal_kind": "per_level"
+    },
+    {
+      "id": "med-achieve-a-rocket-sapphire-e6cd39",
+      "name": "Achieve a Rocket Sapphire",
+      "mods_required": [],
+      "verification": "honor",
+      "medal_tier": "sapphire",
+      "medal_kind": "per_level"
     }
   ]
 }

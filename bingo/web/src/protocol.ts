@@ -1,4 +1,5 @@
-// duplicate of worker/src/protocol.ts — keep in sync.
+// duplicate of worker/src/protocol.ts — keep in sync. Web-side adds pass-through
+// parse cases for server→client envelopes (state/end/error).
 
 export type EnvelopeBase = {
   t: string;
@@ -25,18 +26,25 @@ export const MAX_TEAM_NAME_LEN = 24;
 
 export type Settings = {
   boardSize: 5 | 7 | 9;
-  sections: ("standard" | "level_completion" | "modded" | "mean")[];
+  sections: ("standard" | "level_completion" | "modded" | "mean" | "medals")[];
   allowModded: boolean;
+  allowRushes: boolean;   // when false, the 6 chapter-rush completion squares (Violet/Red/Yellow × Heaven/Hell) are excluded from the pool
   centerFree: boolean;
-  lockout: boolean;
-  anyoneCanClaim: boolean;
-  lockSpectatorJoinInGame: boolean;
-  allowNewTeamsInGame: boolean;
+  lockout: boolean;       // ON = first team to claim owns it; OFF = multiple teams can claim same cell
+  anyoneCanClaim: boolean; // true = any team member may claim/unclaim; false = leader only
+  lockSpectatorJoinInGame: boolean; // true = spectators cannot join a team after game start
+  allowNewTeamsInGame: boolean; // true = empty teams may be joined mid-game; false (default) = only teams that had members when the game started are joinable/visible
   timeLimitMin: number;
   winConditions: WinConditionKey[];
   firstToN?: number;
-  excludedSquareIds: string[];
+  excludedSquareIds: string[];   // square ids to omit from the sampling pool
+  medalThreshold: MedalTier;          // ceiling for medal-section squares; entries above this tier are filtered out (applies to both aggregated and per-level)
+  perLevelMedalTiers: MedalTier[];    // which tiers' per-level "Achieve a [LEVEL] [TIER]" squares to include; aggregated "Beat N [TIER] medals" squares ignore this and use medalThreshold only
+  medalSquareCap: number;             // hard cap on medal squares per board; ignored if medals is the only section
 };
+
+export type MedalTier = "dev" | "emerald" | "amethyst" | "sapphire";
+export type MedalKind = "per_level" | "aggregated";
 
 // "board_full" is a server-side sentinel — never user-configurable. Emitted when
 // every cell has a claim and no other configured condition has fired; winner is
@@ -72,18 +80,19 @@ export type RoomState = {
   members: Record<string, MemberInfo>;
   teams: TeamInfo[];
   board: { seed: number; squares: string[] } | null;
-  claims: (ClaimInfo[] | null)[];
-  startingAt: number | null;
+  claims: (ClaimInfo[] | null)[];   // each cell holds 0+ claims; null = empty. Lockout ON = at most one element.
+  startingAt: number | null;        // populated during "starting" phase; countdown ends at startingAt + COUNTDOWN_MS
   startedAt: number | null;
-  startingTeamIds: number[];
+  startingTeamIds: number[];        // snapshot of team ids that had >=1 member when the game entered the starting phase; empty in lobby
   winner: { teamId: number; condition: WinConditionKey; shape?: number[] } | null;
 };
 
 export const COUNTDOWN_MS = 3000;
 
 const VALID_BOARD_SIZES = new Set([5, 7, 9]);
-const VALID_SECTIONS = new Set(["standard", "level_completion", "modded", "mean"]);
+const VALID_SECTIONS = new Set(["standard", "level_completion", "modded", "mean", "medals"]);
 const VALID_WIN_CONDITIONS = new Set(["line", "four_corners", "full_house", "first_to_n", "time_limit"]);
+const VALID_MEDAL_THRESHOLDS = new Set(["dev", "emerald", "amethyst", "sapphire"]);
 
 function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
@@ -118,6 +127,7 @@ function isSettingsMsg(e: Record<string, unknown>): e is SettingsMsg {
     Array.isArray(d["sections"]) &&
     (d["sections"] as unknown[]).every((s) => VALID_SECTIONS.has(s as string)) &&
     typeof d["allowModded"] === "boolean" &&
+    typeof d["allowRushes"] === "boolean" &&
     typeof d["centerFree"] === "boolean" &&
     typeof d["lockout"] === "boolean" &&
     typeof d["anyoneCanClaim"] === "boolean" &&
@@ -127,7 +137,12 @@ function isSettingsMsg(e: Record<string, unknown>): e is SettingsMsg {
     Array.isArray(d["winConditions"]) &&
     (d["winConditions"] as unknown[]).every((w) => VALID_WIN_CONDITIONS.has(w as string)) &&
     Array.isArray(d["excludedSquareIds"]) &&
-    (d["excludedSquareIds"] as unknown[]).every((s) => typeof s === "string")
+    (d["excludedSquareIds"] as unknown[]).every((s) => typeof s === "string") &&
+    VALID_MEDAL_THRESHOLDS.has(d["medalThreshold"] as string) &&
+    Array.isArray(d["perLevelMedalTiers"]) &&
+    (d["perLevelMedalTiers"] as unknown[]).every((t) => VALID_MEDAL_THRESHOLDS.has(t as string)) &&
+    typeof d["medalSquareCap"] === "number" &&
+    (d["medalSquareCap"] as number) >= 0
   );
 }
 
@@ -158,6 +173,7 @@ function isRestart(e: Record<string, unknown>): e is Restart {
 function isChat(e: Record<string, unknown>): e is Chat {
   const d = e["data"];
   if (!isObject(d) || typeof d["body"] !== "string") return false;
+  // Optional fields — accept undefined or correct type.
   if (d["teamId"] !== undefined && d["teamId"] !== null && typeof d["teamId"] !== "number") return false;
   if (d["nickname"] !== undefined && d["nickname"] !== null && typeof d["nickname"] !== "string") return false;
   if (d["system"] !== undefined && typeof d["system"] !== "boolean") return false;
@@ -198,6 +214,7 @@ export const DEFAULT_SETTINGS: Settings = {
   boardSize: 5,
   sections: ["standard", "level_completion"],
   allowModded: false,
+  allowRushes: true,
   centerFree: false,
   lockout: true,
   anyoneCanClaim: true,
@@ -206,6 +223,9 @@ export const DEFAULT_SETTINGS: Settings = {
   timeLimitMin: 20,
   winConditions: ["line", "time_limit"],
   excludedSquareIds: [],
+  medalThreshold: "emerald",
+  perLevelMedalTiers: ["dev", "emerald", "amethyst", "sapphire"],
+  medalSquareCap: 6,
 };
 
 export const TEAM_PALETTE: { name: string; color: string }[] = [
@@ -226,6 +246,7 @@ export function makeInitialState(): RoomState {
       sections: [...DEFAULT_SETTINGS.sections],
       winConditions: [...DEFAULT_SETTINGS.winConditions],
       excludedSquareIds: [...DEFAULT_SETTINGS.excludedSquareIds],
+      perLevelMedalTiers: [...DEFAULT_SETTINGS.perLevelMedalTiers],
     },
     members: {},
     teams: TEAM_PALETTE.map((p, i) => ({

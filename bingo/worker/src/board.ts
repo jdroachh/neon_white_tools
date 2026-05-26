@@ -1,17 +1,33 @@
 import squaresData from "../../squares.json";
-import type { Settings, ClaimInfo, WinConditionKey } from "./protocol";
+import type { Settings, ClaimInfo, WinConditionKey, MedalTier, MedalKind } from "./protocol";
 import type { RoomState } from "./protocol";
 
-type Square = { id: string; name: string; mods_required: string[]; verification: string };
+type Square = {
+  id: string;
+  name: string;
+  mods_required: string[];
+  verification: string;
+  medal_tier?: MedalTier;
+  medal_kind?: MedalKind;
+  rush?: boolean;
+};
 type SquaresJson = {
   standard: Square[];
   level_completion: Square[];
   modded: Square[];
   mean: Square[];
+  medals: Square[];
   _meta?: unknown;
 };
 
 const squares = squaresData as SquaresJson;
+
+const MEDAL_TIER_RANK: Record<MedalTier, number> = {
+  dev: 0,
+  emerald: 1,
+  amethyst: 2,
+  sapphire: 3,
+};
 
 function mulberry32(seed: number): () => number {
   return () => {
@@ -31,38 +47,67 @@ function fisherYates<T>(arr: T[], rng: () => number): T[] {
   return a;
 }
 
+function collectSection(section: string, settings: Settings): Square[] {
+  const src = squares[section as keyof SquaresJson];
+  if (!Array.isArray(src)) return [];
+  const excluded = new Set(settings.excludedSquareIds);
+  const out: Square[] = [];
+  for (const s of src as Square[]) {
+    if (s.verification !== "honor" && s.verification !== "dice") continue;
+    if (!settings.allowModded && s.mods_required.length > 0) continue;
+    if (!settings.allowRushes && s.rush) continue;
+    if (excluded.has(s.id)) continue;
+    if (section === "medals") {
+      if (!s.medal_tier) continue;
+      // Ceiling applies to both aggregated and per-level.
+      if (MEDAL_TIER_RANK[s.medal_tier] > MEDAL_TIER_RANK[settings.medalThreshold]) continue;
+      // Per-level squares are further gated by which tiers the host enabled.
+      // Aggregated "Beat N [tier] medals" squares bypass this and are governed
+      // by the ceiling alone.
+      if (s.medal_kind === "per_level" && !settings.perLevelMedalTiers.includes(s.medal_tier)) continue;
+    }
+    out.push(s);
+  }
+  return out;
+}
+
 export function generateBoard(
   settings: Settings,
   seed: number,
 ): { squares: string[] } | { error: string } {
-  const pool: Square[] = [];
-  for (const section of settings.sections) {
-    const src = squares[section as keyof SquaresJson];
-    if (Array.isArray(src)) {
-      pool.push(...(src as Square[]).filter((s) => s.verification === "honor" || s.verification === "dice"));
-    }
-  }
-
-  const excluded = new Set(settings.excludedSquareIds);
-  const filtered = pool.filter((s) => {
-    if (!settings.allowModded && s.mods_required.length > 0) return false;
-    if (excluded.has(s.id)) return false;
-    return true;
-  });
-
+  const rng = mulberry32(seed);
   const total = settings.boardSize ** 2;
   const required = settings.centerFree ? total - 1 : total;
 
-  if (filtered.length < required) {
+  const medalsEnabled = settings.sections.includes("medals");
+  const otherSections = settings.sections.filter((s) => s !== "medals");
+  const medalsOnly = medalsEnabled && otherSections.length === 0;
+
+  const medalPool = medalsEnabled ? collectSection("medals", settings) : [];
+  const otherPool: Square[] = [];
+  for (const sec of otherSections) otherPool.push(...collectSection(sec, settings));
+
+  // Cap medal picks. If medals is the only section, the cap is ignored — we need
+  // to fill the whole board from medals.
+  const cap = medalsOnly
+    ? medalPool.length
+    : Math.min(Math.max(0, settings.medalSquareCap), medalPool.length);
+
+  const medalPick = fisherYates(medalPool, rng).slice(0, Math.min(cap, required));
+  const needed = required - medalPick.length;
+
+  if (otherPool.length < needed) {
+    const excluded = new Set(settings.excludedSquareIds);
     const exclusionNote = excluded.size > 0 ? ` (${excluded.size} excluded via Advanced)` : "";
+    const haveTotal = medalPick.length + otherPool.length;
     return {
-      error: `Pool too small: ${filtered.length} squares available, ${required} needed${exclusionNote}. Try enabling more sections, allowModded, or re-enabling excluded squares.`,
+      error: `Pool too small: ${haveTotal} squares available, ${required} needed${exclusionNote}. Try enabling more sections, raising the medal cap, allowing modded, lowering the medal threshold, or re-enabling excluded squares.`,
     };
   }
 
-  const rng = mulberry32(seed);
-  const shuffled = fisherYates(filtered, rng);
-  const selected = shuffled.slice(0, required).map((s) => s.name);
+  const otherPick = fisherYates(otherPool, rng).slice(0, needed);
+  const combined = fisherYates([...medalPick, ...otherPick], rng);
+  const selected = combined.slice(0, required).map((s) => s.name);
 
   if (settings.centerFree) {
     const centerIdx = Math.floor(total / 2);
@@ -161,7 +206,7 @@ export function evalFirstToN(
   claims: (ClaimInfo[] | null)[],
   settings: Settings,
 ): WinResult {
-  const n = settings.firstToN ?? 5;
+  const n = settings.firstToN ?? Math.ceil((settings.boardSize ** 2) / 2);
   for (const teamId of realTeamsOnBoard(claims)) {
     const idxs: number[] = [];
     for (let i = 0; i < claims.length; i++) {

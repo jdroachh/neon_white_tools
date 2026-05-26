@@ -9,7 +9,7 @@
 // changes commit only when the user clicks Save & close.
 
 import squaresData from "../../squares.json";
-import type { Settings } from "./protocol";
+import type { Settings, MedalTier, MedalKind } from "./protocol";
 
 type Square = {
   id: string;
@@ -18,23 +18,34 @@ type Square = {
   verification: string;
   chapter?: string;
   stat_code?: string;
+  medal_tier?: MedalTier;
+  medal_kind?: MedalKind;
 };
 type SquaresJson = {
   standard: Square[];
   level_completion: Square[];
   modded: Square[];
   mean: Square[];
+  medals: Square[];
 };
 
 const squares = squaresData as unknown as SquaresJson;
 
-const SECTIONS = ["standard", "level_completion", "modded", "mean"] as const;
+const SECTIONS = ["standard", "level_completion", "modded", "mean", "medals"] as const;
 type SectionKey = (typeof SECTIONS)[number];
 const SECTION_LABEL: Record<SectionKey, string> = {
   standard: "Standard",
   level_completion: "Level Completion",
   modded: "Modded",
   mean: "Mean",
+  medals: "Medals",
+};
+
+const MEDAL_TIER_LABEL: Record<MedalTier, string> = {
+  dev: "Dev",
+  emerald: "Emerald",
+  amethyst: "Amethyst",
+  sapphire: "Sapphire",
 };
 
 export function openAdvancedModal(
@@ -204,6 +215,8 @@ export function openAdvancedModal(
       renderGroupedBy(visible, (s) => s.chapter ?? "?");
     } else if (activeTab === "modded") {
       renderGroupedBy(visible, (s) => (s.mods_required.length > 0 ? [...s.mods_required].sort().join(" + ") : "Vanilla"));
+    } else if (activeTab === "medals") {
+      renderGroupedBy(visible, (s) => (s.medal_tier ? MEDAL_TIER_LABEL[s.medal_tier] : "?"));
     } else {
       renderTiles(visible, body);
     }

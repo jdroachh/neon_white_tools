@@ -25,8 +25,9 @@ export const MAX_TEAM_NAME_LEN = 24;
 
 export type Settings = {
   boardSize: 5 | 7 | 9;
-  sections: ("standard" | "level_completion" | "modded" | "mean")[];
+  sections: ("standard" | "level_completion" | "modded" | "mean" | "medals")[];
   allowModded: boolean;
+  allowRushes: boolean;   // when false, the 6 chapter-rush completion squares (Violet/Red/Yellow × Heaven/Hell) are excluded from the pool
   centerFree: boolean;
   lockout: boolean;       // ON = first team to claim owns it; OFF = multiple teams can claim same cell
   anyoneCanClaim: boolean; // true = any team member may claim/unclaim; false = leader only
@@ -36,7 +37,13 @@ export type Settings = {
   winConditions: WinConditionKey[];
   firstToN?: number;
   excludedSquareIds: string[];   // square ids to omit from the sampling pool
+  medalThreshold: MedalTier;          // ceiling for medal-section squares; entries above this tier are filtered out (applies to both aggregated and per-level)
+  perLevelMedalTiers: MedalTier[];    // which tiers' per-level "Achieve a [LEVEL] [TIER]" squares to include; aggregated "Beat N [TIER] medals" squares ignore this and use medalThreshold only
+  medalSquareCap: number;             // hard cap on medal squares per board; ignored if medals is the only section
 };
+
+export type MedalTier = "dev" | "emerald" | "amethyst" | "sapphire";
+export type MedalKind = "per_level" | "aggregated";
 
 // "board_full" is a server-side sentinel — never user-configurable. Emitted when
 // every cell has a claim and no other configured condition has fired; winner is
@@ -82,8 +89,9 @@ export type RoomState = {
 export const COUNTDOWN_MS = 3000;
 
 const VALID_BOARD_SIZES = new Set([5, 7, 9]);
-const VALID_SECTIONS = new Set(["standard", "level_completion", "modded", "mean"]);
+const VALID_SECTIONS = new Set(["standard", "level_completion", "modded", "mean", "medals"]);
 const VALID_WIN_CONDITIONS = new Set(["line", "four_corners", "full_house", "first_to_n", "time_limit"]);
+const VALID_MEDAL_THRESHOLDS = new Set(["dev", "emerald", "amethyst", "sapphire"]);
 
 function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
@@ -118,6 +126,7 @@ function isSettingsMsg(e: Record<string, unknown>): e is SettingsMsg {
     Array.isArray(d["sections"]) &&
     (d["sections"] as unknown[]).every((s) => VALID_SECTIONS.has(s as string)) &&
     typeof d["allowModded"] === "boolean" &&
+    typeof d["allowRushes"] === "boolean" &&
     typeof d["centerFree"] === "boolean" &&
     typeof d["lockout"] === "boolean" &&
     typeof d["anyoneCanClaim"] === "boolean" &&
@@ -127,7 +136,12 @@ function isSettingsMsg(e: Record<string, unknown>): e is SettingsMsg {
     Array.isArray(d["winConditions"]) &&
     (d["winConditions"] as unknown[]).every((w) => VALID_WIN_CONDITIONS.has(w as string)) &&
     Array.isArray(d["excludedSquareIds"]) &&
-    (d["excludedSquareIds"] as unknown[]).every((s) => typeof s === "string")
+    (d["excludedSquareIds"] as unknown[]).every((s) => typeof s === "string") &&
+    VALID_MEDAL_THRESHOLDS.has(d["medalThreshold"] as string) &&
+    Array.isArray(d["perLevelMedalTiers"]) &&
+    (d["perLevelMedalTiers"] as unknown[]).every((t) => VALID_MEDAL_THRESHOLDS.has(t as string)) &&
+    typeof d["medalSquareCap"] === "number" &&
+    (d["medalSquareCap"] as number) >= 0
   );
 }
 
@@ -195,6 +209,7 @@ export const DEFAULT_SETTINGS: Settings = {
   boardSize: 5,
   sections: ["standard"],
   allowModded: false,
+  allowRushes: true,
   centerFree: false,
   lockout: true,
   anyoneCanClaim: true,
@@ -203,6 +218,9 @@ export const DEFAULT_SETTINGS: Settings = {
   timeLimitMin: 20,
   winConditions: ["line"],
   excludedSquareIds: [],
+  medalThreshold: "emerald",
+  perLevelMedalTiers: ["dev", "emerald", "amethyst", "sapphire"],
+  medalSquareCap: 6,
 };
 
 export const TEAM_PALETTE: { name: string; color: string }[] = [
@@ -223,6 +241,7 @@ export function makeInitialState(): RoomState {
       sections: [...DEFAULT_SETTINGS.sections],
       winConditions: [...DEFAULT_SETTINGS.winConditions],
       excludedSquareIds: [...DEFAULT_SETTINGS.excludedSquareIds],
+      perLevelMedalTiers: [...DEFAULT_SETTINGS.perLevelMedalTiers],
     },
     members: {},
     teams: TEAM_PALETTE.map((p, i) => ({

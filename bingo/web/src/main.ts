@@ -5,6 +5,7 @@ import {
   type RoomState,
   type Settings,
   type WinConditionKey,
+  type MedalTier,
 } from "./protocol";
 import { openAdvancedModal } from "./advancedModal";
 
@@ -336,6 +337,7 @@ function renderForPhase(): void {
   if (!currentState) return;
   // Stop any running countdown unless we're (re-)entering the starting phase.
   if (currentState.phase !== "starting") stopCountdown();
+  if (currentState.phase !== "playing") stopTimeLimitTicker();
   switch (currentState.phase) {
     case "lobby":    showSection("lobby");    renderLobby();    break;
     case "starting": showSection("starting"); renderStarting(); break;
@@ -353,6 +355,33 @@ function stopCountdown(): void {
     clearInterval(countdownIntervalId);
     countdownIntervalId = null;
   }
+}
+
+// ─── Time-limit live ticker (playing phase) ───────────────────────────────────
+
+let timeLimitIntervalId: number | null = null;
+
+function stopTimeLimitTicker(): void {
+  if (timeLimitIntervalId !== null) {
+    clearInterval(timeLimitIntervalId);
+    timeLimitIntervalId = null;
+  }
+}
+
+function startTimeLimitTicker(endTimeMs: number): void {
+  stopTimeLimitTicker();
+  const tick = (): void => {
+    const el = document.getElementById("time-limit-display");
+    if (!el) { stopTimeLimitTicker(); return; }
+    const remaining = Math.max(0, endTimeMs - Date.now());
+    const totalSec = Math.ceil(remaining / 1000);
+    const mm = Math.floor(totalSec / 60);
+    const ss = totalSec % 60;
+    el.textContent = `⏱  ${mm}:${ss.toString().padStart(2, "0")} remaining`;
+    if (remaining <= 0) stopTimeLimitTicker();
+  };
+  tick();
+  timeLimitIntervalId = window.setInterval(tick, 1000);
 }
 
 function renderStarting(): void {
@@ -559,9 +588,11 @@ function renderSettingsForm(settings: Settings): HTMLElement {
 
   // Sections
   wrapper.appendChild(labelText("Sections:"));
-  const sectionsRow = el("div", { style: "display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;" });
-  for (const sec of ["standard", "level_completion", "modded", "mean"] as Settings["sections"][number][]) {
-    const lbl = el("label", {});
+  const sectionsRow = el("div", { style: "display:flex;gap:12px;margin-bottom:8px;flex-wrap:wrap;" });
+  // Render every section except "mean" inline; mean gets its own block below with a descriptor.
+  const inlineSections = (["standard", "level_completion", "modded", "medals"] as Settings["sections"][number][]);
+  const makeSectionCheckbox = (sec: Settings["sections"][number]): HTMLLabelElement => {
+    const lbl = el("label", {}) as HTMLLabelElement;
     const inp = document.createElement("input");
     inp.type = "checkbox";
     inp.checked = settings.sections.includes(sec);
@@ -574,13 +605,100 @@ function renderSettingsForm(settings: Settings): HTMLElement {
     });
     lbl.appendChild(inp);
     lbl.append(` ${sec}`);
-    sectionsRow.appendChild(lbl);
-  }
+    return lbl;
+  };
+  for (const sec of inlineSections) sectionsRow.appendChild(makeSectionCheckbox(sec));
   wrapper.appendChild(sectionsRow);
+
+  // Mean — own row with descriptor.
+  const meanBlock = el("div", { style: "margin-bottom:12px;" });
+  meanBlock.appendChild(makeSectionCheckbox("mean"));
+  const meanNote = el("div", { style: "font-size:0.75rem;color:#888;margin-left:20px;margin-top:2px;font-style:italic;" });
+  meanNote.textContent = "Extremely challenging squares, not for the faint of heart.";
+  meanBlock.appendChild(meanNote);
+  wrapper.appendChild(meanBlock);
+
+  // Medals threshold + cap (only when medals section is enabled)
+  if (settings.sections.includes("medals")) {
+    const medalsRow = el("div", { style: "display:flex;gap:14px;align-items:center;margin-bottom:12px;flex-wrap:wrap;padding:8px 10px;background:#1a1a1a;border:1px solid #333;border-radius:3px;" });
+
+    const thrLbl = el("label", { style: "display:flex;gap:6px;align-items:center;" });
+    thrLbl.append("Medal ceiling:");
+    const thrSel = document.createElement("select");
+    thrSel.style.cssText = "padding:4px;background:#222;border:1px solid #444;color:#eee;font-family:monospace;border-radius:3px;";
+    for (const tier of ["dev", "emerald", "amethyst", "sapphire"] as MedalTier[]) {
+      const opt = document.createElement("option");
+      opt.value = tier;
+      opt.textContent = tier.charAt(0).toUpperCase() + tier.slice(1);
+      if (tier === settings.medalThreshold) opt.selected = true;
+      thrSel.appendChild(opt);
+    }
+    thrSel.addEventListener("change", () => {
+      sendUpdatedSettings({ ...settings, medalThreshold: thrSel.value as MedalTier });
+    });
+    thrLbl.appendChild(thrSel);
+    medalsRow.appendChild(thrLbl);
+
+    // Per-level tier checkboxes — control which tiers' "Achieve a [LEVEL] [TIER]"
+    // squares appear. Aggregated "Beat N [TIER] medals" entries bypass this and
+    // are governed by the ceiling threshold alone.
+    const tierLbl = el("label", { style: "display:flex;gap:8px;align-items:center;" });
+    tierLbl.append("Per-level tiers:");
+    medalsRow.appendChild(tierLbl);
+    const threshRank = ({ dev: 0, emerald: 1, amethyst: 2, sapphire: 3 } as Record<MedalTier, number>)[settings.medalThreshold];
+    for (const tier of ["dev", "emerald", "amethyst", "sapphire"] as MedalTier[]) {
+      const rank = ({ dev: 0, emerald: 1, amethyst: 2, sapphire: 3 } as Record<MedalTier, number>)[tier];
+      const aboveCeiling = rank > threshRank;
+      const lbl = el("label", { style: `display:flex;gap:3px;align-items:center;${aboveCeiling ? "opacity:0.35;" : ""}` });
+      const inp = document.createElement("input");
+      inp.type = "checkbox";
+      inp.checked = settings.perLevelMedalTiers.includes(tier);
+      inp.disabled = aboveCeiling;
+      inp.addEventListener("change", () => {
+        const next = inp.checked
+          ? [...settings.perLevelMedalTiers, tier]
+          : settings.perLevelMedalTiers.filter((t) => t !== tier);
+        sendUpdatedSettings({ ...settings, perLevelMedalTiers: next });
+      });
+      lbl.appendChild(inp);
+      lbl.append(` ${tier[0].toUpperCase()}${tier.slice(1)}`);
+      if (aboveCeiling) lbl.title = "Above the ceiling — raise the threshold to enable.";
+      medalsRow.appendChild(lbl);
+    }
+
+    const capLbl = el("label", { style: "display:flex;gap:6px;align-items:center;" });
+    capLbl.append("Max medal squares:");
+    const capInput = document.createElement("input");
+    capInput.type = "number";
+    capInput.min = "0";
+    capInput.value = String(settings.medalSquareCap);
+    capInput.style.cssText = "width:70px;padding:4px;background:#222;border:1px solid #444;color:#eee;font-family:monospace;border-radius:3px;";
+    capInput.addEventListener("change", () => {
+      const v = parseInt(capInput.value, 10);
+      if (!isNaN(v) && v >= 0) sendUpdatedSettings({ ...settings, medalSquareCap: v });
+    });
+    capLbl.appendChild(capInput);
+    medalsRow.appendChild(capLbl);
+
+    const note = document.createElement("span");
+    note.textContent = "(cap ignored when Medals is the only section)";
+    note.style.cssText = "font-size:0.7rem;color:#888;";
+    medalsRow.appendChild(note);
+
+    wrapper.appendChild(medalsRow);
+  }
 
   // Allow modded
   wrapper.appendChild(makeCheckbox("Allow modded squares", settings.allowModded, (v) => {
     sendUpdatedSettings({ ...settings, allowModded: v });
+  }));
+
+  // Allow chapter rushes — when off, the 6 "Complete [Color]'s [Heaven|Hell] Rush"
+  // squares are excluded from the pool. IL-targeting squares whose text references
+  // a rush ("Beat an IL's WR in Hell Rush", "Fail 3 unique Hell Rushes", etc.) are
+  // not gated by this and remain eligible.
+  wrapper.appendChild(makeCheckbox("Allow chapter-rush completion squares", settings.allowRushes, (v) => {
+    sendUpdatedSettings({ ...settings, allowRushes: v });
   }));
 
   // Advanced: per-square exclusions
@@ -671,7 +789,7 @@ function renderSettingsForm(settings: Settings): HTMLElement {
     wrapper.appendChild(labelText("First to N (count):"));
     const nInput = document.createElement("input");
     nInput.type = "number";
-    nInput.value = String(settings.firstToN ?? 5);
+    nInput.value = String(settings.firstToN ?? Math.ceil((settings.boardSize ** 2) / 2));
     nInput.style.cssText = "width:80px;padding:4px;background:#222;border:1px solid #444;color:#eee;font-family:monospace;border-radius:3px;margin-bottom:12px;";
     nInput.addEventListener("change", () => {
       const v = parseInt(nInput.value, 10);
@@ -702,6 +820,21 @@ function renderBoard(): void {
 
   const container = document.getElementById("board-inner")!;
   container.innerHTML = "";
+
+  // Live time-limit countdown — shown only when time_limit is a configured win
+  // condition and the game has a start timestamp. Worker handles the actual end
+  // via DO alarm; this display is purely informational.
+  if (state.settings.winConditions.includes("time_limit") && state.startedAt !== null) {
+    const endTimeMs = state.startedAt + state.settings.timeLimitMin * 60_000;
+    const timerEl = el("div", {
+      id: "time-limit-display",
+      style: "margin-bottom:10px;padding:8px 14px;background:#1a2a4a;border:1px solid #2563eb;border-radius:4px;font-size:0.95rem;font-weight:bold;color:#cbd5e1;text-align:center;",
+    });
+    container.appendChild(timerEl);
+    startTimeLimitTicker(endTimeMs);
+  } else {
+    stopTimeLimitTicker();
+  }
 
   // Host escape hatch: end the current game and return everyone to the lobby.
   // Useful when no winner is reachable under the current settings (e.g. line
