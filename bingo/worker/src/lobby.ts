@@ -345,7 +345,7 @@ export class LobbyDO extends DurableObject {
     }
 
     const team = this.room.teams[member.teamId];
-    if (team.leaderToken !== token) {
+    if (!this.room.settings.anyoneCanClaim && team.leaderToken !== token) {
       this.sendError(ws, "Only the team leader can claim squares", "not_leader");
       return;
     }
@@ -399,7 +399,7 @@ export class LobbyDO extends DurableObject {
       return;
     }
     const team = this.room.teams[member.teamId];
-    if (team.leaderToken !== token) {
+    if (!this.room.settings.anyoneCanClaim && team.leaderToken !== token) {
       this.sendError(ws, "Only the team leader can unclaim squares", "not_leader");
       return;
     }

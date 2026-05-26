@@ -262,8 +262,8 @@
       "verification": "dice"
     },
     {
-      "id": "std-roll-2-d6-die-and-add-them-together-complete-every-d76721",
-      "name": "Roll 2 (d6) die and add them together. Complete every stage of the resulting number's chapter",
+      "id": "std-roll-a-d12-complete-every-stage-of-the-resulting-c-d76721",
+      "name": "Roll a d12. Complete every stage of the resulting number's chapter",
       "mods_required": [],
       "verification": "dice"
     },

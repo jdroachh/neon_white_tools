@@ -29,6 +29,7 @@ export type Settings = {
   allowModded: boolean;
   centerFree: boolean;
   lockout: boolean;       // ON = first team to claim owns it; OFF = multiple teams can claim same cell
+  anyoneCanClaim: boolean; // true = any team member may claim/unclaim; false = leader only
   timeLimitMin: number;
   winConditions: WinConditionKey[];
   firstToN?: number;
@@ -113,6 +114,7 @@ function isSettingsMsg(e: Record<string, unknown>): e is SettingsMsg {
     typeof d["allowModded"] === "boolean" &&
     typeof d["centerFree"] === "boolean" &&
     typeof d["lockout"] === "boolean" &&
+    typeof d["anyoneCanClaim"] === "boolean" &&
     typeof d["timeLimitMin"] === "number" &&
     Array.isArray(d["winConditions"]) &&
     (d["winConditions"] as unknown[]).every((w) => VALID_WIN_CONDITIONS.has(w as string)) &&
@@ -187,6 +189,7 @@ export const DEFAULT_SETTINGS: Settings = {
   allowModded: false,
   centerFree: false,
   lockout: true,
+  anyoneCanClaim: true,
   timeLimitMin: 20,
   winConditions: ["line"],
   excludedSquareIds: [],

@@ -223,7 +223,9 @@ export function evaluateWin(state: RoomState): { teamId: number; condition: WinC
       case "four_corners": result = evalFourCorners(claims, bs); break;
       case "full_house":   result = evalFullHouse(claims, bs); break;
       case "first_to_n":   result = evalFirstToN(claims, settings); break;
-      case "time_limit":   result = evalTimeLimit(claims); break;
+      // time_limit is evaluated only by the alarm, never per-claim — otherwise
+      // the first claim trivially "wins" (most cells = 1 vs 0 for everyone else).
+      case "time_limit":   continue;
     }
     if (result) return { teamId: result.teamId, condition: cond, shape: result.shape };
   }

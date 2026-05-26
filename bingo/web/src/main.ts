@@ -614,6 +614,11 @@ function renderSettingsForm(settings: Settings): HTMLElement {
     sendUpdatedSettings({ ...settings, lockout: v });
   }));
 
+  // Anyone-can-claim — ON = any team member may claim/unclaim; OFF = team leader only.
+  wrapper.appendChild(makeCheckbox("Anyone on a team can claim squares", settings.anyoneCanClaim, (v) => {
+    sendUpdatedSettings({ ...settings, anyoneCanClaim: v });
+  }));
+
   // Time limit
   wrapper.appendChild(labelText("Time limit (minutes):"));
   const timeInput = document.createElement("input");
@@ -678,6 +683,7 @@ function renderBoard(): void {
   const myTeamId = state.members[myToken]?.teamId ?? null;
   const myTeam = myTeamId !== null ? state.teams[myTeamId] : null;
   const amLeader = myTeam?.leaderToken === myToken;
+  const canClaim = myTeam !== null && (state.settings.anyoneCanClaim || amLeader);
 
   const container = document.getElementById("board-inner")!;
   container.innerHTML = "";
@@ -710,7 +716,7 @@ function renderBoard(): void {
   }
   container.appendChild(countsDiv);
 
-  if (!amLeader && myTeamId !== null) {
+  if (!canClaim && myTeamId !== null) {
     const note = el("div", { style: "color:#aaa;margin-bottom:8px;font-size:0.85rem;" });
     note.textContent = "Only your team leader can claim squares.";
     container.appendChild(note);
@@ -751,7 +757,7 @@ function renderBoard(): void {
       const claim = state.claims[i];
       const isFree = cellIsFree(claim);
       const inWinShape = winShape?.includes(i);
-      const clickable = amLeader && !isFree;
+      const clickable = canClaim && !isFree;
 
       const bg = cellBackground(claim, state.teams);
       const textColor = claim ? "#000" : "#eee";
