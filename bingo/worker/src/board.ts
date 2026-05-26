@@ -7,6 +7,7 @@ type SquaresJson = {
   standard: Square[];
   level_completion: Square[];
   modded: Square[];
+  mean: Square[];
   _meta?: unknown;
 };
 

@@ -11,7 +11,8 @@
     "sections": [
       "standard",
       "level_completion",
-      "modded"
+      "modded",
+      "mean"
     ],
     "lobby_filtering": "Lobby settings pick which sections to draw from. Board = uniform random sample from union, filtered by allow_modded and verification in ('honor', 'dice') for v1.",
     "mods_referenced": [
@@ -486,6 +487,56 @@
     {
       "id": "std-complete-3-levels-without-moving-your-camera-17541d",
       "name": "Complete 3 levels without moving your camera",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-stand-on-6-different-boats-393bb7",
+      "name": "Stand on 6 different boats",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-hit-6-different-setup-sbbs-ea58b5",
+      "name": "Hit 6 different setup SBBs",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-dnf-killswitch-with-no-pickups-a6e79f",
+      "name": "DNF Killswitch with no pickups",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-shoot-a-rocket-till-it-explodes-on-3-different-lev-426f1a",
+      "name": "Shoot a rocket till it explodes on 3 different levels",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-punch-green-to-death-fist-card-his-last-hp-349fb0",
+      "name": "PUNCH Green to death (Fist card his last HP)",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-write-green-s-name-in-the-book-of-life-eb32e4",
+      "name": "Write Green's name in the Book of Life",
+      "mods_required": [],
+      "verification": "honor"
+    }
+  ],
+  "mean": [
+    {
+      "id": "mean-get-a-sub-20-completion-on-climbing-gym-not-in-hel-86da71",
+      "name": "Get a sub-20 completion on Climbing Gym (not in Hell Rush)",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "mean-get-a-bd-time-on-any-individual-level-0492f9",
+      "name": "Get a BD time on any individual level",
       "mods_required": [],
       "verification": "honor"
     }

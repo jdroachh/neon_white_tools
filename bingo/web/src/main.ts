@@ -560,7 +560,7 @@ function renderSettingsForm(settings: Settings): HTMLElement {
   // Sections
   wrapper.appendChild(labelText("Sections:"));
   const sectionsRow = el("div", { style: "display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;" });
-  for (const sec of ["standard", "level_completion", "modded"] as Settings["sections"][number][]) {
+  for (const sec of ["standard", "level_completion", "modded", "mean"] as Settings["sections"][number][]) {
     const lbl = el("label", {});
     const inp = document.createElement("input");
     inp.type = "checkbox";

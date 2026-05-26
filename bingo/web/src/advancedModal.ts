@@ -23,16 +23,18 @@ type SquaresJson = {
   standard: Square[];
   level_completion: Square[];
   modded: Square[];
+  mean: Square[];
 };
 
 const squares = squaresData as unknown as SquaresJson;
 
-const SECTIONS = ["standard", "level_completion", "modded"] as const;
+const SECTIONS = ["standard", "level_completion", "modded", "mean"] as const;
 type SectionKey = (typeof SECTIONS)[number];
 const SECTION_LABEL: Record<SectionKey, string> = {
   standard: "Standard",
   level_completion: "Level Completion",
   modded: "Modded",
+  mean: "Mean",
 };
 
 export function openAdvancedModal(

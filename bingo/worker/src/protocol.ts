@@ -25,7 +25,7 @@ export const MAX_TEAM_NAME_LEN = 24;
 
 export type Settings = {
   boardSize: 5 | 7 | 9;
-  sections: ("standard" | "level_completion" | "modded")[];
+  sections: ("standard" | "level_completion" | "modded" | "mean")[];
   allowModded: boolean;
   centerFree: boolean;
   lockout: boolean;       // ON = first team to claim owns it; OFF = multiple teams can claim same cell
@@ -79,7 +79,7 @@ export type RoomState = {
 export const COUNTDOWN_MS = 3000;
 
 const VALID_BOARD_SIZES = new Set([5, 7, 9]);
-const VALID_SECTIONS = new Set(["standard", "level_completion", "modded"]);
+const VALID_SECTIONS = new Set(["standard", "level_completion", "modded", "mean"]);
 const VALID_WIN_CONDITIONS = new Set(["line", "four_corners", "full_house", "first_to_n", "time_limit"]);
 
 function isObject(v: unknown): v is Record<string, unknown> {
