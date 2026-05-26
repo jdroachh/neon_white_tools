@@ -62,7 +62,7 @@ Vite serves the HTML page at `http://localhost:5173` by default.
 
 Live URLs:
 - Worker: `https://bingo-worker.roachyyyy.workers.dev` (account: roachyyyy@gmail.com)
-- Web:    `https://bingo-web-6en.pages.dev` (Cloudflare Pages, project `bingo-web`)
+- Web:    `https://nwbingo.pages.dev` (Cloudflare Pages, project `nwbingo`)
 
 **Worker redeploy** (any worker code change):
 
@@ -76,7 +76,7 @@ npx wrangler deploy
 ```sh
 cd bingo/web
 VITE_WS_URL="wss://bingo-worker.roachyyyy.workers.dev" npm run build
-npx wrangler pages deploy dist --project-name=bingo-web --branch=main --commit-dirty=true
+npx wrangler pages deploy dist --project-name=nwbingo --branch=main --commit-dirty=true
 ```
 
 PowerShell variant of the build line:
@@ -88,7 +88,7 @@ $env:VITE_WS_URL = "wss://bingo-worker.roachyyyy.workers.dev"; npm run build
 First-time Pages project creation (already done; kept for reference):
 
 ```sh
-npx wrangler pages project create bingo-web --production-branch=main
+npx wrangler pages project create nwbingo --production-branch=main
 ```
 
 ---
