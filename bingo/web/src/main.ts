@@ -6,6 +6,7 @@ import {
   type Settings,
   type WinConditionKey,
 } from "./protocol";
+import { openAdvancedModal } from "./advancedModal";
 
 const WS_BASE = (import.meta.env.VITE_WS_URL as string | undefined) ?? "ws://localhost:8787";
 // HTTP base derived from WS base — same host, http(s) instead of ws(s).
@@ -582,6 +583,26 @@ function renderSettingsForm(settings: Settings): HTMLElement {
     sendUpdatedSettings({ ...settings, allowModded: v });
   }));
 
+  // Advanced: per-square exclusions
+  const advancedRow = el("div", { style: "display:flex;align-items:center;gap:10px;margin-bottom:12px;" });
+  const advancedBtn = document.createElement("button");
+  advancedBtn.textContent = "Advanced…";
+  advancedBtn.style.cssText = "padding:6px 14px;background:#2a2a2a;color:#ccc;border:1px solid #444;border-radius:3px;cursor:pointer;font-family:monospace;font-size:0.85rem;";
+  advancedBtn.addEventListener("click", () => {
+    openAdvancedModal(settings, (excludedIds) => {
+      sendUpdatedSettings({ ...settings, excludedSquareIds: excludedIds });
+    });
+  });
+  advancedRow.appendChild(advancedBtn);
+  const excludedCount = settings.excludedSquareIds.length;
+  if (excludedCount > 0) {
+    const note = document.createElement("span");
+    note.textContent = `${excludedCount} square${excludedCount === 1 ? "" : "s"} excluded`;
+    note.style.cssText = "font-size:0.75rem;color:#888;";
+    advancedRow.appendChild(note);
+  }
+  wrapper.appendChild(advancedRow);
+
   // Center free
   wrapper.appendChild(makeCheckbox("Center free square", settings.centerFree, (v) => {
     sendUpdatedSettings({ ...settings, centerFree: v });
@@ -803,10 +824,10 @@ function renderEnd(): void {
   if (state.board) {
     const { boardSize } = state.settings;
     const winShape = state.winner?.shape ?? null;
-    const cellSize = Math.max(60, Math.floor(480 / boardSize));
+    const cellSize = Math.max(70, Math.floor(560 / boardSize));
 
     const grid = el("div", {
-      style: `display:grid;grid-template-columns:20px repeat(${boardSize},${cellSize}px);grid-template-rows:20px repeat(${boardSize}, minmax(${cellSize}px, auto));gap:4px;margin-bottom:16px;`,
+      style: `display:grid;grid-template-columns:24px repeat(${boardSize},${cellSize}px);grid-template-rows:24px repeat(${boardSize}, minmax(${cellSize}px, auto));gap:4px;margin-bottom:16px;`,
     });
 
     const labelStyle = "display:flex;align-items:center;justify-content:center;color:#aaa;font-size:0.75rem;font-weight:bold;";
@@ -831,17 +852,25 @@ function renderEnd(): void {
 
         const bg = cellBackground(claim, state.teams);
         const textColor = claim ? "#000" : "#eee";
-        const border = inWinShape ? "3px solid #fff" : "1px solid #444";
+        const border = inWinShape ? "none" : "1px solid #444";
+        const cellWidth = inWinShape ? "100%" : `${cellSize}px`;
 
         const cell = el("div", {
-          style: `background:${bg};color:${textColor};border:${border};width:${cellSize}px;min-height:${cellSize}px;box-sizing:border-box;padding:4px;font-size:0.65rem;display:flex;align-items:center;justify-content:center;text-align:center;border-radius:3px;word-break:break-word;`,
+          style: `background:${bg};color:${textColor};border:${border};width:${cellWidth};min-height:${cellSize}px;box-sizing:border-box;padding:4px;font-size:0.65rem;display:flex;align-items:center;justify-content:center;text-align:center;border-radius:3px;word-break:break-word;`,
           title: `${String.fromCharCode(65 + c)}${r + 1} — ${square}${cellTitle(claim)}`,
         });
         const nameSpan = document.createElement("span");
         nameSpan.style.cssText = "padding:0 3px;";
         nameSpan.textContent = isFree ? "FREE" : square;
         cell.appendChild(nameSpan);
-        grid.appendChild(cell);
+
+        if (inWinShape) {
+          const wrap = el("div", { class: "win-cell-wrap", style: `width:${cellSize}px;` });
+          wrap.appendChild(cell);
+          grid.appendChild(wrap);
+        } else {
+          grid.appendChild(cell);
+        }
       }
     }
 

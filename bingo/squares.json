@@ -8,9 +8,22 @@
       "chapter": "Only on level_completion entries — display label from CHAPTERS in rush_data.py.",
       "stat_code": "Only on level_completion entries — Steam leaderboard stat code from rush_data.LEVELS."
     },
-    "sections": ["standard", "level_completion", "modded"],
+    "sections": [
+      "standard",
+      "level_completion",
+      "modded"
+    ],
     "lobby_filtering": "Lobby settings pick which sections to draw from. Board = uniform random sample from union, filtered by allow_modded and verification in ('honor', 'dice') for v1.",
-    "mods_referenced": ["Reverse Mode", "BoofOfMemes", "Challenge Deck", "NeonLite", "SecretShop", "NeonNetwork", "ChapterRush", "EventTracker"],
+    "mods_referenced": [
+      "Reverse Mode",
+      "BoofOfMemes",
+      "Challenge Deck",
+      "NeonLite",
+      "SecretShop",
+      "NeonNetwork",
+      "ChapterRush",
+      "EventTracker"
+    ],
     "review_needed": [
       "mods_required tags in the modded section are best-effort. Worth a manual pass before Stage 1 — especially the EventTracker / NeonLite / SecretShop assignments which I inferred from square text rather than known mod docs.",
       "Square 'Kill any non-balloon demon without the use of a card during the level' — original list had no count. Left as worded; consider whether it should specify N levels.",
@@ -19,237 +32,1653 @@
       "The Phase 1 chapter-without-discarding squares cover chapters 1,2,3,5,6,7,8,9. Chapters 4, 10, 11, 12 are intentionally absent in the user's list. Did not invent entries for them; can add later if desired."
     ]
   },
-
   "standard": [
-    {"name": "Kill a balloon in 9 levels", "mods_required": [], "verification": "honor"},
-    {"name": "Discard every card once", "mods_required": [], "verification": "honor"},
-    {"name": "Die in every chapter (needs to say \"Failure\")", "mods_required": [], "verification": "honor"},
-    {"name": "Have over 300 ammo on a single card", "mods_required": [], "verification": "honor"},
-    {"name": "Collect all cards (inc. Health etc)", "mods_required": [], "verification": "honor"},
-    {"name": "Deplete a vending machine in 10 different levels", "mods_required": [], "verification": "honor"},
-    {"name": "Experience 8 unique deaths", "mods_required": [], "verification": "honor"},
-    {"name": "Complete 3 different levels while dead", "mods_required": [], "verification": "honor"},
-    {"name": "Beat 4 developer times", "mods_required": [], "verification": "honor"},
-    {"name": "Break a red wall in 6 different ways", "mods_required": [], "verification": "honor"},
-    {"name": "Get tricked by 12 different mimics", "mods_required": [], "verification": "honor"},
-    {"name": "Kill any non-balloon demon without the use of a card during the level", "mods_required": [], "verification": "honor"},
-    {"name": "Complete Violet's Heaven Rush", "mods_required": [], "verification": "honor"},
-    {"name": "Complete Violet's Hell Rush", "mods_required": [], "verification": "honor"},
-    {"name": "Complete Red's Heaven Rush", "mods_required": [], "verification": "honor"},
-    {"name": "Complete Red's Hell Rush", "mods_required": [], "verification": "honor"},
-    {"name": "Complete Yellow's Heaven Rush", "mods_required": [], "verification": "honor"},
-    {"name": "Complete Yellow's Hell Rush", "mods_required": [], "verification": "honor"},
-    {"name": "Kill 4 unique demons using a Guardian", "mods_required": [], "verification": "honor"},
-    {"name": "Pop 32 unique Bubbles", "mods_required": [], "verification": "honor"},
-    {"name": "Softlock yourself in a Book of Life stage", "mods_required": [], "verification": "honor"},
-    {"name": "Complete 8 levels without discarding", "mods_required": [], "verification": "honor"},
-    {"name": "Complete a Chapter 1 level without discarding", "mods_required": [], "verification": "honor"},
-    {"name": "Complete a Chapter 2 level without discarding", "mods_required": [], "verification": "honor"},
-    {"name": "Complete a Chapter 3 level without discarding", "mods_required": [], "verification": "honor"},
-    {"name": "Complete a Chapter 5 level without discarding", "mods_required": [], "verification": "honor"},
-    {"name": "Complete a Chapter 6 level without discarding", "mods_required": [], "verification": "honor"},
-    {"name": "Complete a Chapter 7 level without discarding", "mods_required": [], "verification": "honor"},
-    {"name": "Complete a Chapter 8 level without discarding", "mods_required": [], "verification": "honor"},
-    {"name": "Complete a Chapter 9 level without discarding", "mods_required": [], "verification": "honor"},
-    {"name": "Complete Arena without killing any tripwires but the first two", "mods_required": [], "verification": "honor"},
-    {"name": "Go through 4 unique vents", "mods_required": [], "verification": "honor"},
-    {"name": "Remove a card without discarding or depleting its ammo", "mods_required": [], "verification": "honor"},
-    {"name": "Collect 8 cards during a level (like the pages Lol)", "mods_required": [], "verification": "honor"},
-    {"name": "Let Red get away", "mods_required": [], "verification": "honor"},
-    {"name": "Enter the goal of 8 levels with 1 demon remaining", "mods_required": [], "verification": "honor"},
-    {"name": "Complete a level from each main chapter", "mods_required": [], "verification": "honor"},
-    {"name": "Roll 2 dice for a number, complete Godspeed that many times", "mods_required": [], "verification": "dice"},
-    {"name": "Roll 2 (d6) die and add them together. Complete every stage of the resulting number's chapter", "mods_required": [], "verification": "dice"},
-    {"name": "Die to 5 unique demons", "mods_required": [], "verification": "honor"},
-    {"name": "Deplete all vending machines in Climbing Gym", "mods_required": [], "verification": "honor"},
-    {"name": "Take a vacation to Idiot Island", "mods_required": [], "verification": "honor"},
-    {"name": "Kill a Jock in 6 levels", "mods_required": [], "verification": "honor"},
-    {"name": "Kill a Guardian in 6 levels", "mods_required": [], "verification": "honor"},
-    {"name": "Kill a Jumper in 6 levels", "mods_required": [], "verification": "honor"},
-    {"name": "Kill a Ringer in 6 levels", "mods_required": [], "verification": "honor"},
-    {"name": "Complete all 24 sidequests", "mods_required": [], "verification": "honor"},
-    {"name": "Complete 10 levels in a shuffled White's Hell Rush", "mods_required": [], "verification": "honor"},
-    {"name": "Complete 10 levels in a shuffled Mikey's Hell Rush", "mods_required": [], "verification": "honor"},
-    {"name": "Attempt to use the Book of Life card in a Yellow sidequest", "mods_required": [], "verification": "honor"},
-    {"name": "Complete 5 levels from a single chapter", "mods_required": [], "verification": "honor"},
-    {"name": "Blow up any explosive prematurely", "mods_required": [], "verification": "honor"},
-    {"name": "Complete 4 levels without jumping", "mods_required": [], "verification": "honor"},
-    {"name": "Discard 15 times in any non-sidequest (Book of Life does not count)", "mods_required": [], "verification": "honor"},
-    {"name": "Complete any level with a comically small window size", "mods_required": [], "verification": "honor"},
-    {"name": "Fail 3 unique Hell Rushes", "mods_required": [], "verification": "honor"},
-    {"name": "Collect 6 different card types in Holy Ground", "mods_required": [], "verification": "honor"},
-    {"name": "Complete Book of Life Traversal without leaving any tripwires alive", "mods_required": [], "verification": "honor"},
-    {"name": "Discard all available cards in 5 levels", "mods_required": [], "verification": "honor"},
-    {"name": "Get a 1% boost from a barrel", "mods_required": [], "verification": "honor"},
-    {"name": "Roll a random number between 1-10, pick a chapter and do the level assigned to that number", "mods_required": [], "verification": "dice"},
-    {"name": "Complete a level with a time ending in .000", "mods_required": [], "verification": "honor"},
-    {"name": "Shoot a frog's bullet after parrying it in 3 levels", "mods_required": [], "verification": "honor"},
-    {"name": "In any level containing bubbles, kill all other demons besides them", "mods_required": [], "verification": "honor"},
-    {"name": "Beat an IL's WR in Hell Rush", "mods_required": [], "verification": "honor"},
-    {"name": "Complete 3 levels where your only used movement key is S (backwards key)", "mods_required": [], "verification": "honor"},
-    {"name": "Complete 3 levels in Chapter 1 without touching water", "mods_required": [], "verification": "honor"},
-    {"name": "Make an enemy kill itself", "mods_required": [], "verification": "honor"},
-    {"name": "Complete The Third Temple without taking damage", "mods_required": [], "verification": "honor"},
-    {"name": "Complete a level after losing 7 or more hp", "mods_required": [], "verification": "honor"},
-    {"name": "Kill 4 demons with a single input using Purify", "mods_required": [], "verification": "honor"},
-    {"name": "Kill 4 demons with a single input using Dominion", "mods_required": [], "verification": "honor"},
-    {"name": "Kill 4 demons with a single input using Fireball", "mods_required": [], "verification": "honor"},
-    {"name": "Kill 4 demons with a single input using Stomp", "mods_required": [], "verification": "honor"},
-    {"name": "Kill 4 demons with a single input using Godspeed", "mods_required": [], "verification": "honor"},
-    {"name": "Complete 3 levels without moving your camera", "mods_required": [], "verification": "honor"}
+    {
+      "id": "std-kill-a-balloon-in-9-levels-2e95d9",
+      "name": "Kill a balloon in 9 levels",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-discard-every-card-once-5695f8",
+      "name": "Discard every card once",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-die-in-every-chapter-needs-to-say-failure-dce8d4",
+      "name": "Die in every chapter (needs to say \"Failure\")",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-have-over-300-ammo-on-a-single-card-f3c91d",
+      "name": "Have over 300 ammo on a single card",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-collect-all-cards-inc-health-etc-73c67b",
+      "name": "Collect all cards (inc. Health etc)",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-deplete-a-vending-machine-in-10-different-levels-1b2b69",
+      "name": "Deplete a vending machine in 10 different levels",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-experience-8-unique-deaths-a4ac17",
+      "name": "Experience 8 unique deaths",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-complete-3-different-levels-while-dead-c332c4",
+      "name": "Complete 3 different levels while dead",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-beat-4-developer-times-6b4674",
+      "name": "Beat 4 developer times",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-break-a-red-wall-in-6-different-ways-8c9fef",
+      "name": "Break a red wall in 6 different ways",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-get-tricked-by-12-different-mimics-cf27cc",
+      "name": "Get tricked by 12 different mimics",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-kill-any-non-balloon-demon-without-the-use-of-a-ca-8198db",
+      "name": "Kill any non-balloon demon without the use of a card during the level",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-complete-violet-s-heaven-rush-9fecc1",
+      "name": "Complete Violet's Heaven Rush",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-complete-violet-s-hell-rush-a67d22",
+      "name": "Complete Violet's Hell Rush",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-complete-red-s-heaven-rush-737231",
+      "name": "Complete Red's Heaven Rush",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-complete-red-s-hell-rush-f8dab6",
+      "name": "Complete Red's Hell Rush",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-complete-yellow-s-heaven-rush-f2ae24",
+      "name": "Complete Yellow's Heaven Rush",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-complete-yellow-s-hell-rush-3d0c47",
+      "name": "Complete Yellow's Hell Rush",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-kill-4-unique-demons-using-a-guardian-d9c550",
+      "name": "Kill 4 unique demons using a Guardian",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-pop-32-unique-bubbles-3f11c0",
+      "name": "Pop 32 unique Bubbles",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-softlock-yourself-in-a-book-of-life-stage-0206e1",
+      "name": "Softlock yourself in a Book of Life stage",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-complete-8-levels-without-discarding-7e0ec0",
+      "name": "Complete 8 levels without discarding",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-complete-a-chapter-1-level-without-discarding-bf309c",
+      "name": "Complete a Chapter 1 level without discarding",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-complete-a-chapter-2-level-without-discarding-3742d9",
+      "name": "Complete a Chapter 2 level without discarding",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-complete-a-chapter-3-level-without-discarding-032738",
+      "name": "Complete a Chapter 3 level without discarding",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-complete-a-chapter-5-level-without-discarding-0f71f7",
+      "name": "Complete a Chapter 5 level without discarding",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-complete-a-chapter-6-level-without-discarding-e6af76",
+      "name": "Complete a Chapter 6 level without discarding",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-complete-a-chapter-7-level-without-discarding-be94b3",
+      "name": "Complete a Chapter 7 level without discarding",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-complete-a-chapter-8-level-without-discarding-56cf71",
+      "name": "Complete a Chapter 8 level without discarding",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-complete-a-chapter-9-level-without-discarding-cc67a0",
+      "name": "Complete a Chapter 9 level without discarding",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-complete-arena-without-killing-any-tripwires-but-t-59385c",
+      "name": "Complete Arena without killing any tripwires but the first two",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-go-through-4-unique-vents-238740",
+      "name": "Go through 4 unique vents",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-remove-a-card-without-discarding-or-depleting-its--df84f9",
+      "name": "Remove a card without discarding or depleting its ammo",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-collect-8-cards-during-a-level-like-the-pages-lol-4fb116",
+      "name": "Collect 8 cards during a level (like the pages Lol)",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-let-red-get-away-72ecb8",
+      "name": "Let Red get away",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-enter-the-goal-of-8-levels-with-1-demon-remaining-5ed912",
+      "name": "Enter the goal of 8 levels with 1 demon remaining",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-complete-a-level-from-each-main-chapter-36230e",
+      "name": "Complete a level from each main chapter",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-roll-2-dice-for-a-number-complete-godspeed-that-ma-7baae3",
+      "name": "Roll 2 dice for a number, complete Godspeed that many times",
+      "mods_required": [],
+      "verification": "dice"
+    },
+    {
+      "id": "std-roll-2-d6-die-and-add-them-together-complete-every-d76721",
+      "name": "Roll 2 (d6) die and add them together. Complete every stage of the resulting number's chapter",
+      "mods_required": [],
+      "verification": "dice"
+    },
+    {
+      "id": "std-die-to-5-unique-demons-e80b7a",
+      "name": "Die to 5 unique demons",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-deplete-all-vending-machines-in-climbing-gym-eb22df",
+      "name": "Deplete all vending machines in Climbing Gym",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-take-a-vacation-to-idiot-island-8f2190",
+      "name": "Take a vacation to Idiot Island",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-kill-a-jock-in-6-levels-389d25",
+      "name": "Kill a Jock in 6 levels",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-kill-a-guardian-in-6-levels-9c6691",
+      "name": "Kill a Guardian in 6 levels",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-kill-a-jumper-in-6-levels-65ff2d",
+      "name": "Kill a Jumper in 6 levels",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-kill-a-ringer-in-6-levels-a3a481",
+      "name": "Kill a Ringer in 6 levels",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-complete-all-24-sidequests-854f1c",
+      "name": "Complete all 24 sidequests",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-complete-10-levels-in-a-shuffled-white-s-hell-rush-0888e3",
+      "name": "Complete 10 levels in a shuffled White's Hell Rush",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-complete-10-levels-in-a-shuffled-mikey-s-hell-rush-f28a5b",
+      "name": "Complete 10 levels in a shuffled Mikey's Hell Rush",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-attempt-to-use-the-book-of-life-card-in-a-yellow-s-80562e",
+      "name": "Attempt to use the Book of Life card in a Yellow sidequest",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-complete-5-levels-from-a-single-chapter-34f444",
+      "name": "Complete 5 levels from a single chapter",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-blow-up-any-explosive-prematurely-2b5e6f",
+      "name": "Blow up any explosive prematurely",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-complete-4-levels-without-jumping-7ea99c",
+      "name": "Complete 4 levels without jumping",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-discard-15-times-in-any-non-sidequest-book-of-life-4a85bc",
+      "name": "Discard 15 times in any non-sidequest (Book of Life does not count)",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-complete-any-level-with-a-comically-small-window-s-60140f",
+      "name": "Complete any level with a comically small window size",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-fail-3-unique-hell-rushes-3cf579",
+      "name": "Fail 3 unique Hell Rushes",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-collect-6-different-card-types-in-holy-ground-8e96fc",
+      "name": "Collect 6 different card types in Holy Ground",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-complete-book-of-life-traversal-without-leaving-an-841c61",
+      "name": "Complete Book of Life Traversal without leaving any tripwires alive",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-discard-all-available-cards-in-5-levels-ccc0f3",
+      "name": "Discard all available cards in 5 levels",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-get-a-1-boost-from-a-barrel-e6c53b",
+      "name": "Get a 1% boost from a barrel",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-roll-a-random-number-between-1-10-pick-a-chapter-a-9988f7",
+      "name": "Roll a random number between 1-10, pick a chapter and do the level assigned to that number",
+      "mods_required": [],
+      "verification": "dice"
+    },
+    {
+      "id": "std-complete-a-level-with-a-time-ending-in-000-5d2190",
+      "name": "Complete a level with a time ending in .000",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-shoot-a-frog-s-bullet-after-parrying-it-in-3-level-6e74cf",
+      "name": "Shoot a frog's bullet after parrying it in 3 levels",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-in-any-level-containing-bubbles-kill-all-other-dem-6d292d",
+      "name": "In any level containing bubbles, kill all other demons besides them",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-beat-an-il-s-wr-in-hell-rush-430093",
+      "name": "Beat an IL's WR in Hell Rush",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-complete-3-levels-where-your-only-used-movement-ke-51ceb9",
+      "name": "Complete 3 levels where your only used movement key is S (backwards key)",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-complete-3-levels-in-chapter-1-without-touching-wa-82e5ee",
+      "name": "Complete 3 levels in Chapter 1 without touching water",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-make-an-enemy-kill-itself-fc3b4c",
+      "name": "Make an enemy kill itself",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-complete-the-third-temple-without-taking-damage-54216a",
+      "name": "Complete The Third Temple without taking damage",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-complete-a-level-after-losing-7-or-more-hp-ff8e74",
+      "name": "Complete a level after losing 7 or more hp",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-kill-4-demons-with-a-single-input-using-purify-184b2e",
+      "name": "Kill 4 demons with a single input using Purify",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-kill-4-demons-with-a-single-input-using-dominion-5c34a1",
+      "name": "Kill 4 demons with a single input using Dominion",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-kill-4-demons-with-a-single-input-using-fireball-074b41",
+      "name": "Kill 4 demons with a single input using Fireball",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-kill-4-demons-with-a-single-input-using-stomp-0f72c7",
+      "name": "Kill 4 demons with a single input using Stomp",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-kill-4-demons-with-a-single-input-using-godspeed-10e49f",
+      "name": "Kill 4 demons with a single input using Godspeed",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "std-complete-3-levels-without-moving-your-camera-17541d",
+      "name": "Complete 3 levels without moving your camera",
+      "mods_required": [],
+      "verification": "honor"
+    }
   ],
-
   "modded": [
-    {"name": "Complete 7 levels in reverse", "mods_required": ["Reverse Mode"], "verification": "honor"},
-    {"name": "Complete 16 non-chapter 11 levels with the BoofOfMemes mod", "mods_required": ["BoofOfMemes"], "verification": "honor"},
-    {"name": "Kill all demons in a Chapter 11 stage", "mods_required": ["EventTracker"], "verification": "honor"},
-    {"name": "Reach 70 velocity without discarding", "mods_required": ["NeonLite"], "verification": "honor"},
-    {"name": "Reach over 100 velocity", "mods_required": ["NeonLite"], "verification": "honor"},
-    {"name": "Complete 9 different custom levels", "mods_required": ["SecretShop"], "verification": "honor"},
-    {"name": "Duel on any level, winner takes square", "mods_required": ["NeonNetwork"], "verification": "duel"},
-    {"name": "Complete 8 levels with the Mikey mod", "mods_required": ["Challenge Deck"], "verification": "honor"},
-    {"name": "Complete 12 levels with any combination of at least 3 gameplay-altering mods", "mods_required": ["NeonLite, Challenge Deck"], "verification": "honor"},
-    {"name": "Complete any 3 chapter rushes", "mods_required": ["ChapterRush"], "verification": "honor"},
-    {"name": "Complete any chapter rush with Hell Rush toggled on", "mods_required": ["ChapterRush", "Challenge Deck"], "verification": "honor"},
-    {"name": "Collect all Red gifts", "mods_required": ["Challenge Deck"], "verification": "honor"},
-    {"name": "Collect all Yellow gifts", "mods_required": ["Challenge Deck"], "verification": "honor"},
-    {"name": "Collect all Violet gifts", "mods_required": ["Challenge Deck"], "verification": "honor"},
-    {"name": "Collect all Mikey gifts", "mods_required": ["Challenge Deck"], "verification": "honor"},
-    {"name": "Collect all Raz gifts", "mods_required": ["Challenge Deck"], "verification": "honor"},
-    {"name": "Collect all gifts in a single chapter", "mods_required": ["Challenge Deck"], "verification": "honor"},
-    {"name": "Collect one of each gift type (exc. strange coin)", "mods_required": ["Challenge Deck"], "verification": "honor"},
-    {"name": "Collect a strange coin", "mods_required": ["Challenge Deck"], "verification": "honor"},
-    {"name": "Complete 5 levels from the Aquatic Level Jam", "mods_required": ["SecretShop"], "verification": "honor"},
-    {"name": "Complete 5 levels featured in Alpharad's subathon tournament", "mods_required": ["SecretShop"], "verification": "honor"},
-    {"name": "Complete 3 levels from the 2023 Mapping Contest", "mods_required": ["SecretShop"], "verification": "honor"},
-    {"name": "Collect 12 gifts with the BoofOfMemes mod", "mods_required": ["Challenge Deck", "BoofOfMemes"], "verification": "honor"},
-    {"name": "Collect 7 gifts with the Mikey mod", "mods_required": ["Challenge Deck"], "verification": "honor"},
-    {"name": "Collect 5 gifts without discarding", "mods_required": ["Challenge Deck"], "verification": "honor"},
-    {"name": "Complete any 2 run categories in the Archipelago custom level", "mods_required": ["SecretShop"], "verification": "honor"},
-    {"name": "Complete Fortress without picking up any Dominion cards", "mods_required": ["Challenge Deck"], "verification": "honor"}
+    {
+      "id": "mod-complete-7-levels-in-reverse-15c013",
+      "name": "Complete 7 levels in reverse",
+      "mods_required": [
+        "Reverse Mode"
+      ],
+      "verification": "honor"
+    },
+    {
+      "id": "mod-complete-16-non-chapter-11-levels-with-the-boofofm-615642",
+      "name": "Complete 16 non-chapter 11 levels with the BoofOfMemes mod",
+      "mods_required": [
+        "BoofOfMemes"
+      ],
+      "verification": "honor"
+    },
+    {
+      "id": "mod-kill-all-demons-in-a-chapter-11-stage-e408a0",
+      "name": "Kill all demons in a Chapter 11 stage",
+      "mods_required": [
+        "EventTracker"
+      ],
+      "verification": "honor"
+    },
+    {
+      "id": "mod-reach-70-velocity-without-discarding-80edd5",
+      "name": "Reach 70 velocity without discarding",
+      "mods_required": [
+        "NeonLite"
+      ],
+      "verification": "honor"
+    },
+    {
+      "id": "mod-reach-over-100-velocity-686ab6",
+      "name": "Reach over 100 velocity",
+      "mods_required": [
+        "NeonLite"
+      ],
+      "verification": "honor"
+    },
+    {
+      "id": "mod-complete-9-different-custom-levels-60dbbe",
+      "name": "Complete 9 different custom levels",
+      "mods_required": [
+        "SecretShop"
+      ],
+      "verification": "honor"
+    },
+    {
+      "id": "mod-duel-on-any-level-winner-takes-square-ad63d9",
+      "name": "Duel on any level, winner takes square",
+      "mods_required": [
+        "NeonNetwork"
+      ],
+      "verification": "duel"
+    },
+    {
+      "id": "mod-complete-8-levels-with-the-mikey-mod-9111b3",
+      "name": "Complete 8 levels with the Mikey mod",
+      "mods_required": [
+        "Challenge Deck"
+      ],
+      "verification": "honor"
+    },
+    {
+      "id": "mod-complete-12-levels-with-any-combination-of-at-leas-1bc0d1",
+      "name": "Complete 12 levels with any combination of at least 3 gameplay-altering mods",
+      "mods_required": [
+        "NeonLite",
+        "Challenge Deck"
+      ],
+      "verification": "honor"
+    },
+    {
+      "id": "mod-complete-any-3-chapter-rushes-61961d",
+      "name": "Complete any 3 chapter rushes",
+      "mods_required": [
+        "ChapterRush"
+      ],
+      "verification": "honor"
+    },
+    {
+      "id": "mod-complete-any-chapter-rush-with-hell-rush-toggled-o-5f8cd7",
+      "name": "Complete any chapter rush with Hell Rush toggled on",
+      "mods_required": [
+        "ChapterRush",
+        "Challenge Deck"
+      ],
+      "verification": "honor"
+    },
+    {
+      "id": "mod-collect-all-red-gifts-e15f34",
+      "name": "Collect all Red gifts",
+      "mods_required": [
+        "Challenge Deck"
+      ],
+      "verification": "honor"
+    },
+    {
+      "id": "mod-collect-all-yellow-gifts-64fef9",
+      "name": "Collect all Yellow gifts",
+      "mods_required": [
+        "Challenge Deck"
+      ],
+      "verification": "honor"
+    },
+    {
+      "id": "mod-collect-all-violet-gifts-f9cfcb",
+      "name": "Collect all Violet gifts",
+      "mods_required": [
+        "Challenge Deck"
+      ],
+      "verification": "honor"
+    },
+    {
+      "id": "mod-collect-all-mikey-gifts-b77c91",
+      "name": "Collect all Mikey gifts",
+      "mods_required": [
+        "Challenge Deck"
+      ],
+      "verification": "honor"
+    },
+    {
+      "id": "mod-collect-all-raz-gifts-34ab07",
+      "name": "Collect all Raz gifts",
+      "mods_required": [
+        "Challenge Deck"
+      ],
+      "verification": "honor"
+    },
+    {
+      "id": "mod-collect-all-gifts-in-a-single-chapter-7ff5c6",
+      "name": "Collect all gifts in a single chapter",
+      "mods_required": [
+        "Challenge Deck"
+      ],
+      "verification": "honor"
+    },
+    {
+      "id": "mod-collect-one-of-each-gift-type-exc-strange-coin-78edef",
+      "name": "Collect one of each gift type (exc. strange coin)",
+      "mods_required": [
+        "Challenge Deck"
+      ],
+      "verification": "honor"
+    },
+    {
+      "id": "mod-collect-a-strange-coin-a82b2b",
+      "name": "Collect a strange coin",
+      "mods_required": [
+        "Challenge Deck"
+      ],
+      "verification": "honor"
+    },
+    {
+      "id": "mod-complete-5-levels-from-the-aquatic-level-jam-1bf757",
+      "name": "Complete 5 levels from the Aquatic Level Jam",
+      "mods_required": [
+        "SecretShop"
+      ],
+      "verification": "honor"
+    },
+    {
+      "id": "mod-complete-5-levels-featured-in-alpharad-s-subathon--255d4e",
+      "name": "Complete 5 levels featured in Alpharad's subathon tournament",
+      "mods_required": [
+        "SecretShop"
+      ],
+      "verification": "honor"
+    },
+    {
+      "id": "mod-complete-3-levels-from-the-2023-mapping-contest-1ac825",
+      "name": "Complete 3 levels from the 2023 Mapping Contest",
+      "mods_required": [
+        "SecretShop"
+      ],
+      "verification": "honor"
+    },
+    {
+      "id": "mod-collect-12-gifts-with-the-boofofmemes-mod-549e2b",
+      "name": "Collect 12 gifts with the BoofOfMemes mod",
+      "mods_required": [
+        "Challenge Deck",
+        "BoofOfMemes"
+      ],
+      "verification": "honor"
+    },
+    {
+      "id": "mod-collect-7-gifts-with-the-mikey-mod-21e261",
+      "name": "Collect 7 gifts with the Mikey mod",
+      "mods_required": [
+        "Challenge Deck"
+      ],
+      "verification": "honor"
+    },
+    {
+      "id": "mod-collect-5-gifts-without-discarding-f3e615",
+      "name": "Collect 5 gifts without discarding",
+      "mods_required": [
+        "Challenge Deck"
+      ],
+      "verification": "honor"
+    },
+    {
+      "id": "mod-complete-any-2-run-categories-in-the-archipelago-c-5ba548",
+      "name": "Complete any 2 run categories in the Archipelago custom level",
+      "mods_required": [
+        "SecretShop"
+      ],
+      "verification": "honor"
+    },
+    {
+      "id": "mod-complete-fortress-without-picking-up-any-dominion--36f836",
+      "name": "Complete Fortress without picking up any Dominion cards",
+      "mods_required": [
+        "Challenge Deck"
+      ],
+      "verification": "honor"
+    }
   ],
-
   "level_completion": [
-    {"name": "Complete Movement",                "stat_code": "TUT_MOVEMENT",                 "chapter": "1 - Rebirth",                   "mods_required": [], "verification": "honor"},
-    {"name": "Complete Pummel",                  "stat_code": "TUT_SHOOTINGRANGE",            "chapter": "1 - Rebirth",                   "mods_required": [], "verification": "honor"},
-    {"name": "Complete Gunner",                  "stat_code": "SLUGGER",                      "chapter": "1 - Rebirth",                   "mods_required": [], "verification": "honor"},
-    {"name": "Complete Cascade",                 "stat_code": "TUT_FROG",                     "chapter": "1 - Rebirth",                   "mods_required": [], "verification": "honor"},
-    {"name": "Complete Elevate",                 "stat_code": "TUT_JUMP",                     "chapter": "1 - Rebirth",                   "mods_required": [], "verification": "honor"},
-    {"name": "Complete Bounce",                  "stat_code": "GRID_TUT_BALLOON",             "chapter": "1 - Rebirth",                   "mods_required": [], "verification": "honor"},
-    {"name": "Complete Purify",                  "stat_code": "TUT_BOMB2",                    "chapter": "1 - Rebirth",                   "mods_required": [], "verification": "honor"},
-    {"name": "Complete Climb",                   "stat_code": "TUT_BOMBJUMP",                 "chapter": "1 - Rebirth",                   "mods_required": [], "verification": "honor"},
-    {"name": "Complete Fasttrack",               "stat_code": "TUT_FASTTRACK",                "chapter": "1 - Rebirth",                   "mods_required": [], "verification": "honor"},
-    {"name": "Complete Glass Port",              "stat_code": "GRID_PORT",                    "chapter": "1 - Rebirth",                   "mods_required": [], "verification": "honor"},
-    {"name": "Complete Take Flight",             "stat_code": "GRID_PAGODA",                  "chapter": "2 - Killer Inside",             "mods_required": [], "verification": "honor"},
-    {"name": "Complete Godspeed",                "stat_code": "TUT_RIFLE",                    "chapter": "2 - Killer Inside",             "mods_required": [], "verification": "honor"},
-    {"name": "Complete Dasher",                  "stat_code": "TUT_RIFLEJOCK",                "chapter": "2 - Killer Inside",             "mods_required": [], "verification": "honor"},
-    {"name": "Complete Thrasher",                "stat_code": "TUT_DASHENEMY",                "chapter": "2 - Killer Inside",             "mods_required": [], "verification": "honor"},
-    {"name": "Complete Outstretched",            "stat_code": "GRID_JUMPDASH",                "chapter": "2 - Killer Inside",             "mods_required": [], "verification": "honor"},
-    {"name": "Complete Smackdown",               "stat_code": "GRID_SMACKDOWN",               "chapter": "2 - Killer Inside",             "mods_required": [], "verification": "honor"},
-    {"name": "Complete Catwalk",                 "stat_code": "GRID_MEATY_BALLOONS",          "chapter": "2 - Killer Inside",             "mods_required": [], "verification": "honor"},
-    {"name": "Complete Fastlane",                "stat_code": "GRID_FAST_BALLOON",            "chapter": "2 - Killer Inside",             "mods_required": [], "verification": "honor"},
-    {"name": "Complete Distinguish",             "stat_code": "GRID_DRAGON2",                 "chapter": "2 - Killer Inside",             "mods_required": [], "verification": "honor"},
-    {"name": "Complete Dancer",                  "stat_code": "GRID_DASHDANCE",               "chapter": "2 - Killer Inside",             "mods_required": [], "verification": "honor"},
-    {"name": "Complete Guardian",                "stat_code": "TUT_GUARDIAN",                 "chapter": "3 - Only Shallow",              "mods_required": [], "verification": "honor"},
-    {"name": "Complete Stomp",                   "stat_code": "TUT_UZI",                      "chapter": "3 - Only Shallow",              "mods_required": [], "verification": "honor"},
-    {"name": "Complete Jumper",                  "stat_code": "TUT_JUMPER",                   "chapter": "3 - Only Shallow",              "mods_required": [], "verification": "honor"},
-    {"name": "Complete Dash Tower",              "stat_code": "TUT_BOMB",                     "chapter": "3 - Only Shallow",              "mods_required": [], "verification": "honor"},
-    {"name": "Complete Descent",                 "stat_code": "GRID_DESCEND",                 "chapter": "3 - Only Shallow",              "mods_required": [], "verification": "honor"},
-    {"name": "Complete Driller",                 "stat_code": "GRID_STAMPEROUT",              "chapter": "3 - Only Shallow",              "mods_required": [], "verification": "honor"},
-    {"name": "Complete Canals",                  "stat_code": "GRID_CRUISE",                  "chapter": "3 - Only Shallow",              "mods_required": [], "verification": "honor"},
-    {"name": "Complete Sprint",                  "stat_code": "GRID_SPRINT",                  "chapter": "3 - Only Shallow",              "mods_required": [], "verification": "honor"},
-    {"name": "Complete Mountain",                "stat_code": "GRID_MOUNTAIN",                "chapter": "3 - Only Shallow",              "mods_required": [], "verification": "honor"},
-    {"name": "Complete Superkinetic",            "stat_code": "GRID_SUPERKINETIC",            "chapter": "3 - Only Shallow",              "mods_required": [], "verification": "honor"},
-    {"name": "Complete Arrival",                 "stat_code": "GRID_ARRIVAL",                 "chapter": "4 - The Old City",              "mods_required": [], "verification": "honor"},
-    {"name": "Complete Forgotten City",          "stat_code": "FLOATING",                     "chapter": "4 - The Old City",              "mods_required": [], "verification": "honor"},
-    {"name": "Complete The Clocktower",          "stat_code": "GRID_BOSS_YELLOW",             "chapter": "4 - The Old City",              "mods_required": [], "verification": "honor"},
-    {"name": "Complete Fireball",                "stat_code": "GRID_HOPHOP",                  "chapter": "5 - The Burn That Cures",       "mods_required": [], "verification": "honor"},
-    {"name": "Complete Ringer",                  "stat_code": "GRID_RINGER_TUTORIAL",         "chapter": "5 - The Burn That Cures",       "mods_required": [], "verification": "honor"},
-    {"name": "Complete Cleaner",                 "stat_code": "GRID_RINGER_EXPLORATION",      "chapter": "5 - The Burn That Cures",       "mods_required": [], "verification": "honor"},
-    {"name": "Complete Warehouse",               "stat_code": "GRID_HOPSCOTCH",               "chapter": "5 - The Burn That Cures",       "mods_required": [], "verification": "honor"},
-    {"name": "Complete Boom",                    "stat_code": "GRID_BOOM",                    "chapter": "5 - The Burn That Cures",       "mods_required": [], "verification": "honor"},
-    {"name": "Complete Streets",                 "stat_code": "GRID_SNAKE_IN_MY_BOOT",        "chapter": "5 - The Burn That Cures",       "mods_required": [], "verification": "honor"},
-    {"name": "Complete Steps",                   "stat_code": "GRID_FLOCK",                   "chapter": "5 - The Burn That Cures",       "mods_required": [], "verification": "honor"},
-    {"name": "Complete Demolition",              "stat_code": "GRID_BOMBS_AHOY",              "chapter": "5 - The Burn That Cures",       "mods_required": [], "verification": "honor"},
-    {"name": "Complete Arcs",                    "stat_code": "GRID_ARCS",                    "chapter": "5 - The Burn That Cures",       "mods_required": [], "verification": "honor"},
-    {"name": "Complete Apartment",               "stat_code": "GRID_APARTMENT",               "chapter": "5 - The Burn That Cures",       "mods_required": [], "verification": "honor"},
-    {"name": "Complete Hanging Gardens",         "stat_code": "TUT_TRIPWIRE",                 "chapter": "6 - Covenant",                  "mods_required": [], "verification": "honor"},
-    {"name": "Complete Tangled",                 "stat_code": "GRID_TANGLED",                 "chapter": "6 - Covenant",                  "mods_required": [], "verification": "honor"},
-    {"name": "Complete Waterworks",              "stat_code": "GRID_HUNT",                    "chapter": "6 - Covenant",                  "mods_required": [], "verification": "honor"},
-    {"name": "Complete Killswitch",              "stat_code": "GRID_CANNONS",                 "chapter": "6 - Covenant",                  "mods_required": [], "verification": "honor"},
-    {"name": "Complete Falling",                 "stat_code": "GRID_FALLING",                 "chapter": "6 - Covenant",                  "mods_required": [], "verification": "honor"},
-    {"name": "Complete Shocker",                 "stat_code": "TUT_SHOCKER2",                 "chapter": "6 - Covenant",                  "mods_required": [], "verification": "honor"},
-    {"name": "Complete Bouquet",                 "stat_code": "TUT_SHOCKER",                  "chapter": "6 - Covenant",                  "mods_required": [], "verification": "honor"},
-    {"name": "Complete Prepare",                 "stat_code": "GRID_PREPARE",                 "chapter": "6 - Covenant",                  "mods_required": [], "verification": "honor"},
-    {"name": "Complete Triptrack",               "stat_code": "GRID_TRIPMAZE",                "chapter": "6 - Covenant",                  "mods_required": [], "verification": "honor"},
-    {"name": "Complete Race",                    "stat_code": "GRID_RACE",                    "chapter": "6 - Covenant",                  "mods_required": [], "verification": "honor"},
-    {"name": "Complete Bubble",                  "stat_code": "TUT_FORCEFIELD2",              "chapter": "7 - Reckoning",                 "mods_required": [], "verification": "honor"},
-    {"name": "Complete Shield",                  "stat_code": "GRID_SHIELD",                  "chapter": "7 - Reckoning",                 "mods_required": [], "verification": "honor"},
-    {"name": "Complete Overlook",                "stat_code": "SA L VAGE2",                   "chapter": "7 - Reckoning",                 "mods_required": [], "verification": "honor"},
-    {"name": "Complete Pop",                     "stat_code": "GRID_VERTICAL",                "chapter": "7 - Reckoning",                 "mods_required": [], "verification": "honor"},
-    {"name": "Complete Minefield",               "stat_code": "GRID_MINEFIELD",               "chapter": "7 - Reckoning",                 "mods_required": [], "verification": "honor"},
-    {"name": "Complete Mimic",                   "stat_code": "TUT_MIMIC",                    "chapter": "7 - Reckoning",                 "mods_required": [], "verification": "honor"},
-    {"name": "Complete Trigger",                 "stat_code": "GRID_MIMICPOP",                "chapter": "7 - Reckoning",                 "mods_required": [], "verification": "honor"},
-    {"name": "Complete Greenhouse",              "stat_code": "GRID_SWARM",                   "chapter": "7 - Reckoning",                 "mods_required": [], "verification": "honor"},
-    {"name": "Complete Sweep",                   "stat_code": "GRID_SWITCH",                  "chapter": "7 - Reckoning",                 "mods_required": [], "verification": "honor"},
-    {"name": "Complete Fuse",                    "stat_code": "GRID_TRAPS2",                  "chapter": "7 - Reckoning",                 "mods_required": [], "verification": "honor"},
-    {"name": "Complete Heaven's Edge",           "stat_code": "TUT_ROCKETJUMP",               "chapter": "8 - Benediction",               "mods_required": [], "verification": "honor"},
-    {"name": "Complete Zipline",                 "stat_code": "TUT_ZIPLINE",                  "chapter": "8 - Benediction",               "mods_required": [], "verification": "honor"},
-    {"name": "Complete Swing",                   "stat_code": "GRID_CLIMBANG",                "chapter": "8 - Benediction",               "mods_required": [], "verification": "honor"},
-    {"name": "Complete Chute",                   "stat_code": "GRID_ROCKETUZI",               "chapter": "8 - Benediction",               "mods_required": [], "verification": "honor"},
-    {"name": "Complete Crash",                   "stat_code": "GRID_CRASHLAND",               "chapter": "8 - Benediction",               "mods_required": [], "verification": "honor"},
-    {"name": "Complete Ascent",                  "stat_code": "GRID_ESCALATE",                "chapter": "8 - Benediction",               "mods_required": [], "verification": "honor"},
-    {"name": "Complete Straightaway",            "stat_code": "GRID_SPIDERCLAUS",             "chapter": "8 - Benediction",               "mods_required": [], "verification": "honor"},
-    {"name": "Complete Firecracker",             "stat_code": "GRID_FIRECRACKER_2",           "chapter": "8 - Benediction",               "mods_required": [], "verification": "honor"},
-    {"name": "Complete Streak",                  "stat_code": "GRID_SPIDERMAN",               "chapter": "8 - Benediction",               "mods_required": [], "verification": "honor"},
-    {"name": "Complete Mirror",                  "stat_code": "GRID_DESTRUCTION",             "chapter": "8 - Benediction",               "mods_required": [], "verification": "honor"},
-    {"name": "Complete Escalation",              "stat_code": "GRID_HEAT",                    "chapter": "9 - Apocrypha",                 "mods_required": [], "verification": "honor"},
-    {"name": "Complete Bolt",                    "stat_code": "GRID_BOLT",                    "chapter": "9 - Apocrypha",                 "mods_required": [], "verification": "honor"},
-    {"name": "Complete Godstreak",               "stat_code": "GRID_PON",                     "chapter": "9 - Apocrypha",                 "mods_required": [], "verification": "honor"},
-    {"name": "Complete Plunge",                  "stat_code": "GRID_CHARGE",                  "chapter": "9 - Apocrypha",                 "mods_required": [], "verification": "honor"},
-    {"name": "Complete Mayhem",                  "stat_code": "GRID_MIMICFINALE",             "chapter": "9 - Apocrypha",                 "mods_required": [], "verification": "honor"},
-    {"name": "Complete Barrage",                 "stat_code": "GRID_BARRAGE",                 "chapter": "9 - Apocrypha",                 "mods_required": [], "verification": "honor"},
-    {"name": "Complete Estate",                  "stat_code": "GRID_1GUN",                    "chapter": "9 - Apocrypha",                 "mods_required": [], "verification": "honor"},
-    {"name": "Complete Trapwire",                "stat_code": "GRID_HECK",                    "chapter": "9 - Apocrypha",                 "mods_required": [], "verification": "honor"},
-    {"name": "Complete Ricochet",                "stat_code": "GRID_ANTFARM",                 "chapter": "9 - Apocrypha",                 "mods_required": [], "verification": "honor"},
-    {"name": "Complete Fortress",                "stat_code": "GRID_FORTRESS",                "chapter": "9 - Apocrypha",                 "mods_required": [], "verification": "honor"},
-    {"name": "Complete Holy Ground",             "stat_code": "GRID_GODTEMPLE_ENTRY",         "chapter": "10 - The Third Temple",         "mods_required": [], "verification": "honor"},
-    {"name": "Complete The Third Temple",        "stat_code": "GRID_BOSS_GODSDEATHTEMPLE",    "chapter": "10 - The Third Temple",         "mods_required": [], "verification": "honor"},
-    {"name": "Complete Spree",                   "stat_code": "GRID_EXTERMINATOR",            "chapter": "11 - Thousand Pound Butterfly", "mods_required": [], "verification": "honor"},
-    {"name": "Complete Breakthrough",            "stat_code": "GRID_FEVER",                   "chapter": "11 - Thousand Pound Butterfly", "mods_required": [], "verification": "honor"},
-    {"name": "Complete Glide",                   "stat_code": "GRID_SKIPSLIDE",               "chapter": "11 - Thousand Pound Butterfly", "mods_required": [], "verification": "honor"},
-    {"name": "Complete Closer",                  "stat_code": "GRID_CLOSER",                  "chapter": "11 - Thousand Pound Butterfly", "mods_required": [], "verification": "honor"},
-    {"name": "Complete Hike",                    "stat_code": "GRID_HIKE",                    "chapter": "11 - Thousand Pound Butterfly", "mods_required": [], "verification": "honor"},
-    {"name": "Complete Switch",                  "stat_code": "GRID_SKIP",                    "chapter": "11 - Thousand Pound Butterfly", "mods_required": [], "verification": "honor"},
-    {"name": "Complete Access",                  "stat_code": "GRID_CEILING",                 "chapter": "11 - Thousand Pound Butterfly", "mods_required": [], "verification": "honor"},
-    {"name": "Complete Congregation",            "stat_code": "GRID_BOOP",                    "chapter": "11 - Thousand Pound Butterfly", "mods_required": [], "verification": "honor"},
-    {"name": "Complete Sequence",                "stat_code": "GRID_TRIPRAP",                 "chapter": "11 - Thousand Pound Butterfly", "mods_required": [], "verification": "honor"},
-    {"name": "Complete Marathon",                "stat_code": "GRID_ZIPRAP",                  "chapter": "11 - Thousand Pound Butterfly", "mods_required": [], "verification": "honor"},
-    {"name": "Complete Sacrifice",               "stat_code": "TUT_ORIGIN",                   "chapter": "12 - Hand of God",              "mods_required": [], "verification": "honor"},
-    {"name": "Complete Absolution",              "stat_code": "GRID_BOSS_RAPTURE",            "chapter": "12 - Hand of God",              "mods_required": [], "verification": "honor"},
-    {"name": "Complete Elevate Traversal I",     "stat_code": "SIDEQUEST_OBSTACLE_PISTOL",            "chapter": "Sidequests - Red",    "mods_required": [], "verification": "honor"},
-    {"name": "Complete Elevate Traversal II",    "stat_code": "SIDEQUEST_OBSTACLE_PISTOL_SHOOT",      "chapter": "Sidequests - Red",    "mods_required": [], "verification": "honor"},
-    {"name": "Complete Purify Traversal",        "stat_code": "SIDEQUEST_OBSTACLE_MACHINEGUN",        "chapter": "Sidequests - Red",    "mods_required": [], "verification": "honor"},
-    {"name": "Complete Godspeed Traversal",      "stat_code": "SIDEQUEST_OBSTACLE_RIFLE_2",           "chapter": "Sidequests - Red",    "mods_required": [], "verification": "honor"},
-    {"name": "Complete Stomp Traversal",         "stat_code": "SIDEQUEST_OBSTACLE_UZI2",              "chapter": "Sidequests - Red",    "mods_required": [], "verification": "honor"},
-    {"name": "Complete Fireball Traversal",      "stat_code": "SIDEQUEST_OBSTACLE_SHOTGUN",           "chapter": "Sidequests - Red",    "mods_required": [], "verification": "honor"},
-    {"name": "Complete Dominion Traversal",      "stat_code": "SIDEQUEST_OBSTACLE_ROCKETLAUNCHER",    "chapter": "Sidequests - Red",    "mods_required": [], "verification": "honor"},
-    {"name": "Complete Book of Life Traversal",  "stat_code": "SIDEQUEST_RAPTURE_QUEST",              "chapter": "Sidequests - Red",    "mods_required": [], "verification": "honor"},
-    {"name": "Complete Doghouse",                "stat_code": "SIDEQUEST_DODGER",                     "chapter": "Sidequests - Violet", "mods_required": [], "verification": "honor"},
-    {"name": "Complete Choker",                  "stat_code": "GRID_GLASSPATH",                       "chapter": "Sidequests - Violet", "mods_required": [], "verification": "honor"},
-    {"name": "Complete Chain",                   "stat_code": "GRID_GLASSPATH2",                      "chapter": "Sidequests - Violet", "mods_required": [], "verification": "honor"},
-    {"name": "Complete Hellevator",              "stat_code": "GRID_HELLVATOR",                       "chapter": "Sidequests - Violet", "mods_required": [], "verification": "honor"},
-    {"name": "Complete Razor",                   "stat_code": "GRID_GLASSPATH3",                      "chapter": "Sidequests - Violet", "mods_required": [], "verification": "honor"},
-    {"name": "Complete All Seeing Eye",          "stat_code": "SIDEQUEST_ALL_SEEING_EYE",             "chapter": "Sidequests - Violet", "mods_required": [], "verification": "honor"},
-    {"name": "Complete Resident Saw I",          "stat_code": "SIDEQUEST_RESIDENTSAWB",               "chapter": "Sidequests - Violet", "mods_required": [], "verification": "honor"},
-    {"name": "Complete Resident Saw II",         "stat_code": "SIDEQUEST_RESIDENTSAW",                "chapter": "Sidequests - Violet", "mods_required": [], "verification": "honor"},
-    {"name": "Complete Sunset Flip Powerbomb",   "stat_code": "SIDEQUEST_SUNSET_FLIP_POWERBOMB",      "chapter": "Sidequests - Yellow", "mods_required": [], "verification": "honor"},
-    {"name": "Complete Balloon Mountain",        "stat_code": "GRID_BALLOONLAIR",                     "chapter": "Sidequests - Yellow", "mods_required": [], "verification": "honor"},
-    {"name": "Complete Climbing Gym",            "stat_code": "SIDEQUEST_BARREL_CLIMB",               "chapter": "Sidequests - Yellow", "mods_required": [], "verification": "honor"},
-    {"name": "Complete Fisherman Suplex",        "stat_code": "SIDEQUEST_FISHERMAN_SUPLEX",           "chapter": "Sidequests - Yellow", "mods_required": [], "verification": "honor"},
-    {"name": "Complete STF",                     "stat_code": "SIDEQUEST_STF",                        "chapter": "Sidequests - Yellow", "mods_required": [], "verification": "honor"},
-    {"name": "Complete Arena",                   "stat_code": "SIDEQUEST_ARENASIXNINE",               "chapter": "Sidequests - Yellow", "mods_required": [], "verification": "honor"},
-    {"name": "Complete Attitude Adjustment",     "stat_code": "SIDEQUEST_ATTITUDE_ADJUSTMENT",        "chapter": "Sidequests - Yellow", "mods_required": [], "verification": "honor"},
-    {"name": "Complete Rocket",                  "stat_code": "SIDEQUEST_ROCKETGODZ",                 "chapter": "Sidequests - Yellow", "mods_required": [], "verification": "honor"}
+    {
+      "id": "lvl-tut-movement",
+      "name": "Complete Movement",
+      "stat_code": "TUT_MOVEMENT",
+      "chapter": "1 - Rebirth",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-tut-shootingrange",
+      "name": "Complete Pummel",
+      "stat_code": "TUT_SHOOTINGRANGE",
+      "chapter": "1 - Rebirth",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-slugger",
+      "name": "Complete Gunner",
+      "stat_code": "SLUGGER",
+      "chapter": "1 - Rebirth",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-tut-frog",
+      "name": "Complete Cascade",
+      "stat_code": "TUT_FROG",
+      "chapter": "1 - Rebirth",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-tut-jump",
+      "name": "Complete Elevate",
+      "stat_code": "TUT_JUMP",
+      "chapter": "1 - Rebirth",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-tut-balloon",
+      "name": "Complete Bounce",
+      "stat_code": "GRID_TUT_BALLOON",
+      "chapter": "1 - Rebirth",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-tut-bomb2",
+      "name": "Complete Purify",
+      "stat_code": "TUT_BOMB2",
+      "chapter": "1 - Rebirth",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-tut-bombjump",
+      "name": "Complete Climb",
+      "stat_code": "TUT_BOMBJUMP",
+      "chapter": "1 - Rebirth",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-tut-fasttrack",
+      "name": "Complete Fasttrack",
+      "stat_code": "TUT_FASTTRACK",
+      "chapter": "1 - Rebirth",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-port",
+      "name": "Complete Glass Port",
+      "stat_code": "GRID_PORT",
+      "chapter": "1 - Rebirth",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-pagoda",
+      "name": "Complete Take Flight",
+      "stat_code": "GRID_PAGODA",
+      "chapter": "2 - Killer Inside",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-tut-rifle",
+      "name": "Complete Godspeed",
+      "stat_code": "TUT_RIFLE",
+      "chapter": "2 - Killer Inside",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-tut-riflejock",
+      "name": "Complete Dasher",
+      "stat_code": "TUT_RIFLEJOCK",
+      "chapter": "2 - Killer Inside",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-tut-dashenemy",
+      "name": "Complete Thrasher",
+      "stat_code": "TUT_DASHENEMY",
+      "chapter": "2 - Killer Inside",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-jumpdash",
+      "name": "Complete Outstretched",
+      "stat_code": "GRID_JUMPDASH",
+      "chapter": "2 - Killer Inside",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-smackdown",
+      "name": "Complete Smackdown",
+      "stat_code": "GRID_SMACKDOWN",
+      "chapter": "2 - Killer Inside",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-meaty-balloons",
+      "name": "Complete Catwalk",
+      "stat_code": "GRID_MEATY_BALLOONS",
+      "chapter": "2 - Killer Inside",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-fast-balloon",
+      "name": "Complete Fastlane",
+      "stat_code": "GRID_FAST_BALLOON",
+      "chapter": "2 - Killer Inside",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-dragon2",
+      "name": "Complete Distinguish",
+      "stat_code": "GRID_DRAGON2",
+      "chapter": "2 - Killer Inside",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-dashdance",
+      "name": "Complete Dancer",
+      "stat_code": "GRID_DASHDANCE",
+      "chapter": "2 - Killer Inside",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-tut-guardian",
+      "name": "Complete Guardian",
+      "stat_code": "TUT_GUARDIAN",
+      "chapter": "3 - Only Shallow",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-tut-uzi",
+      "name": "Complete Stomp",
+      "stat_code": "TUT_UZI",
+      "chapter": "3 - Only Shallow",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-tut-jumper",
+      "name": "Complete Jumper",
+      "stat_code": "TUT_JUMPER",
+      "chapter": "3 - Only Shallow",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-tut-bomb",
+      "name": "Complete Dash Tower",
+      "stat_code": "TUT_BOMB",
+      "chapter": "3 - Only Shallow",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-descend",
+      "name": "Complete Descent",
+      "stat_code": "GRID_DESCEND",
+      "chapter": "3 - Only Shallow",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-stamperout",
+      "name": "Complete Driller",
+      "stat_code": "GRID_STAMPEROUT",
+      "chapter": "3 - Only Shallow",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-cruise",
+      "name": "Complete Canals",
+      "stat_code": "GRID_CRUISE",
+      "chapter": "3 - Only Shallow",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-sprint",
+      "name": "Complete Sprint",
+      "stat_code": "GRID_SPRINT",
+      "chapter": "3 - Only Shallow",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-mountain",
+      "name": "Complete Mountain",
+      "stat_code": "GRID_MOUNTAIN",
+      "chapter": "3 - Only Shallow",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-superkinetic",
+      "name": "Complete Superkinetic",
+      "stat_code": "GRID_SUPERKINETIC",
+      "chapter": "3 - Only Shallow",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-arrival",
+      "name": "Complete Arrival",
+      "stat_code": "GRID_ARRIVAL",
+      "chapter": "4 - The Old City",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-floating",
+      "name": "Complete Forgotten City",
+      "stat_code": "FLOATING",
+      "chapter": "4 - The Old City",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-boss-yellow",
+      "name": "Complete The Clocktower",
+      "stat_code": "GRID_BOSS_YELLOW",
+      "chapter": "4 - The Old City",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-hophop",
+      "name": "Complete Fireball",
+      "stat_code": "GRID_HOPHOP",
+      "chapter": "5 - The Burn That Cures",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-ringer-tutorial",
+      "name": "Complete Ringer",
+      "stat_code": "GRID_RINGER_TUTORIAL",
+      "chapter": "5 - The Burn That Cures",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-ringer-exploration",
+      "name": "Complete Cleaner",
+      "stat_code": "GRID_RINGER_EXPLORATION",
+      "chapter": "5 - The Burn That Cures",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-hopscotch",
+      "name": "Complete Warehouse",
+      "stat_code": "GRID_HOPSCOTCH",
+      "chapter": "5 - The Burn That Cures",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-boom",
+      "name": "Complete Boom",
+      "stat_code": "GRID_BOOM",
+      "chapter": "5 - The Burn That Cures",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-snake-in-my-boot",
+      "name": "Complete Streets",
+      "stat_code": "GRID_SNAKE_IN_MY_BOOT",
+      "chapter": "5 - The Burn That Cures",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-flock",
+      "name": "Complete Steps",
+      "stat_code": "GRID_FLOCK",
+      "chapter": "5 - The Burn That Cures",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-bombs-ahoy",
+      "name": "Complete Demolition",
+      "stat_code": "GRID_BOMBS_AHOY",
+      "chapter": "5 - The Burn That Cures",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-arcs",
+      "name": "Complete Arcs",
+      "stat_code": "GRID_ARCS",
+      "chapter": "5 - The Burn That Cures",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-apartment",
+      "name": "Complete Apartment",
+      "stat_code": "GRID_APARTMENT",
+      "chapter": "5 - The Burn That Cures",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-tut-tripwire",
+      "name": "Complete Hanging Gardens",
+      "stat_code": "TUT_TRIPWIRE",
+      "chapter": "6 - Covenant",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-tangled",
+      "name": "Complete Tangled",
+      "stat_code": "GRID_TANGLED",
+      "chapter": "6 - Covenant",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-hunt",
+      "name": "Complete Waterworks",
+      "stat_code": "GRID_HUNT",
+      "chapter": "6 - Covenant",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-cannons",
+      "name": "Complete Killswitch",
+      "stat_code": "GRID_CANNONS",
+      "chapter": "6 - Covenant",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-falling",
+      "name": "Complete Falling",
+      "stat_code": "GRID_FALLING",
+      "chapter": "6 - Covenant",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-tut-shocker2",
+      "name": "Complete Shocker",
+      "stat_code": "TUT_SHOCKER2",
+      "chapter": "6 - Covenant",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-tut-shocker",
+      "name": "Complete Bouquet",
+      "stat_code": "TUT_SHOCKER",
+      "chapter": "6 - Covenant",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-prepare",
+      "name": "Complete Prepare",
+      "stat_code": "GRID_PREPARE",
+      "chapter": "6 - Covenant",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-tripmaze",
+      "name": "Complete Triptrack",
+      "stat_code": "GRID_TRIPMAZE",
+      "chapter": "6 - Covenant",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-race",
+      "name": "Complete Race",
+      "stat_code": "GRID_RACE",
+      "chapter": "6 - Covenant",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-tut-forcefield2",
+      "name": "Complete Bubble",
+      "stat_code": "TUT_FORCEFIELD2",
+      "chapter": "7 - Reckoning",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-shield",
+      "name": "Complete Shield",
+      "stat_code": "GRID_SHIELD",
+      "chapter": "7 - Reckoning",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-sa-l-vage2",
+      "name": "Complete Overlook",
+      "stat_code": "SA L VAGE2",
+      "chapter": "7 - Reckoning",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-vertical",
+      "name": "Complete Pop",
+      "stat_code": "GRID_VERTICAL",
+      "chapter": "7 - Reckoning",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-minefield",
+      "name": "Complete Minefield",
+      "stat_code": "GRID_MINEFIELD",
+      "chapter": "7 - Reckoning",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-tut-mimic",
+      "name": "Complete Mimic",
+      "stat_code": "TUT_MIMIC",
+      "chapter": "7 - Reckoning",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-mimicpop",
+      "name": "Complete Trigger",
+      "stat_code": "GRID_MIMICPOP",
+      "chapter": "7 - Reckoning",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-swarm",
+      "name": "Complete Greenhouse",
+      "stat_code": "GRID_SWARM",
+      "chapter": "7 - Reckoning",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-switch",
+      "name": "Complete Sweep",
+      "stat_code": "GRID_SWITCH",
+      "chapter": "7 - Reckoning",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-traps2",
+      "name": "Complete Fuse",
+      "stat_code": "GRID_TRAPS2",
+      "chapter": "7 - Reckoning",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-tut-rocketjump",
+      "name": "Complete Heaven's Edge",
+      "stat_code": "TUT_ROCKETJUMP",
+      "chapter": "8 - Benediction",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-tut-zipline",
+      "name": "Complete Zipline",
+      "stat_code": "TUT_ZIPLINE",
+      "chapter": "8 - Benediction",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-climbang",
+      "name": "Complete Swing",
+      "stat_code": "GRID_CLIMBANG",
+      "chapter": "8 - Benediction",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-rocketuzi",
+      "name": "Complete Chute",
+      "stat_code": "GRID_ROCKETUZI",
+      "chapter": "8 - Benediction",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-crashland",
+      "name": "Complete Crash",
+      "stat_code": "GRID_CRASHLAND",
+      "chapter": "8 - Benediction",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-escalate",
+      "name": "Complete Ascent",
+      "stat_code": "GRID_ESCALATE",
+      "chapter": "8 - Benediction",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-spiderclaus",
+      "name": "Complete Straightaway",
+      "stat_code": "GRID_SPIDERCLAUS",
+      "chapter": "8 - Benediction",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-firecracker-2",
+      "name": "Complete Firecracker",
+      "stat_code": "GRID_FIRECRACKER_2",
+      "chapter": "8 - Benediction",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-spiderman",
+      "name": "Complete Streak",
+      "stat_code": "GRID_SPIDERMAN",
+      "chapter": "8 - Benediction",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-destruction",
+      "name": "Complete Mirror",
+      "stat_code": "GRID_DESTRUCTION",
+      "chapter": "8 - Benediction",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-heat",
+      "name": "Complete Escalation",
+      "stat_code": "GRID_HEAT",
+      "chapter": "9 - Apocrypha",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-bolt",
+      "name": "Complete Bolt",
+      "stat_code": "GRID_BOLT",
+      "chapter": "9 - Apocrypha",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-pon",
+      "name": "Complete Godstreak",
+      "stat_code": "GRID_PON",
+      "chapter": "9 - Apocrypha",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-charge",
+      "name": "Complete Plunge",
+      "stat_code": "GRID_CHARGE",
+      "chapter": "9 - Apocrypha",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-mimicfinale",
+      "name": "Complete Mayhem",
+      "stat_code": "GRID_MIMICFINALE",
+      "chapter": "9 - Apocrypha",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-barrage",
+      "name": "Complete Barrage",
+      "stat_code": "GRID_BARRAGE",
+      "chapter": "9 - Apocrypha",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-1gun",
+      "name": "Complete Estate",
+      "stat_code": "GRID_1GUN",
+      "chapter": "9 - Apocrypha",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-heck",
+      "name": "Complete Trapwire",
+      "stat_code": "GRID_HECK",
+      "chapter": "9 - Apocrypha",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-antfarm",
+      "name": "Complete Ricochet",
+      "stat_code": "GRID_ANTFARM",
+      "chapter": "9 - Apocrypha",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-fortress",
+      "name": "Complete Fortress",
+      "stat_code": "GRID_FORTRESS",
+      "chapter": "9 - Apocrypha",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-godtemple-entry",
+      "name": "Complete Holy Ground",
+      "stat_code": "GRID_GODTEMPLE_ENTRY",
+      "chapter": "10 - The Third Temple",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-boss-godsdeathtemple",
+      "name": "Complete The Third Temple",
+      "stat_code": "GRID_BOSS_GODSDEATHTEMPLE",
+      "chapter": "10 - The Third Temple",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-exterminator",
+      "name": "Complete Spree",
+      "stat_code": "GRID_EXTERMINATOR",
+      "chapter": "11 - Thousand Pound Butterfly",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-fever",
+      "name": "Complete Breakthrough",
+      "stat_code": "GRID_FEVER",
+      "chapter": "11 - Thousand Pound Butterfly",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-skipslide",
+      "name": "Complete Glide",
+      "stat_code": "GRID_SKIPSLIDE",
+      "chapter": "11 - Thousand Pound Butterfly",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-closer",
+      "name": "Complete Closer",
+      "stat_code": "GRID_CLOSER",
+      "chapter": "11 - Thousand Pound Butterfly",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-hike",
+      "name": "Complete Hike",
+      "stat_code": "GRID_HIKE",
+      "chapter": "11 - Thousand Pound Butterfly",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-skip",
+      "name": "Complete Switch",
+      "stat_code": "GRID_SKIP",
+      "chapter": "11 - Thousand Pound Butterfly",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-ceiling",
+      "name": "Complete Access",
+      "stat_code": "GRID_CEILING",
+      "chapter": "11 - Thousand Pound Butterfly",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-boop",
+      "name": "Complete Congregation",
+      "stat_code": "GRID_BOOP",
+      "chapter": "11 - Thousand Pound Butterfly",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-triprap",
+      "name": "Complete Sequence",
+      "stat_code": "GRID_TRIPRAP",
+      "chapter": "11 - Thousand Pound Butterfly",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-ziprap",
+      "name": "Complete Marathon",
+      "stat_code": "GRID_ZIPRAP",
+      "chapter": "11 - Thousand Pound Butterfly",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-tut-origin",
+      "name": "Complete Sacrifice",
+      "stat_code": "TUT_ORIGIN",
+      "chapter": "12 - Hand of God",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-boss-rapture",
+      "name": "Complete Absolution",
+      "stat_code": "GRID_BOSS_RAPTURE",
+      "chapter": "12 - Hand of God",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-sidequest-obstacle-pistol",
+      "name": "Complete Elevate Traversal I",
+      "stat_code": "SIDEQUEST_OBSTACLE_PISTOL",
+      "chapter": "Sidequests - Red",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-sidequest-obstacle-pistol-shoot",
+      "name": "Complete Elevate Traversal II",
+      "stat_code": "SIDEQUEST_OBSTACLE_PISTOL_SHOOT",
+      "chapter": "Sidequests - Red",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-sidequest-obstacle-machinegun",
+      "name": "Complete Purify Traversal",
+      "stat_code": "SIDEQUEST_OBSTACLE_MACHINEGUN",
+      "chapter": "Sidequests - Red",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-sidequest-obstacle-rifle-2",
+      "name": "Complete Godspeed Traversal",
+      "stat_code": "SIDEQUEST_OBSTACLE_RIFLE_2",
+      "chapter": "Sidequests - Red",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-sidequest-obstacle-uzi2",
+      "name": "Complete Stomp Traversal",
+      "stat_code": "SIDEQUEST_OBSTACLE_UZI2",
+      "chapter": "Sidequests - Red",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-sidequest-obstacle-shotgun",
+      "name": "Complete Fireball Traversal",
+      "stat_code": "SIDEQUEST_OBSTACLE_SHOTGUN",
+      "chapter": "Sidequests - Red",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-sidequest-obstacle-rocketlauncher",
+      "name": "Complete Dominion Traversal",
+      "stat_code": "SIDEQUEST_OBSTACLE_ROCKETLAUNCHER",
+      "chapter": "Sidequests - Red",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-sidequest-rapture-quest",
+      "name": "Complete Book of Life Traversal",
+      "stat_code": "SIDEQUEST_RAPTURE_QUEST",
+      "chapter": "Sidequests - Red",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-sidequest-dodger",
+      "name": "Complete Doghouse",
+      "stat_code": "SIDEQUEST_DODGER",
+      "chapter": "Sidequests - Violet",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-glasspath",
+      "name": "Complete Choker",
+      "stat_code": "GRID_GLASSPATH",
+      "chapter": "Sidequests - Violet",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-glasspath2",
+      "name": "Complete Chain",
+      "stat_code": "GRID_GLASSPATH2",
+      "chapter": "Sidequests - Violet",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-hellvator",
+      "name": "Complete Hellevator",
+      "stat_code": "GRID_HELLVATOR",
+      "chapter": "Sidequests - Violet",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-glasspath3",
+      "name": "Complete Razor",
+      "stat_code": "GRID_GLASSPATH3",
+      "chapter": "Sidequests - Violet",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-sidequest-all-seeing-eye",
+      "name": "Complete All Seeing Eye",
+      "stat_code": "SIDEQUEST_ALL_SEEING_EYE",
+      "chapter": "Sidequests - Violet",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-sidequest-residentsawb",
+      "name": "Complete Resident Saw I",
+      "stat_code": "SIDEQUEST_RESIDENTSAWB",
+      "chapter": "Sidequests - Violet",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-sidequest-residentsaw",
+      "name": "Complete Resident Saw II",
+      "stat_code": "SIDEQUEST_RESIDENTSAW",
+      "chapter": "Sidequests - Violet",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-sidequest-sunset-flip-powerbomb",
+      "name": "Complete Sunset Flip Powerbomb",
+      "stat_code": "SIDEQUEST_SUNSET_FLIP_POWERBOMB",
+      "chapter": "Sidequests - Yellow",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-grid-balloonlair",
+      "name": "Complete Balloon Mountain",
+      "stat_code": "GRID_BALLOONLAIR",
+      "chapter": "Sidequests - Yellow",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-sidequest-barrel-climb",
+      "name": "Complete Climbing Gym",
+      "stat_code": "SIDEQUEST_BARREL_CLIMB",
+      "chapter": "Sidequests - Yellow",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-sidequest-fisherman-suplex",
+      "name": "Complete Fisherman Suplex",
+      "stat_code": "SIDEQUEST_FISHERMAN_SUPLEX",
+      "chapter": "Sidequests - Yellow",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-sidequest-stf",
+      "name": "Complete STF",
+      "stat_code": "SIDEQUEST_STF",
+      "chapter": "Sidequests - Yellow",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-sidequest-arenasixnine",
+      "name": "Complete Arena",
+      "stat_code": "SIDEQUEST_ARENASIXNINE",
+      "chapter": "Sidequests - Yellow",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-sidequest-attitude-adjustment",
+      "name": "Complete Attitude Adjustment",
+      "stat_code": "SIDEQUEST_ATTITUDE_ADJUSTMENT",
+      "chapter": "Sidequests - Yellow",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "lvl-sidequest-rocketgodz",
+      "name": "Complete Rocket",
+      "stat_code": "SIDEQUEST_ROCKETGODZ",
+      "chapter": "Sidequests - Yellow",
+      "mods_required": [],
+      "verification": "honor"
+    }
   ]
 }

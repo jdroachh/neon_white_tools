@@ -32,6 +32,7 @@ export type Settings = {
   timeLimitMin: number;
   winConditions: WinConditionKey[];
   firstToN?: number;
+  excludedSquareIds: string[];   // square ids to omit from the sampling pool
 };
 
 export type WinConditionKey = "line" | "four_corners" | "full_house" | "first_to_n" | "time_limit";
@@ -114,7 +115,9 @@ function isSettingsMsg(e: Record<string, unknown>): e is SettingsMsg {
     typeof d["lockout"] === "boolean" &&
     typeof d["timeLimitMin"] === "number" &&
     Array.isArray(d["winConditions"]) &&
-    (d["winConditions"] as unknown[]).every((w) => VALID_WIN_CONDITIONS.has(w as string))
+    (d["winConditions"] as unknown[]).every((w) => VALID_WIN_CONDITIONS.has(w as string)) &&
+    Array.isArray(d["excludedSquareIds"]) &&
+    (d["excludedSquareIds"] as unknown[]).every((s) => typeof s === "string")
   );
 }
 
@@ -186,6 +189,7 @@ export const DEFAULT_SETTINGS: Settings = {
   lockout: true,
   timeLimitMin: 20,
   winConditions: ["line"],
+  excludedSquareIds: [],
 };
 
 export const TEAM_PALETTE: { name: string; color: string }[] = [
@@ -201,7 +205,12 @@ export function makeInitialState(): RoomState {
   return {
     phase: "lobby",
     hostToken: null,
-    settings: { ...DEFAULT_SETTINGS, sections: [...DEFAULT_SETTINGS.sections], winConditions: [...DEFAULT_SETTINGS.winConditions] },
+    settings: {
+      ...DEFAULT_SETTINGS,
+      sections: [...DEFAULT_SETTINGS.sections],
+      winConditions: [...DEFAULT_SETTINGS.winConditions],
+      excludedSquareIds: [...DEFAULT_SETTINGS.excludedSquareIds],
+    },
     members: {},
     teams: TEAM_PALETTE.map((p, i) => ({
       id: i,

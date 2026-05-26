@@ -191,7 +191,7 @@ export class LobbyDO extends DurableObject {
     // (to the new socket only), then synthetic "joined" announce (broadcast to all).
     this.replayChatTo(ws);
     if (isFirstJoin) {
-      this.pushChat(`${nickname} joined`, { system: true, nickname });
+      this.pushChat(`joined`, { system: true, nickname });
     }
   }
 
@@ -225,9 +225,9 @@ export class LobbyDO extends DurableObject {
       if (team.leaderToken === null) {
         team.leaderToken = token;
       }
-      this.pushChat(`${member.nickname} joined ${team.name}`, { system: true, teamId, nickname: member.nickname });
+      this.pushChat(`joined ${team.name}`, { system: true, teamId, nickname: member.nickname });
     } else if (oldTeamId !== null) {
-      this.pushChat(`${member.nickname} left ${this.room.teams[oldTeamId].name}`, { system: true, teamId: oldTeamId, nickname: member.nickname });
+      this.pushChat(`left ${this.room.teams[oldTeamId].name}`, { system: true, teamId: oldTeamId, nickname: member.nickname });
     }
 
     this.broadcastState();

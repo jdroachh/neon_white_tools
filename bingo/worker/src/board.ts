@@ -2,7 +2,7 @@ import squaresData from "../../squares.json";
 import type { Settings, ClaimInfo, WinConditionKey } from "./protocol";
 import type { RoomState } from "./protocol";
 
-type Square = { name: string; mods_required: string[]; verification: string };
+type Square = { id: string; name: string; mods_required: string[]; verification: string };
 type SquaresJson = {
   standard: Square[];
   level_completion: Square[];
@@ -42,8 +42,10 @@ export function generateBoard(
     }
   }
 
+  const excluded = new Set(settings.excludedSquareIds);
   const filtered = pool.filter((s) => {
     if (!settings.allowModded && s.mods_required.length > 0) return false;
+    if (excluded.has(s.id)) return false;
     return true;
   });
 
@@ -51,8 +53,9 @@ export function generateBoard(
   const required = settings.centerFree ? total - 1 : total;
 
   if (filtered.length < required) {
+    const exclusionNote = excluded.size > 0 ? ` (${excluded.size} excluded via Advanced)` : "";
     return {
-      error: `Pool too small: ${filtered.length} squares available, ${required} needed. Try enabling more sections or allowModded.`,
+      error: `Pool too small: ${filtered.length} squares available, ${required} needed${exclusionNote}. Try enabling more sections, allowModded, or re-enabling excluded squares.`,
     };
   }
 

@@ -18,6 +18,22 @@
     li { margin-bottom: 2px; }
     #status { margin: 12px 0; font-size: 0.85rem; color: #aaa; }
 
+    /* End-screen winning-cell rainbow border (rotating conic gradient) */
+    @property --rb-angle {
+      syntax: '<angle>';
+      initial-value: 0deg;
+      inherits: false;
+    }
+    @keyframes rb-spin { to { --rb-angle: 360deg; } }
+    .win-cell-wrap {
+      padding: 3px;
+      border-radius: 5px;
+      background: conic-gradient(from var(--rb-angle),
+        #ff0040, #ff8000, #ffe600, #00e676, #00b0ff, #5e35ff, #d500f9, #ff0040);
+      animation: rb-spin 2.5s linear infinite;
+    }
+    /* Fallback: if @property unsupported, gradient stays static (still pretty). */
+
     /* Log section */
     #log { border: 1px solid #333; padding: 8px; border-radius: 3px; margin-top: 24px; }
     #log-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
