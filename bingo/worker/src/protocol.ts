@@ -36,7 +36,10 @@ export type Settings = {
   excludedSquareIds: string[];   // square ids to omit from the sampling pool
 };
 
-export type WinConditionKey = "line" | "four_corners" | "full_house" | "first_to_n" | "time_limit";
+// "board_full" is a server-side sentinel — never user-configurable. Emitted when
+// every cell has a claim and no other configured condition has fired; winner is
+// the team with the most cells (ties broken by lowest summed timeMs).
+export type WinConditionKey = "line" | "four_corners" | "full_house" | "first_to_n" | "time_limit" | "board_full";
 
 export type MemberInfo = {
   nickname: string;

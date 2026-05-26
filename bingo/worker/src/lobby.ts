@@ -297,12 +297,15 @@ export class LobbyDO extends DurableObject {
       this.sendError(ws, "Only the host can restart the game", "not_host");
       return;
     }
-    if (this.room.phase !== "ended") {
-      this.sendError(ws, "Can only restart from the end screen", "wrong_phase");
-      return;
-    }
-
+    // "lobby" mode is allowed from any non-lobby phase — it's the host's
+    // escape hatch for a stuck game (no winner reachable, bad board, etc.).
+    // "same"/"new" still require an ended game.
     if (mode === "lobby") {
+      if (this.room.phase === "lobby") {
+        this.sendError(ws, "Already in lobby", "wrong_phase");
+        return;
+      }
+      const wasPlaying = this.room.phase === "playing" || this.room.phase === "starting";
       this.room.phase = "lobby";
       this.room.board = null;
       this.room.claims = [];
@@ -310,9 +313,14 @@ export class LobbyDO extends DurableObject {
       this.room.startingAt = null;
       this.room.startedAt = null;
       this.ctx.storage.deleteAlarm();
-      console.log(`[${new Date().toISOString()}] [worker] Restart → lobby`);
-      this.pushChat("Back to lobby", { system: true });
+      console.log(`[${new Date().toISOString()}] [worker] Restart → lobby (from ${wasPlaying ? "playing" : "ended"})`);
+      this.pushChat(wasPlaying ? "Host ended the game and returned to lobby" : "Back to lobby", { system: true });
       this.broadcastState();
+      return;
+    }
+
+    if (this.room.phase !== "ended") {
+      this.sendError(ws, "Can only restart from the end screen", "wrong_phase");
       return;
     }
 

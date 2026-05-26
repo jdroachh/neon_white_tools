@@ -685,8 +685,30 @@ function renderBoard(): void {
   const amLeader = myTeam?.leaderToken === myToken;
   const canClaim = myTeam !== null && (state.settings.anyoneCanClaim || amLeader);
 
+  const amHost = state.hostToken === myToken;
+
   const container = document.getElementById("board-inner")!;
   container.innerHTML = "";
+
+  // Host escape hatch: end the current game and return everyone to the lobby.
+  // Useful when no winner is reachable under the current settings (e.g. line
+  // win but lockout off and teams have blocked every line) or when the host
+  // just wants to reroll the board.
+  if (amHost) {
+    const hostRow = el("div", { style: "margin-bottom:10px;display:flex;justify-content:flex-end;" });
+    const backBtn = el("button", {
+      style: "padding:6px 12px;background:#6b7280;color:#fff;border:none;border-radius:4px;cursor:pointer;font-family:monospace;font-size:0.8rem;",
+      title: "End this game and return everyone to the lobby (host only)",
+    }) as HTMLButtonElement;
+    backBtn.textContent = "↩ Back to Lobby (end game)";
+    backBtn.addEventListener("click", () => {
+      if (confirm("End this game and return everyone to the lobby? All claims will be lost.")) {
+        send({ t: "restart", data: { mode: "lobby" } });
+      }
+    });
+    hostRow.appendChild(backBtn);
+    container.appendChild(hostRow);
+  }
 
   // Claim counts + per-team roster. FREE sentinel counts for every team.
   const countsDiv = el("div", { style: "margin-bottom:12px;display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start;" });
@@ -818,7 +840,16 @@ function renderEnd(): void {
   if (winner) {
     const team = state.teams[winner.teamId];
     const banner = el("h2", { style: `color:${team.color};margin-bottom:16px;` });
-    banner.textContent = `${team.name} won by ${winner.condition}!`;
+    const conditionLabels: Record<string, string> = {
+      line: "line",
+      four_corners: "four corners",
+      full_house: "full house",
+      first_to_n: "first to N",
+      time_limit: "time limit (most squares)",
+      board_full: "most squares (board full)",
+    };
+    const label = conditionLabels[winner.condition] ?? winner.condition;
+    banner.textContent = `${team.name} won by ${label}!`;
     container.appendChild(banner);
   } else {
     const banner = el("h2", {});

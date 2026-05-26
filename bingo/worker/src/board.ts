@@ -229,5 +229,17 @@ export function evaluateWin(state: RoomState): { teamId: number; condition: WinC
     }
     if (result) return { teamId: result.teamId, condition: cond, shape: result.shape };
   }
+
+  // Board-full fallback: if every cell has a claim and no configured condition
+  // has fired, award the win to the team with the most cells (ties broken by
+  // lowest summed timeMs, same rule as time_limit). Prevents games from
+  // stalling forever when settings make no winner reachable (e.g. lockout off
+  // + line/first_to_n that no team will hit).
+  if (claims.length > 0 && claims.every((c) => c !== null)) {
+    const fallback = evalTimeLimit(claims);
+    if (fallback) {
+      return { teamId: fallback.teamId, condition: "board_full", shape: fallback.shape };
+    }
+  }
   return null;
 }
