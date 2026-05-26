@@ -149,6 +149,11 @@ export class LobbyDO extends DurableObject {
     this.room.phase = "starting";
     this.room.startingAt = Date.now();
     this.room.startedAt = null;
+    // Snapshot teams that have members right now — used to gate visibility and
+    // spectator-join targets once the game is in progress (see allowNewTeamsInGame).
+    this.room.startingTeamIds = this.room.teams
+      .filter((t) => t.memberTokens.length > 0)
+      .map((t) => t.id);
     this.ctx.storage.deleteAlarm();
     this.ctx.storage.setAlarm(this.room.startingAt + COUNTDOWN_MS);
     this.broadcastState();
@@ -210,6 +215,22 @@ export class LobbyDO extends DurableObject {
       const isTeamToTeamSwap = oldTeamId !== null && teamId !== null && oldTeamId !== teamId;
       if (isTeamToTeamSwap) {
         this.sendError(ws, "Cannot switch teams after the game has started", "wrong_phase");
+        return;
+      }
+      const isSpectatorJoiningTeam = oldTeamId === null && teamId !== null;
+      if (isSpectatorJoiningTeam && this.room.settings.lockSpectatorJoinInGame) {
+        this.sendError(ws, "Host has disabled joining a team mid-game", "wrong_phase");
+        return;
+      }
+      // Without allowNewTeamsInGame, spectators may only join teams that
+      // existed (had members) when the game started — joining an empty team
+      // would effectively spawn a new team mid-match.
+      if (
+        isSpectatorJoiningTeam &&
+        !this.room.settings.allowNewTeamsInGame &&
+        !this.room.startingTeamIds.includes(teamId as number)
+      ) {
+        this.sendError(ws, "Cannot create a new team mid-game", "wrong_phase");
         return;
       }
     }
@@ -320,6 +341,7 @@ export class LobbyDO extends DurableObject {
       this.room.winner = null;
       this.room.startingAt = null;
       this.room.startedAt = null;
+      this.room.startingTeamIds = [];
       this.ctx.storage.deleteAlarm();
       console.log(`[${new Date().toISOString()}] [worker] Restart → lobby (from ${wasPlaying ? "playing" : "ended"})`);
       this.pushChat(wasPlaying ? "Host ended the game and returned to lobby" : "Back to lobby", { system: true });

@@ -30,6 +30,8 @@ export type Settings = {
   centerFree: boolean;
   lockout: boolean;       // ON = first team to claim owns it; OFF = multiple teams can claim same cell
   anyoneCanClaim: boolean; // true = any team member may claim/unclaim; false = leader only
+  lockSpectatorJoinInGame: boolean; // true = spectators cannot join a team after game start
+  allowNewTeamsInGame: boolean; // true = empty teams may be joined mid-game; false (default) = only teams that had members when the game started are joinable/visible
   timeLimitMin: number;
   winConditions: WinConditionKey[];
   firstToN?: number;
@@ -73,6 +75,7 @@ export type RoomState = {
   claims: (ClaimInfo[] | null)[];   // each cell holds 0+ claims; null = empty. Lockout ON = at most one element.
   startingAt: number | null;        // populated during "starting" phase; countdown ends at startingAt + COUNTDOWN_MS
   startedAt: number | null;
+  startingTeamIds: number[];        // snapshot of team ids that had >=1 member when the game entered the starting phase; empty in lobby
   winner: { teamId: number; condition: WinConditionKey; shape?: number[] } | null;
 };
 
@@ -118,6 +121,8 @@ function isSettingsMsg(e: Record<string, unknown>): e is SettingsMsg {
     typeof d["centerFree"] === "boolean" &&
     typeof d["lockout"] === "boolean" &&
     typeof d["anyoneCanClaim"] === "boolean" &&
+    typeof d["lockSpectatorJoinInGame"] === "boolean" &&
+    typeof d["allowNewTeamsInGame"] === "boolean" &&
     typeof d["timeLimitMin"] === "number" &&
     Array.isArray(d["winConditions"]) &&
     (d["winConditions"] as unknown[]).every((w) => VALID_WIN_CONDITIONS.has(w as string)) &&
@@ -193,6 +198,8 @@ export const DEFAULT_SETTINGS: Settings = {
   centerFree: false,
   lockout: true,
   anyoneCanClaim: true,
+  lockSpectatorJoinInGame: false,
+  allowNewTeamsInGame: false,
   timeLimitMin: 20,
   winConditions: ["line"],
   excludedSquareIds: [],
@@ -229,6 +236,7 @@ export function makeInitialState(): RoomState {
     claims: [],
     startingAt: null,
     startedAt: null,
+    startingTeamIds: [],
     winner: null,
   };
 }

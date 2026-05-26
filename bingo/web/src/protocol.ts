@@ -30,6 +30,8 @@ export type Settings = {
   centerFree: boolean;
   lockout: boolean;
   anyoneCanClaim: boolean;
+  lockSpectatorJoinInGame: boolean;
+  allowNewTeamsInGame: boolean;
   timeLimitMin: number;
   winConditions: WinConditionKey[];
   firstToN?: number;
@@ -73,6 +75,7 @@ export type RoomState = {
   claims: (ClaimInfo[] | null)[];
   startingAt: number | null;
   startedAt: number | null;
+  startingTeamIds: number[];
   winner: { teamId: number; condition: WinConditionKey; shape?: number[] } | null;
 };
 
@@ -118,6 +121,8 @@ function isSettingsMsg(e: Record<string, unknown>): e is SettingsMsg {
     typeof d["centerFree"] === "boolean" &&
     typeof d["lockout"] === "boolean" &&
     typeof d["anyoneCanClaim"] === "boolean" &&
+    typeof d["lockSpectatorJoinInGame"] === "boolean" &&
+    typeof d["allowNewTeamsInGame"] === "boolean" &&
     typeof d["timeLimitMin"] === "number" &&
     Array.isArray(d["winConditions"]) &&
     (d["winConditions"] as unknown[]).every((w) => VALID_WIN_CONDITIONS.has(w as string)) &&
@@ -196,6 +201,8 @@ export const DEFAULT_SETTINGS: Settings = {
   centerFree: false,
   lockout: true,
   anyoneCanClaim: true,
+  lockSpectatorJoinInGame: false,
+  allowNewTeamsInGame: false,
   timeLimitMin: 20,
   winConditions: ["line", "time_limit"],
   excludedSquareIds: [],
@@ -232,6 +239,7 @@ export function makeInitialState(): RoomState {
     claims: [],
     startingAt: null,
     startedAt: null,
+    startingTeamIds: [],
     winner: null,
   };
 }

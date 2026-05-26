@@ -619,6 +619,19 @@ function renderSettingsForm(settings: Settings): HTMLElement {
     sendUpdatedSettings({ ...settings, anyoneCanClaim: v });
   }));
 
+  // Lock spectator team-join after game start. OFF (default) = spectators may
+  // join a team mid-game; ON = teams sealed once the game begins.
+  wrapper.appendChild(makeCheckbox("Lock teams after game starts (no mid-game join)", settings.lockSpectatorJoinInGame, (v) => {
+    sendUpdatedSettings({ ...settings, lockSpectatorJoinInGame: v });
+  }));
+
+  // Allow new teams mid-match. OFF (default) = teams that had no members at
+  // game start are hidden and cannot be joined; ON = all teams remain visible
+  // and joinable (spectators can spawn a new team mid-match).
+  wrapper.appendChild(makeCheckbox("Allow new teams mid-match", settings.allowNewTeamsInGame, (v) => {
+    sendUpdatedSettings({ ...settings, allowNewTeamsInGame: v });
+  }));
+
   // Time limit
   wrapper.appendChild(labelText("Time limit (minutes):"));
   const timeInput = document.createElement("input");
@@ -711,8 +724,13 @@ function renderBoard(): void {
   }
 
   // Claim counts + per-team roster. FREE sentinel counts for every team.
+  // When the host has not opted into new teams mid-match, hide any team that
+  // didn't have members at game start (the snapshot in state.startingTeamIds).
+  const hideEmptyAtStart = !state.settings.allowNewTeamsInGame && state.startingTeamIds.length > 0;
+  const visibleTeamIds = new Set<number>(hideEmptyAtStart ? state.startingTeamIds : state.teams.map((t) => t.id));
   const countsDiv = el("div", { style: "margin-bottom:12px;display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start;" });
   for (const team of state.teams) {
+    if (!visibleTeamIds.has(team.id)) continue;
     const count = state.claims.filter((c) => cellCountsFor(c, team.id)).length;
     if (team.memberTokens.length === 0 && count === 0) continue;
     const block = el("div", { style: `background:${team.color};color:#000;padding:6px 10px;border-radius:4px;min-width:120px;` });
@@ -767,21 +785,34 @@ function renderBoard(): void {
     container.appendChild(note);
   }
   if (myTeamId === null) {
-    // Spectator self-view: explicit label + inline "Join a team" buttons.
-    // Mid-game joins are allowed; the worker blocks only team-to-team swaps.
+    // Spectator self-view: explicit label + inline "Join a team" buttons,
+    // unless the host has locked teams for this game.
     const noteRow = el("div", { style: "color:#aaa;margin-bottom:10px;font-size:0.85rem;display:flex;align-items:center;gap:8px;flex-wrap:wrap;" });
-    const label = document.createElement("span");
-    label.textContent = "You are spectating. Join a team:";
-    noteRow.appendChild(label);
-    for (const team of state.teams) {
-      const btn = el("button", {
-        style: `background:${team.color};border:none;padding:4px 10px;border-radius:3px;cursor:pointer;font-family:monospace;color:#000;font-weight:bold;font-size:0.8rem;`,
-      }) as HTMLButtonElement;
-      btn.textContent = team.name;
-      btn.addEventListener("click", () => {
-        send({ t: "team_join", data: { teamId: team.id } });
-      });
-      noteRow.appendChild(btn);
+    if (state.settings.lockSpectatorJoinInGame) {
+      const label = document.createElement("span");
+      label.textContent = "You are spectating. Host has locked teams for this game.";
+      noteRow.appendChild(label);
+    } else {
+      const label = document.createElement("span");
+      label.textContent = "You are spectating. Join a team:";
+      noteRow.appendChild(label);
+      const joinableTeams = state.teams.filter((t) => visibleTeamIds.has(t.id));
+      for (const team of joinableTeams) {
+        const btn = el("button", {
+          style: `background:${team.color};border:none;padding:4px 10px;border-radius:3px;cursor:pointer;font-family:monospace;color:#000;font-weight:bold;font-size:0.8rem;`,
+        }) as HTMLButtonElement;
+        btn.textContent = team.name;
+        btn.addEventListener("click", () => {
+          send({ t: "team_join", data: { teamId: team.id } });
+        });
+        noteRow.appendChild(btn);
+      }
+      if (joinableTeams.length === 0) {
+        const empty = document.createElement("span");
+        empty.style.cssText = "color:#888;";
+        empty.textContent = "(no joinable teams)";
+        noteRow.appendChild(empty);
+      }
     }
     container.appendChild(noteRow);
   } else {
@@ -793,8 +824,11 @@ function renderBoard(): void {
       title: "Leave your team and become a spectator. Cannot rejoin a different team this game.",
     }) as HTMLButtonElement;
     leaveBtn.textContent = "↗ Leave team (spectate)";
+    const leaveWarning = state.settings.lockSpectatorJoinInGame
+      ? "Leave your team and become a spectator? Host has locked teams — you will NOT be able to rejoin any team this game."
+      : "Leave your team and become a spectator? You can rejoin the same team but not switch teams mid-game.";
     leaveBtn.addEventListener("click", () => {
-      if (confirm("Leave your team and become a spectator? You can rejoin the same team but not switch teams mid-game.")) {
+      if (confirm(leaveWarning)) {
         send({ t: "team_join", data: { teamId: null } });
       }
     });
