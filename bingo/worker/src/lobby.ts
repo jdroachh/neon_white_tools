@@ -191,20 +191,28 @@ export class LobbyDO extends DurableObject {
     // (to the new socket only), then synthetic "joined" announce (broadcast to all).
     this.replayChatTo(ws);
     if (isFirstJoin) {
-      this.pushChat(`joined`, { system: true, nickname });
+      const joinLabel = this.room.phase === "lobby" ? "joined" : "joined as spectator";
+      this.pushChat(joinLabel, { system: true, nickname });
     }
   }
 
   private handleTeamJoin(ws: WebSocket, token: string, teamId: number | null): void {
-    if (this.room.phase !== "lobby") {
-      this.sendError(ws, "Cannot change teams after game started", "wrong_phase");
-      return;
-    }
-
     const member = this.room.members[token];
     if (!member) return;
 
     const oldTeamId = member.teamId;
+
+    // Mid-game rule: spectators can join a team and team members can drop to
+    // spectator, but team-to-team swaps are blocked outside the lobby phase —
+    // otherwise a losing team could dissolve into the leading team in the
+    // final minute.
+    if (this.room.phase !== "lobby") {
+      const isTeamToTeamSwap = oldTeamId !== null && teamId !== null && oldTeamId !== teamId;
+      if (isTeamToTeamSwap) {
+        this.sendError(ws, "Cannot switch teams after the game has started", "wrong_phase");
+        return;
+      }
+    }
 
     // Remove from old team
     if (oldTeamId !== null) {

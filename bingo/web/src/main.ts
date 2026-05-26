@@ -736,6 +736,29 @@ function renderBoard(): void {
     block.appendChild(roster);
     countsDiv.appendChild(block);
   }
+
+  // Spectator block — everyone without a team (mid-game joiners + lobby members
+  // who left their team mid-game). Neutral styling distinguishes it from teams.
+  const spectators = Object.entries(state.members).filter(([, m]) => m.teamId === null);
+  if (spectators.length > 0) {
+    const block = el("div", { style: "background:#2a2a2a;color:#ccc;padding:6px 10px;border-radius:4px;min-width:120px;border:1px dashed #555;" });
+    const header = document.createElement("div");
+    header.style.cssText = "font-weight:bold;margin-bottom:2px;";
+    header.textContent = `Spectators: ${spectators.length}`;
+    block.appendChild(header);
+    const roster = document.createElement("div");
+    roster.style.cssText = "font-size:0.75rem;line-height:1.3;";
+    roster.textContent = spectators
+      .map(([tok, m]) => {
+        const youMark = tok === myToken ? " (you)" : "";
+        const offlineMark = m.online ? "" : " [off]";
+        return `${m.nickname}${youMark}${offlineMark}`;
+      })
+      .join(", ");
+    block.appendChild(roster);
+    countsDiv.appendChild(block);
+  }
+
   container.appendChild(countsDiv);
 
   if (!canClaim && myTeamId !== null) {
@@ -744,9 +767,39 @@ function renderBoard(): void {
     container.appendChild(note);
   }
   if (myTeamId === null) {
-    const note = el("div", { style: "color:#aaa;margin-bottom:8px;font-size:0.85rem;" });
-    note.textContent = "You are not on a team — spectating.";
-    container.appendChild(note);
+    // Spectator self-view: explicit label + inline "Join a team" buttons.
+    // Mid-game joins are allowed; the worker blocks only team-to-team swaps.
+    const noteRow = el("div", { style: "color:#aaa;margin-bottom:10px;font-size:0.85rem;display:flex;align-items:center;gap:8px;flex-wrap:wrap;" });
+    const label = document.createElement("span");
+    label.textContent = "You are spectating. Join a team:";
+    noteRow.appendChild(label);
+    for (const team of state.teams) {
+      const btn = el("button", {
+        style: `background:${team.color};border:none;padding:4px 10px;border-radius:3px;cursor:pointer;font-family:monospace;color:#000;font-weight:bold;font-size:0.8rem;`,
+      }) as HTMLButtonElement;
+      btn.textContent = team.name;
+      btn.addEventListener("click", () => {
+        send({ t: "team_join", data: { teamId: team.id } });
+      });
+      noteRow.appendChild(btn);
+    }
+    container.appendChild(noteRow);
+  } else {
+    // On a team mid-game: offer a one-click "drop to spectator" since the
+    // lobby's Leave-team button isn't reachable from the playing view.
+    const leaveRow = el("div", { style: "margin-bottom:10px;" });
+    const leaveBtn = el("button", {
+      style: "padding:4px 10px;border-radius:3px;cursor:pointer;font-family:monospace;font-size:0.8rem;background:#374151;color:#eee;border:1px solid #555;",
+      title: "Leave your team and become a spectator. Cannot rejoin a different team this game.",
+    }) as HTMLButtonElement;
+    leaveBtn.textContent = "↗ Leave team (spectate)";
+    leaveBtn.addEventListener("click", () => {
+      if (confirm("Leave your team and become a spectator? You can rejoin the same team but not switch teams mid-game.")) {
+        send({ t: "team_join", data: { teamId: null } });
+      }
+    });
+    leaveRow.appendChild(leaveBtn);
+    container.appendChild(leaveRow);
   }
 
   // Grid with axis labels — extra leading column (row numbers) and header row (column letters).
