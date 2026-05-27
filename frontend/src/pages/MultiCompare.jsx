@@ -7,9 +7,10 @@ import {
   loadRosters, saveRosters, addRoster, removeRoster, MAX as MAX_ROSTERS,
 } from "../lib/savedRosters.js";
 import { PLAYER_COLORS, hexFor, nextAvailableColor } from "../lib/playerColors.js";
-import { getLevels, getChapters, runMultiCompare, stopMultiCompare, getGlobalNeonRank } from "../api.js";
+import { getLevels, getChapters, getSteamStatus, runMultiCompare, stopMultiCompare, getGlobalNeonRank } from "../api.js";
 
 const STEAM_ID_RE = /^\d{17}$/;
+const MEDAL_TIER_ORDER = ["BLOOD DIAMOND","TOPAZ","SAPPHIRE","AMETHYST","EMERALD","DEV","ACE","GOLD","SILVER","BRONZE"];
 const MIN_ROWS = 1;
 const DEFAULT_ROWS = 3;
 const MAX_ROWS = 10;
@@ -162,6 +163,19 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
       initial: deriveInitial(profile.nickname),
       steam_id: profile.steam_id || "",
     });
+  }
+  async function handleUseMine(idx) {
+    const s = await getSteamStatus();
+    if (s.ready && s.steam_id) {
+      const patch = { steam_id: String(s.steam_id) };
+      if (s.player_name) {
+        patch.name = s.player_name;
+        patch.initial = deriveInitial(s.player_name);
+      }
+      updateRow(idx, patch);
+    } else {
+      window.alert("Steam not connected. Connect in Settings first.");
+    }
   }
 
   // ── Validity ─────────────────────────────────────────────────────────────
@@ -331,6 +345,24 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
     return { winsPerPlayer: per, winsPerChapter: perChapter, totalLevels: total };
   }, [chapterKeys, mcData, rosterById]);
 
+  // Medal counts per player — keyed by sid, then by medal tier.
+  // Only counts rows in the current results scope (chapter/game/level mode handled
+  // upstream by mcData composition).
+  const medalsPerPlayer = useMemo(() => {
+    const out = {};
+    for (const sid of Object.keys(rosterById)) out[sid] = {};
+    for (const ck of chapterKeys) {
+      for (const lvl of mcData[ck] || []) {
+        for (const row of lvl.sortedRows) {
+          if (row.medal && out[row.steam_id]) {
+            out[row.steam_id][row.medal] = (out[row.steam_id][row.medal] || 0) + 1;
+          }
+        }
+      }
+    }
+    return out;
+  }, [chapterKeys, mcData, rosterById]);
+
   // Sorted chapter order based on sortMode
   const sortedChapterKeys = useMemo(() => {
     if (sortMode === "chapter") return chapterKeys;
@@ -461,6 +493,7 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
             onAddRow={addRow}
             onRemoveRow={removeRow}
             onApplyProfile={applyProfileToRow}
+            onUseMine={handleUseMine}
             onLoadSavedRoster={handleLoadSavedRoster}
             onDeleteSavedRoster={handleDeleteSavedRoster}
             savePromptOpen={savePromptOpen}
@@ -495,6 +528,10 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
 
           {mode !== "level" && standings.some(s => s.wins > 0) && (
             <StandingsStrip standings={standings} totalLevels={scopeLevelCount} />
+          )}
+
+          {mode !== "level" && showMedals && anyResults && (
+            <MedalsStrip standings={standings} medalsPerPlayer={medalsPerPlayer} />
           )}
 
           {mode === "level" ? (
@@ -543,7 +580,7 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
 function RosterPanel({
   roster, validRoster, editing, onToggleEditing,
   savedProfiles, savedRosters, idCounts,
-  onUpdateRow, onAddRow, onRemoveRow, onApplyProfile,
+  onUpdateRow, onAddRow, onRemoveRow, onApplyProfile, onUseMine,
   onLoadSavedRoster, onDeleteSavedRoster,
   savePromptOpen, savePromptNickname, savePromptError,
   onOpenSavePrompt, onCloseSavePrompt, onSavePromptNicknameChange, onSaveRosterSubmit,
@@ -589,6 +626,7 @@ function RosterPanel({
             onUpdateRow={onUpdateRow}
             onRemoveRow={onRemoveRow}
             onApplyProfile={onApplyProfile}
+            onUseMine={onUseMine}
           />
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
             <Btn kind="ghost" size="sm" onClick={onAddRow} disabled={roster.length >= MAX_ROWS}>
@@ -624,7 +662,7 @@ function RosterPanel({
 }
 
 // ── Roster editor (inline row table) ─────────────────────────────────────
-function RosterEditor({ roster, savedProfiles, idCounts, onUpdateRow, onRemoveRow, onApplyProfile }) {
+function RosterEditor({ roster, savedProfiles, idCounts, onUpdateRow, onRemoveRow, onApplyProfile, onUseMine }) {
   const usedColors = roster.map(r => r.color);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -666,6 +704,7 @@ function RosterEditor({ roster, savedProfiles, idCounts, onUpdateRow, onRemoveRo
               title={isDup ? "Duplicate of another row" : (trimmed && !formatOk ? "Must be 17 digits" : undefined)}
             />
             <span className="actions">
+              <Btn kind="ghost" size="sm" onClick={() => onUseMine(idx)} title="Use my connected Steam ID">Mine</Btn>
               <SavedProfilesDropdown
                 profiles={savedProfiles}
                 onSelect={(p) => onApplyProfile(idx, p)}
@@ -925,6 +964,45 @@ function StandingsStrip({ standings, totalLevels }) {
           return <div key={s.sid} className="seg" style={{ width: pct + "%", background: hexFor(s.row.color) }} />;
         })}
       </div>
+    </div>
+  );
+}
+
+function MedalsStrip({ standings, medalsPerPlayer }) {
+  // Iterates in standings order (most wins first). Gradient repaints on
+  // moved-node reorders are handled by translateZ(0) in MedalBadge.
+  return (
+    <div className="nwt-sum-strip" style={{ flexWrap: "wrap", rowGap: 8, columnGap: 8 }}>
+      <span className="lbl">Medals</span>
+      {standings.map(s => {
+        const counts = medalsPerPlayer[s.sid] || {};
+        const tiers = MEDAL_TIER_ORDER.filter(t => counts[t]);
+        const hex = hexFor(s.row.color);
+        return (
+          <span
+            key={s.sid}
+            className="nwt-sum-chip"
+            style={{
+              gap: 6,
+              padding: "3px 8px",
+              border: `1px solid ${hex}`,
+              background: `${hex}1a`,
+              borderRadius: 4,
+            }}
+          >
+            <span style={{ color: hex, fontWeight: 600 }}>{s.row.name || truncateSid(s.sid)}</span>
+            {tiers.length === 0
+              ? <span className="n" style={{ opacity: 0.5 }}>—</span>
+              : tiers.map(t => (
+                  <span key={t} style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                    <MedalBadge medal={t} />
+                    <span className="n">{counts[t]}</span>
+                  </span>
+                ))
+            }
+          </span>
+        );
+      })}
     </div>
   );
 }

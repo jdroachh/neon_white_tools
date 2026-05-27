@@ -43,6 +43,7 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
   const [filterKey, setFilterKey]         = useState("all");
   const [neonRank1, setNeonRank1]         = useState(null);
   const [neonRank2, setNeonRank2]         = useState(null);
+  const [mySteamId, setMySteamId]         = useState("");
 
   // Whole-game mode: fetch each player's GlobalNeonRankings entry after the
   // compare finishes. Story-only — see project_global_neon_rankings.md.
@@ -81,7 +82,12 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
 
 
   useEffect(() => {
-    if (visible) loadProfiles().then(setSavedProfiles);
+    if (visible) {
+      loadProfiles().then(setSavedProfiles);
+      getSteamStatus().then(s => {
+        setMySteamId(s.ready && s.steam_id ? String(s.steam_id) : "");
+      }).catch(() => {});
+    }
   }, [visible]);
 
   useEffect(() => {
@@ -246,7 +252,7 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
                   onSelect={(p) => handleLoadProfile(p, "p1")}
                   disabled={running}
                 />
-                {isValidNewId(steamId1, savedProfiles) && (
+                {isValidNewId(steamId1, savedProfiles) && steamId1 !== mySteamId && (
                   <Btn kind="ghost" size="sm" disabled={running}
                        title="Save this ID as a profile"
                        onClick={() => handleQuickSave(steamId1, "p1")}>★</Btn>
@@ -264,7 +270,7 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
                   onSelect={(p) => handleLoadProfile(p, "p2")}
                   disabled={running}
                 />
-                {isValidNewId(steamId2, savedProfiles) && (
+                {isValidNewId(steamId2, savedProfiles) && steamId2 !== mySteamId && (
                   <Btn kind="ghost" size="sm" disabled={running}
                        title="Save this ID as a profile"
                        onClick={() => handleQuickSave(steamId2, "p2")}>★</Btn>

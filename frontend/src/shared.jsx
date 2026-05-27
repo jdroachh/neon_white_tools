@@ -271,6 +271,7 @@ export const MedalBadge = ({ medal, plain = false }) => {
           WebkitTextFillColor: "transparent",
           backgroundClip: "text",
           whiteSpace: "nowrap",
+          transform: "translateZ(0)",
         }}>
           {medal}
         </span>
@@ -302,6 +303,8 @@ export const MedalBadge = ({ medal, plain = false }) => {
           WebkitBackgroundClip: "text",
           WebkitTextFillColor: "transparent",
           backgroundClip: "text",
+          transform: "translateZ(0)",
+          display: "inline-block",
         }}>
           {medal}
         </span>

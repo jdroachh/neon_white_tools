@@ -30,6 +30,23 @@ _resources.start_background_fetch()
 
 APP_VERSION = "1.4.1"
 
+_UPDATE_CACHE: dict = {}  # {"checked_at": float, "result": dict}
+_UPDATE_CACHE_TTL_SEC = 6 * 60 * 60
+_UPDATE_LATEST_URL = "https://api.github.com/repos/jdroachh/neon_white_tools/releases/latest"
+
+def _parse_version_tuple(v: str) -> tuple:
+    s = (v or "").strip().lstrip("vV")
+    s = s.split("-", 1)[0]  # drop pre-release suffix like "-beta.2"
+    parts = []
+    for p in s.split("."):
+        try:
+            parts.append(int(p))
+        except ValueError:
+            parts.append(0)
+    while len(parts) < 3:
+        parts.append(0)
+    return tuple(parts)
+
 # Community medal data — fetched once at module init in background threads.
 # communitymedals.json: {code: [emerald_us, amethyst_us, sapphire_us]}
 # topaz2.json:          {code: [topaz_us]}
@@ -747,6 +764,42 @@ class JsApi:
 
     def get_app_version(self) -> str:
         return APP_VERSION
+
+    def check_for_update(self) -> dict:
+        """Compare APP_VERSION to GitHub's latest release tag. Cached 6h."""
+        import time
+        now = time.time()
+        cached = _UPDATE_CACHE.get("result")
+        if cached and (now - _UPDATE_CACHE.get("checked_at", 0)) < _UPDATE_CACHE_TTL_SEC:
+            return cached
+        result = {"ok": False, "current": APP_VERSION, "update_available": False}
+        try:
+            req_headers = {"User-Agent": f"NeonWhiteTool/{APP_VERSION}",
+                           "Accept": "application/vnd.github+json"}
+            from urllib.request import Request
+            req = Request(_UPDATE_LATEST_URL, headers=req_headers)
+            with urlopen(req, timeout=6) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            tag = data.get("tag_name") or ""
+            latest = tag.lstrip("vV") or APP_VERSION
+            result = {
+                "ok": True,
+                "current": APP_VERSION,
+                "latest": latest,
+                "update_available": _parse_version_tuple(latest) > _parse_version_tuple(APP_VERSION),
+                "release_url": data.get("html_url") or "",
+                "release_notes": data.get("body") or "",
+            }
+            _UPDATE_CACHE["result"] = result
+            _UPDATE_CACHE["checked_at"] = now
+        except Exception as e:
+            try:
+                from logger import get_logger
+                get_logger("bridge").info("check_for_update failed: %s", e)
+            except Exception:
+                pass
+            result["error"] = str(e)
+        return result
 
     # ── Level / chapter metadata ──────────────────────────────────────────────
 
@@ -1524,6 +1577,7 @@ class JsApi:
             "https://github.com/",
             "https://www.github.com/",
             "https://raw.githubusercontent.com/",
+            "https://nwbingo.pages.dev/",
         )
         if not any(u.startswith(p) for p in allowed_prefixes):
             try:

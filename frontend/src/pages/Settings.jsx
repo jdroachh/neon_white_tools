@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { PageHead, Field, Btn, ErrorBanner, Seg } from "../shared.jsx";
-import { getConfig, saveConfigField, initSteam, pickDllFile, pickFolder, applyAccent, openLogFolder, getAppVersion, findSteamDll } from "../api.js";
+import { getConfig, saveConfigField, initSteam, pickDllFile, pickFolder, applyAccent, openLogFolder, getAppVersion, findSteamDll, checkForUpdate, openExternalUrl } from "../api.js";
 import { loadProfiles, saveProfiles, addProfile, updateProfile, removeProfile, moveProfile, validateProfile, MAX as MAX_PROFILES } from "../lib/savedProfiles.js";
 import { loadSeeds, saveSeeds, removeSeed, moveSeed, updateNickname as updateSeedNickname, MAX as MAX_SEEDS } from "../lib/savedSeeds.js";
 import { loadRosters, saveRosters, removeRoster, moveRoster, updateNickname as updateRosterNickname, MAX as MAX_ROSTERS } from "../lib/savedRosters.js";
@@ -29,6 +29,7 @@ export default function Settings({ onSteamConnected, onFolderChange, visible = f
   const [newSteamId, setNewSteamId]     = useState("");
   const [addError, setAddError]         = useState("");
   const [appVersion, setAppVersion]     = useState("");
+  const [updateAvail, setUpdateAvail]   = useState(null);  // {latest, release_url} when out of date
   const [logStatus, setLogStatus]       = useState("");
   const [findingDll, setFindingDll]     = useState(false);
   const [findDllError, setFindDllError] = useState("");
@@ -48,6 +49,11 @@ export default function Settings({ onSteamConnected, onFolderChange, visible = f
     loadSeeds().then(setSavedSeeds);
     loadRosters().then(setSavedRosters);
     getAppVersion().then(v => setAppVersion(v || ""));
+    checkForUpdate().then(u => {
+      if (u && u.ok && u.update_available) {
+        setUpdateAvail({ latest: u.latest, release_url: u.release_url });
+      }
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -492,6 +498,16 @@ export default function Settings({ onSteamConnected, onFolderChange, visible = f
               {appVersion && (
                 <span className="muted" style={{ fontSize: 11 }}>
                   Version {appVersion}
+                </span>
+              )}
+              {updateAvail && (
+                <span style={{ fontSize: 11, color: "var(--accent)" }}>
+                  ▲ v{updateAvail.latest} available —{" "}
+                  <a
+                    href="#"
+                    onClick={(e) => { e.preventDefault(); openExternalUrl(updateAvail.release_url).catch(() => {}); }}
+                    style={{ color: "var(--accent)", textDecoration: "underline" }}
+                  >download</a>
                 </span>
               )}
             </div>

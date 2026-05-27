@@ -152,6 +152,11 @@ export async function getAppVersion() {
   return api.get_app_version();
 }
 
+export async function checkForUpdate() {
+  const api = await waitForApi();
+  return api.check_for_update();
+}
+
 // ── Leaderboard metadata ─────────────────────────────────────────────────────
 
 export async function getLevels() {

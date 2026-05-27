@@ -4,7 +4,7 @@ import "./styles.css";
 import "./mc-styles.css";
 
 import { Sidebar } from "./shared.jsx";
-import { getSteamStatus, getConfig, applyAccent, saveConfigFields, initSteam } from "./api.js";
+import { getSteamStatus, getConfig, applyAccent, saveConfigFields, initSteam, checkForUpdate, openExternalUrl } from "./api.js";
 import Welcome       from "./pages/Welcome.jsx";
 import SeedParser    from "./pages/SeedParser.jsx";
 import SplitsUpdater from "./pages/SplitsUpdater.jsx";
@@ -72,10 +72,46 @@ const RES_PAGES = [
 const WIRED_PAGES = [...RUSH_PAGES, ...LB_PAGES, ...RES_PAGES];
 const WIRED_KEYS = new Set(WIRED_PAGES.map(p => p.key));
 
+function UpdateBanner({ latest, onDownload, onDismiss }) {
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 12,
+      padding: "6px 14px",
+      background: "var(--surface-2, #1c1c1c)",
+      borderBottom: "1px solid var(--accent)",
+      fontSize: 11, letterSpacing: "0.04em",
+      color: "var(--text)",
+      flexShrink: 0,
+    }}>
+      <span style={{ color: "var(--accent)", fontWeight: 600 }}>▲ UPDATE AVAILABLE</span>
+      <span className="muted">v{latest} is out — you're on the previous version.</span>
+      <span style={{ flex: 1 }} />
+      <button
+        type="button"
+        onClick={onDownload}
+        style={{
+          background: "transparent", border: "1px solid var(--accent)",
+          color: "var(--accent)", padding: "3px 10px", borderRadius: 2,
+          fontSize: 10, letterSpacing: "0.08em", textTransform: "uppercase",
+          cursor: "pointer", fontFamily: "var(--ui-font)",
+        }}>Download</button>
+      <button
+        type="button"
+        onClick={onDismiss}
+        title="Dismiss until the next release"
+        style={{
+          background: "transparent", border: "none",
+          color: "var(--text-3)", padding: "2px 6px",
+          fontSize: 14, cursor: "pointer", lineHeight: 1,
+        }}>✕</button>
+    </div>
+  );
+}
+
 function Placeholder({ pageName }) {
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center",
-                  height: "100%", flexDirection: "column", gap: 12 }}>
+                  flex: 1, minHeight: 0, flexDirection: "column", gap: 12 }}>
       <span style={{ fontSize: 32, color: "var(--accent)", fontFamily: "var(--display-font)" }}>
         {pageName}
       </span>
@@ -96,6 +132,7 @@ function App() {
   const [showMedals, setShowMedals]   = useState(true);
   const [steamStatus, setSteamStatus] = useState({ ready: false, playerName: "", steamId: 0 });
   const [outputFolder, setOutputFolder] = useState("");
+  const [updateInfo, setUpdateInfo]     = useState(null);  // {latest, release_url} when banner should show
 
   useEffect(() => {
     Promise.all([
@@ -138,7 +175,30 @@ function App() {
       const lastTab = cfg && cfg.last_tab;
       setPage(VALID_LAST_TABS.has(lastTab) ? lastTab : "lookup");
     });
+
+    // Launch-time update check. Banner appears only if the latest version
+    // hasn't already been dismissed for this user.
+    checkForUpdate().then(u => {
+      if (!u || !u.ok || !u.update_available) return;
+      getConfig().then(cfg => {
+        const dismissed = (cfg && cfg.update_dismissed_version) || "";
+        if (dismissed !== u.latest) {
+          setUpdateInfo({ latest: u.latest, release_url: u.release_url });
+        }
+      }).catch(() => setUpdateInfo({ latest: u.latest, release_url: u.release_url }));
+    }).catch(() => {});
   }, []);
+
+  function handleDismissUpdate() {
+    const latest = updateInfo && updateInfo.latest;
+    setUpdateInfo(null);
+    if (latest) saveConfigFields({ update_dismissed_version: latest }).catch(() => {});
+  }
+  function handleDownloadUpdate() {
+    if (updateInfo && updateInfo.release_url) {
+      openExternalUrl(updateInfo.release_url).catch(() => {});
+    }
+  }
 
   function handleNav(key) {
     if (key !== "welcome") setShowWelcome(false);
@@ -164,10 +224,17 @@ function App() {
       <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
         <Sidebar active={page} onNav={handleNav}
                  steamReady={steamStatus.ready} playerName={steamStatus.playerName} />
-        <div className="main" style={{ flex: 1, minWidth: 0, overflow: "hidden", position: "relative" }}>
+        <div className="main" style={{ flex: 1, minWidth: 0, overflow: "hidden", position: "relative", display: "flex", flexDirection: "column" }}>
+          {updateInfo && (
+            <UpdateBanner
+              latest={updateInfo.latest}
+              onDownload={handleDownloadUpdate}
+              onDismiss={handleDismissUpdate}
+            />
+          )}
           {/* Welcome page */}
           {showWelcome && page === "welcome" && (
-            <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+            <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "hidden" }}>
               <Welcome onDismiss={handleWelcomeDismiss} onSteamConnected={setSteamStatus} />
             </div>
           )}
@@ -176,7 +243,8 @@ function App() {
             <div key={key} style={{
               display:       !showWelcome && key === page ? "flex" : "none",
               flexDirection: "column",
-              height:        "100%",
+              flex:          1,
+              minHeight:     0,
               overflow:      "hidden",
             }}>
               <Component showMedals={showMedals} setShowMedals={setShowMedals}
@@ -186,7 +254,7 @@ function App() {
           {/* Settings — mounted separately so it can update steamStatus and outputFolder */}
           <div style={{
             display: !showWelcome && page === "settings" ? "flex" : "none",
-            flexDirection: "column", height: "100%", overflow: "hidden",
+            flexDirection: "column", flex: 1, minHeight: 0, overflow: "hidden",
           }}>
             <Settings onSteamConnected={setSteamStatus} onFolderChange={setOutputFolder}
                       visible={!showWelcome && page === "settings"} />
@@ -194,7 +262,7 @@ function App() {
           {/* Post-welcome landing panel */}
           {!showWelcome && page === "welcome" && (
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center",
-                          height: "100%", flexDirection: "column", gap: 12 }}>
+                          flex: 1, minHeight: 0, flexDirection: "column", gap: 12 }}>
               <span style={{ fontSize: 32, color: "var(--accent)", fontFamily: "var(--display-font)" }}>
                 WELCOME
               </span>

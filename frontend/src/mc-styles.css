@@ -586,7 +586,7 @@
 /* Inline editor: roster row inputs */
 .mc-scope .mc-row {
   display: grid;
-  grid-template-columns: 30px 1fr 50px 220px 130px;
+  grid-template-columns: 30px 1fr 50px 220px 190px;
   gap: 8px; align-items: center;
 }
 .mc-scope .mc-row.header { color: var(--mc-text-3); font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; padding-bottom: 2px; }
@@ -603,6 +603,7 @@
 }
 .mc-scope .mc-input.error { border-color: var(--mc-bad); }
 .mc-scope .mc-row .actions { display: flex; gap: 6px; align-items: center; }
+.mc-scope .mc-row .actions > * { flex-shrink: 0; }
 
 /* Inline color picker */
 .mc-scope .mc-swatch {

@@ -30,6 +30,7 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "", visible
   const [filterKey, setFilterKey]     = useState("all");
   const [savedProfiles, setSavedProfiles] = useState([]);
   const [neonRank, setNeonRank]       = useState(null);
+  const [mySteamId, setMySteamId]     = useState("");
 
   useEffect(() => {
     const cancelLevels = loadLevelsWithRetry(getLevels, {
@@ -56,7 +57,12 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "", visible
   }, []);
 
   useEffect(() => {
-    if (visible) loadProfiles().then(setSavedProfiles);
+    if (visible) {
+      loadProfiles().then(setSavedProfiles);
+      getSteamStatus().then(s => {
+        setMySteamId(s.ready && s.steam_id ? String(s.steam_id) : "");
+      }).catch(() => {});
+    }
   }, [visible]);
 
   useEffect(() => {
@@ -208,7 +214,7 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "", visible
                   onSelect={handleLoadProfile}
                   disabled={running}
                 />
-                {isValidNewId(steamId, savedProfiles) && (
+                {isValidNewId(steamId, savedProfiles) && steamId !== mySteamId && (
                   <Btn kind="ghost" size="sm" disabled={running}
                        title="Save this ID as a profile"
                        onClick={() => handleQuickSave(steamId)}>★</Btn>
