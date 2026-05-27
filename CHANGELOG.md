@@ -8,6 +8,19 @@ All notable changes to Neon White Tools are documented here.
 
 ---
 
+## [1.4.2] — 2026-05-27
+
+### Added
+- Auto update check on launch with dismissible banner + Settings indicator (f60c0ee)
+- "Mine" button on Multi Compare roster rows (f60c0ee)
+- Medals strip on Multi Compare (game/chapter modes) with player-colored chip borders (f60c0ee)
+- Hide ★ save-ID button when entered Steam ID matches the connected user (f60c0ee)
+
+### Fixed
+- Gradient medal text (Topaz, Blood Diamond) disappearing on result reorder (f60c0ee)
+
+---
+
 ## [1.3.0] — 2026-05-23
 
 ### Added

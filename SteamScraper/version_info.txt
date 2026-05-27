@@ -20,11 +20,11 @@ VSVersionInfo(
           [
             StringStruct(u'CompanyName', u'jdroachh'),
             StringStruct(u'FileDescription', u'Neon White Leaderboard Tool'),
-            StringStruct(u'FileVersion', u'1.4.1.0'),
+            StringStruct(u'FileVersion', u'1.4.2.0'),
             StringStruct(u'InternalName', u'NeonWhiteLeaderboardTool'),
             StringStruct(u'OriginalFilename', u'NeonWhiteLeaderboardTool.exe'),
             StringStruct(u'ProductName', u'Neon White Leaderboard Tool'),
-            StringStruct(u'ProductVersion', u'1.4.1.0'),
+            StringStruct(u'ProductVersion', u'1.4.2.0'),
           ],
         ),
       ]
