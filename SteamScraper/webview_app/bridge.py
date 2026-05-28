@@ -283,6 +283,22 @@ def _emit_to(handler: str, event_data: dict) -> None:
         pass
 
 
+def _guard_output_folder(folder: str, out_mode: str) -> dict | None:
+    """Validate CSV export folder before kicking off a worker thread.
+
+    Returns an error dict to short-circuit the caller, or None if the folder
+    is fine (or unused because out_mode is display-only).
+    """
+    if out_mode not in ("csv", "both"):
+        return None
+    f = str(folder).strip()
+    if not f:
+        return {"ok": False, "error": "Select an output folder."}
+    if not os.path.isdir(f):
+        return {"ok": False, "error": f"Output folder does not exist: {f}"}
+    return None
+
+
 class JsApi:
     """pywebview js_api bridge. Instantiated once in main.py."""
 
@@ -811,6 +827,21 @@ class JsApi:
 
     # ── Leaderboard operations ────────────────────────────────────────────────
 
+    def _run_worker_safe(self, fn, channel: str) -> None:
+        """Wrap a leaderboard worker so any unhandled exception still emits a
+        done/error event and clears _lb_running. Without this, an exception in
+        the worker thread (bad output path, permission error, etc.) leaves the
+        UI thinking the run is still in progress forever."""
+        try:
+            fn()
+        except Exception as exc:
+            _emit_to(channel, {
+                "type": "done", "stopped": True, "error": True,
+                "message": f"Export failed: {exc}",
+            })
+        finally:
+            self._lb_running = False
+
     def run_global_export(self, count: str, out_mode: str = "display", folder: str = "") -> dict:
         import steam_api, time as _time, csv as _csv
         if not steam_api.steam_ready:
@@ -821,8 +852,9 @@ class JsApi:
             count_int = max(1, int(str(count).strip()))
         except ValueError:
             return {"ok": False, "error": "Entry count must be a number."}
-        if out_mode in ("csv", "both") and not str(folder).strip():
-            return {"ok": False, "error": "Select an output folder."}
+        err = _guard_output_folder(folder, out_mode)
+        if err:
+            return err
 
         self._lb_stop_event = threading.Event()
         self._lb_running = True
@@ -887,7 +919,10 @@ class JsApi:
             })
             self._lb_running = False
 
-        threading.Thread(target=worker, daemon=True).start()
+        threading.Thread(
+            target=lambda: self._run_worker_safe(worker, "_nwGlobalEvent"),
+            daemon=True,
+        ).start()
         return {"ok": True}
 
     def run_global_neon_rankings(self, count: str, out_mode: str = "display", folder: str = "") -> dict:
@@ -906,8 +941,9 @@ class JsApi:
             count_int = max(1, int(str(count).strip()))
         except ValueError:
             return {"ok": False, "error": "Entry count must be a number."}
-        if out_mode in ("csv", "both") and not str(folder).strip():
-            return {"ok": False, "error": "Select an output folder."}
+        err = _guard_output_folder(folder, out_mode)
+        if err:
+            return err
 
         self._lb_stop_event = threading.Event()
         self._lb_running = True
@@ -970,7 +1006,10 @@ class JsApi:
             })
             self._lb_running = False
 
-        threading.Thread(target=worker, daemon=True).start()
+        threading.Thread(
+            target=lambda: self._run_worker_safe(worker, "_nwNeonRankingsEvent"),
+            daemon=True,
+        ).start()
         return {"ok": True}
 
     def get_global_neon_rank(self, steam_id: str) -> dict:
@@ -1015,8 +1054,9 @@ class JsApi:
             count_int = max(1, int(str(count).strip()))
         except ValueError:
             return {"ok": False, "error": "Entry count must be a number."}
-        if out_mode in ("csv", "both") and not str(folder).strip():
-            return {"ok": False, "error": "Select an output folder."}
+        err = _guard_output_folder(folder, out_mode)
+        if err:
+            return err
 
         self._lb_stop_event = threading.Event()
         self._lb_running = True
@@ -1074,7 +1114,10 @@ class JsApi:
             })
             self._lb_running = False
 
-        threading.Thread(target=worker, daemon=True).start()
+        threading.Thread(
+            target=lambda: self._run_worker_safe(worker, "_nwLevelEvent"),
+            daemon=True,
+        ).start()
         return {"ok": True}
 
     def run_player_lookup(self, steam_id: str, mode: str, target: str,
@@ -1113,8 +1156,9 @@ class JsApi:
         else:
             return {"ok": False, "error": f"Unknown mode '{mode}'."}
 
-        if out_mode in ("csv", "both") and not str(folder).strip():
-            return {"ok": False, "error": "Select an output folder."}
+        err = _guard_output_folder(folder, out_mode)
+        if err:
+            return err
 
         self._lb_stop_event = threading.Event()
         self._lb_running = True
@@ -1176,7 +1220,10 @@ class JsApi:
             })
             self._lb_running = False
 
-        threading.Thread(target=worker, daemon=True).start()
+        threading.Thread(
+            target=lambda: self._run_worker_safe(worker, "_nwPlayerEvent"),
+            daemon=True,
+        ).start()
         return {"ok": True}
 
     def run_compare_players(self, steam_id_1: str, steam_id_2: str,
@@ -1189,8 +1236,9 @@ class JsApi:
         sid2_str = str(steam_id_2).strip()
         if not sid2_str.isdigit() or len(sid2_str) != 17:
             return {"ok": False, "error": "Player 2 Steam ID must be a 17-digit number."}
-        if out_mode in ("csv", "both") and not str(folder).strip():
-            return {"ok": False, "error": "Select an output folder."}
+        err = _guard_output_folder(folder, out_mode)
+        if err:
+            return err
 
         import steam_api
         if not steam_api.steam_ready:
@@ -1333,7 +1381,10 @@ class JsApi:
             })
             self._lb_running = False
 
-        threading.Thread(target=worker, daemon=True).start()
+        threading.Thread(
+            target=lambda: self._run_worker_safe(worker, "_nwCompareEvent"),
+            daemon=True,
+        ).start()
         return {"ok": True}
 
     def run_multi_compare(self, steam_ids: list, mode: str, target: str = "") -> dict:
@@ -1449,7 +1500,10 @@ class JsApi:
             _emit_to("_nwMultiCompareEvent", {"type": "done", "message": "ok"})
             self._lb_running = False
 
-        threading.Thread(target=worker, daemon=True).start()
+        threading.Thread(
+            target=lambda: self._run_worker_safe(worker, "_nwMultiCompareEvent"),
+            daemon=True,
+        ).start()
         return {"ok": True}
 
     def stop_multi_compare(self) -> dict:
