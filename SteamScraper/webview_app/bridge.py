@@ -28,7 +28,7 @@ from . import multi_compare_cache
 
 _resources.start_background_fetch()
 
-APP_VERSION = "1.4.2"
+APP_VERSION = "1.5.0"
 
 _UPDATE_CACHE: dict = {}  # {"checked_at": float, "result": dict}
 _UPDATE_CACHE_TTL_SEC = 6 * 60 * 60

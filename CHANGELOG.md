@@ -8,6 +8,18 @@ All notable changes to Neon White Tools are documented here.
 
 ---
 
+## [1.5.0] — 2026-05-30
+
+### Added
+- hover row + crosshair highlight on result tables (fa9f37a)
+- custom level-set search on Player Lookup, Compare Players, Multi Compare (637dd50)
+- CP/PL column sort + boot-race retry + Guides watch button (9c23c29)
+
+### Fixed
+- validate export folder + worker-thread safety net (05b69ef)
+
+---
+
 ## [1.4.2] — 2026-05-27
 
 ### Added
