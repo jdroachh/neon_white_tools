@@ -1026,3 +1026,69 @@
   color: var(--text-3, var(--text-2));
   margin-left: 6px;
 }
+
+/* WatchCycleBtn — Guides page favorite / watched control */
+.watch-btn {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+  flex-shrink: 0;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0;
+  transition: border-color 120ms ease, background 120ms ease, transform 80ms ease;
+}
+.watch-btn:hover {
+  border-color: var(--accent);
+  background: var(--bg-3, var(--bg-2));
+}
+.watch-btn:active { transform: scale(0.92); }
+.watch-btn .glyph {
+  display: inline-block;
+  animation: watch-pop 220ms ease;
+}
+@keyframes watch-pop {
+  0%   { transform: scale(0.6); opacity: 0.4; }
+  60%  { transform: scale(1.18); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
+/* WatchCycleBtn — Guides page favorite/watched control */
+.watch-btn {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+  flex-shrink: 0;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0;
+  transition: border-color 120ms ease, background 120ms ease, transform 80ms ease;
+}
+.watch-btn:hover {
+  border-color: var(--accent);
+  background: var(--bg-3, var(--bg-2));
+}
+.watch-btn:active { transform: scale(0.92); }
+.watch-btn .glyph {
+  display: inline-block;
+  animation: watch-pop 220ms ease;
+}
+@keyframes watch-pop {
+  0%   { transform: scale(0.6);  opacity: 0.4; }
+  60%  { transform: scale(1.18); opacity: 1;   }
+  100% { transform: scale(1);                  }
+}

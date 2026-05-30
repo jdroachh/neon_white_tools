@@ -136,9 +136,17 @@ def _load_config_raw() -> dict:
     return dict(_DEFAULT_CONFIG)
 
 def _save_config_raw(cfg: dict) -> None:
-    """Write config to disk. Caller must hold _CONFIG_LOCK."""
-    with open(_CONFIG_FILE, "w") as f:
+    """Write config to disk atomically. Caller must hold _CONFIG_LOCK.
+
+    Writes to a sibling .tmp then os.replace() to swap. Prevents an out-of-process
+    reader (AV scan, the user inspecting the file, a crash mid-write) from ever
+    seeing a truncated/empty config — which would otherwise surface as the
+    "boots with defaults" bug (welcome reappears, accent lost, DLL forgotten).
+    """
+    tmp = _CONFIG_FILE + ".tmp"
+    with open(tmp, "w") as f:
         json.dump(cfg, f, indent=2)
+    os.replace(tmp, _CONFIG_FILE)
 
 def _load_config() -> dict:
     with _CONFIG_LOCK:

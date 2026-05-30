@@ -5,6 +5,7 @@ import "./mc-styles.css";
 
 import { Sidebar } from "./shared.jsx";
 import { getSteamStatus, getConfig, applyAccent, saveConfigFields, initSteam, checkForUpdate, openExternalUrl } from "./api.js";
+import { retryUntilOk } from "./lib/retry.js";
 import Welcome       from "./pages/Welcome.jsx";
 import SeedParser    from "./pages/SeedParser.jsx";
 import SplitsUpdater from "./pages/SplitsUpdater.jsx";
@@ -136,8 +137,8 @@ function App() {
 
   useEffect(() => {
     Promise.all([
-      getSteamStatus().catch(() => null),
-      getConfig().catch(() => null),
+      retryUntilOk(getSteamStatus, v => v != null, { label: "getSteamStatus" }),
+      retryUntilOk(getConfig,      v => v != null && typeof v === "object", { label: "getConfig" }),
     ]).then(async ([s, cfg]) => {
       if (cfg) {
         setOutputFolder(cfg.output_folder || "");

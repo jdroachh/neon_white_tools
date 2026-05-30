@@ -7,6 +7,21 @@ import { loadLevelsWithRetry } from "../lib/retryLevels.js";
 
 const TH = { padding: "4px 8px", fontWeight: 600, fontSize: "0.91em", borderBottom: "1px solid var(--border)", textAlign: "left" };
 const TD = { padding: "3px 8px", fontSize: "1em" };
+
+// Default sort direction per key. Column-header clicks use these on first hit;
+// repeat clicks toggle. Lower-is-better stats default asc (rank, time);
+// "delta" defaults desc so the most P1-favored levels surface first, matching
+// the existing "P1 Lead" dropdown option.
+const SORT_DEFAULTS = {
+  level:        "asc",
+  rank_best_p1: "asc",
+  rank_best_p2: "asc",
+  time_p1:      "asc",
+  time_p2:      "asc",
+  delta:        "desc",
+  gap_closest:  "asc",
+  medal_tier:   "asc",
+};
 const P1_BG    = "rgba(80, 160, 255, 0.18)";
 const P1_COLOR = "rgb(80, 160, 255)";
 const P2_BG    = "rgba(255, 90, 90, 0.18)";
@@ -40,6 +55,7 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
   const [largeText, setLargeText]         = useState(false);
   const [savedProfiles, setSavedProfiles] = useState([]);
   const [sortKey, setSortKey]             = useState("level");
+  const [sortDir, setSortDir]             = useState("asc");
   const [filterKey, setFilterKey]         = useState("all");
   const [neonRank1, setNeonRank1]         = useState(null);
   const [neonRank2, setNeonRank2]         = useState(null);
@@ -96,10 +112,32 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
 
   useEffect(() => {
     if (!showMedals) {
-      if (sortKey === "medal_tier") setSortKey("level");
+      if (sortKey === "medal_tier") { setSortKey("level"); setSortDir("asc"); }
       if (filterKey === "medal_mismatch") setFilterKey("all");
     }
   }, [showMedals]);
+
+  // Header click: same key → toggle direction; new key → reset to its default.
+  function applySort(key) {
+    if (sortKey === key) {
+      setSortDir(d => d === "asc" ? "desc" : "asc");
+    } else {
+      setSortKey(key);
+      setSortDir(SORT_DEFAULTS[key] || "asc");
+    }
+  }
+
+  // Bridge dropdown ↔ (sortKey, sortDir). The dropdown keeps its legacy option
+  // values ("gap_p1_lead" / "gap_p2_lead"); internally those collapse to a
+  // single "delta" key with direction. Other values pass through 1:1.
+  const dropdownValue = sortKey === "delta"
+    ? (sortDir === "desc" ? "gap_p1_lead" : "gap_p2_lead")
+    : sortKey;
+  function onDropdownSort(v) {
+    if (v === "gap_p1_lead")      { setSortKey("delta"); setSortDir("desc"); }
+    else if (v === "gap_p2_lead") { setSortKey("delta"); setSortDir("asc");  }
+    else                          { setSortKey(v);       setSortDir(SORT_DEFAULTS[v] || "asc"); }
+  }
 
   async function handleUseMine1() {
     const s = await getSteamStatus();
@@ -208,27 +246,34 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
         default:               return true;
       }
     });
-    if (sortKey === "level") return filtered;
+    if (sortKey === "level") {
+      return sortDir === "asc" ? filtered : [...filtered].reverse();
+    }
+    const sign = sortDir === "asc" ? 1 : -1;
     return [...filtered].sort((a, b) => {
       const aMissing = !a.p1 || !a.p2;
       const bMissing = !b.p1 || !b.p2;
       if (aMissing && bMissing) return 0;
-      if (aMissing) return 1;
+      if (aMissing) return 1;   // missing rows always sink to the bottom
       if (bMissing) return -1;
+      let cmp = 0;
       switch (sortKey) {
-        case "rank_best_p1": return a.p1.rank - b.p1.rank;
-        case "rank_best_p2": return a.p2.rank - b.p2.rank;
-        case "gap_p1_lead":  return a.delta_ms - b.delta_ms;
-        case "gap_p2_lead":  return b.delta_ms - a.delta_ms;
-        case "gap_closest":  return Math.abs(a.delta_ms) - Math.abs(b.delta_ms);
+        case "rank_best_p1": cmp = a.p1.rank     - b.p1.rank;     break;
+        case "rank_best_p2": cmp = a.p2.rank     - b.p2.rank;     break;
+        case "time_p1":      cmp = a.p1.score_ms - b.p1.score_ms; break;
+        case "time_p2":      cmp = a.p2.score_ms - b.p2.score_ms; break;
+        case "delta":        cmp = a.delta_ms    - b.delta_ms;    break;
+        case "gap_closest":  cmp = Math.abs(a.delta_ms) - Math.abs(b.delta_ms); break;
         case "medal_tier": {
           const ai = MEDAL_TIER_ORDER.indexOf(a.p1?.medal); const bi = MEDAL_TIER_ORDER.indexOf(b.p1?.medal);
-          return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+          cmp = (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+          break;
         }
         default: return 0;
       }
+      return sign * cmp;
     });
-  }, [rows, sortKey, filterKey]);
+  }, [rows, sortKey, sortDir, filterKey]);
 
   return (
     <>
@@ -422,11 +467,13 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
                 </span>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginLeft: "auto" }}>
                   {mode !== "level" && <>
-                    <select className="input" value={sortKey} onChange={e => setSortKey(e.target.value)}
+                    <select className="input" value={dropdownValue} onChange={e => onDropdownSort(e.target.value)}
                             style={{ fontSize: 11 }}>
                       <option value="level">Sort: Level</option>
                       <option value="rank_best_p1">Sort: P1 Rank</option>
+                      <option value="time_p1">Sort: P1 Time</option>
                       <option value="rank_best_p2">Sort: P2 Rank</option>
+                      <option value="time_p2">Sort: P2 Time</option>
                       <option value="gap_p1_lead">Sort: P1 Lead</option>
                       <option value="gap_p2_lead">Sort: P2 Lead</option>
                       <option value="gap_closest">Sort: Closest</option>
@@ -448,39 +495,84 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
                 </div>
               </div>
               <div style={{ fontSize: largeText ? 14 : 11, overflow: "auto", flex: 1 }}>
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                  <thead style={{ position: "sticky", top: 0, background: "var(--bg-2)" }}>
-                    <tr>
-                      <th style={TH}>Level</th>
-                      <th style={TH}>P1 Rank</th>
-                      <th style={TH}>P1 Time</th>
-                      {showMedals && <th style={TH}>P1 Medal</th>}
-                      <th style={TH}>&Delta;</th>
-                      {showMedals && <th style={TH}>P2 Medal</th>}
-                      <th style={TH}>P2 Time</th>
-                      <th style={TH}>P2 Rank</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {displayRows.map((r, i) => {
-                      const p1bg    = r.faster === "p1" ? P1_BG : undefined;
-                      const p2bg    = r.faster === "p2" ? P2_BG : undefined;
-                      const dColor  = r.faster === "p1" ? P1_COLOR : r.faster === "p2" ? P2_COLOR : undefined;
-                      const delta   = r.delta_ms != null ? formatDelta(r.delta_ms) : "—";
-                      return (
-                        <tr key={r.level} style={{ borderBottom: "1px solid var(--border)" }}>
-                          <td style={TD}>{r.level}</td>
-                          <td style={TD}>{r.p1 ? `#${r.p1.rank}` : "—"}</td>
-                          <td style={{ ...TD, backgroundColor: p1bg }}>{r.p1 ? r.p1.time : "—"}</td>
-                          {showMedals && <td style={TD}>{r.p1 ? <MedalBadge medal={r.p1.medal} plain /> : "—"}</td>}
-                          <td style={{ ...TD, color: dColor }}>{delta}</td>
-                          {showMedals && <td style={TD}>{r.p2 ? <MedalBadge medal={r.p2.medal} plain /> : "—"}</td>}
-                          <td style={{ ...TD, backgroundColor: p2bg }}>{r.p2 ? r.p2.time : "—"}</td>
-                          <td style={TD}>{r.p2 ? `#${r.p2.rank}` : "—"}</td>
+                <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
+                  {(() => {
+                    // Column widths in em so they scale with largeText. Level
+                    // column omits width → eats remaining space.
+                    // Percentage widths so columns spread proportionally as the
+                    // panel grows — no more "Level eats everything, numerics
+                    // bunch on the right". Sums to 100 per medal-toggle state.
+                    const cols = showMedals
+                      ? [
+                          { key: "level",        label: "Level",    width: "22%", align: "left"  },
+                          { key: "rank_best_p1", label: "P1 Rank",  width: "10%", align: "right" },
+                          { key: "time_p1",      label: "P1 Time",  width: "13%", align: "right" },
+                          { key: null,           label: "P1 Medal", width: "9%",  align: "left"  },
+                          { key: "delta",        label: "Δ",        width: "14%", align: "right" },
+                          { key: null,           label: "P2 Medal", width: "9%",  align: "left"  },
+                          { key: "time_p2",      label: "P2 Time",  width: "13%", align: "right" },
+                          { key: "rank_best_p2", label: "P2 Rank",  width: "10%", align: "right" },
+                        ]
+                      : [
+                          { key: "level",        label: "Level",   width: "30%", align: "left"  },
+                          { key: "rank_best_p1", label: "P1 Rank", width: "12%", align: "right" },
+                          { key: "time_p1",      label: "P1 Time", width: "15%", align: "right" },
+                          { key: "delta",        label: "Δ",       width: "16%", align: "right" },
+                          { key: "time_p2",      label: "P2 Time", width: "15%", align: "right" },
+                          { key: "rank_best_p2", label: "P2 Rank", width: "12%", align: "right" },
+                        ];
+                    return <>
+                      <colgroup>
+                        {cols.map((c, i) => (
+                          <col key={i} style={c.width ? { width: c.width } : undefined} />
+                        ))}
+                      </colgroup>
+                      <thead style={{ position: "sticky", top: 0, background: "var(--bg-2)" }}>
+                        <tr>
+                          {cols.map((h, i) => {
+                            const baseTh = { ...TH, textAlign: h.align };
+                            if (mode === "level" || h.key == null) {
+                              return <th key={i} style={baseTh}>{h.label}</th>;
+                            }
+                            const active = sortKey === h.key;
+                            const arrow  = active ? (sortDir === "asc" ? " ▲" : " ▼") : "";
+                            return (
+                              <th key={i}
+                                  style={{ ...baseTh, cursor: "pointer", userSelect: "none",
+                                           color: active ? "var(--accent)" : undefined,
+                                           whiteSpace: "nowrap" }}
+                                  title={active ? "Click to reverse" : "Click to sort by " + h.label}
+                                  onClick={() => applySort(h.key)}>
+                                {h.label}{arrow}
+                              </th>
+                            );
+                          })}
                         </tr>
-                      );
-                    })}
-                  </tbody>
+                      </thead>
+                      <tbody>
+                        {displayRows.map((r, i) => {
+                          const p1bg    = r.faster === "p1" ? P1_BG : undefined;
+                          const p2bg    = r.faster === "p2" ? P2_BG : undefined;
+                          const dColor  = r.faster === "p1" ? P1_COLOR : r.faster === "p2" ? P2_COLOR : undefined;
+                          const delta   = r.delta_ms != null ? formatDelta(r.delta_ms) : "—";
+                          const numTd   = { ...TD, textAlign: "right", whiteSpace: "nowrap" };
+                          const lvlTd   = { ...TD, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" };
+                          return (
+                            <tr key={r.level} style={{ borderBottom: "1px solid var(--border)" }}>
+                              <td style={lvlTd} title={r.level}>{r.level}</td>
+                              <td style={numTd}>{r.p1 ? `#${r.p1.rank}` : "—"}</td>
+                              <td style={{ ...numTd, backgroundColor: p1bg }}>{r.p1 ? r.p1.time : "—"}</td>
+                              {showMedals && <td style={TD}>{r.p1 ? <MedalBadge medal={r.p1.medal} plain /> : "—"}</td>}
+                              <td style={{ ...numTd, color: dColor }}>{delta}</td>
+                              {showMedals && <td style={TD}>{r.p2 ? <MedalBadge medal={r.p2.medal} plain /> : "—"}</td>}
+                              <td style={{ ...numTd, backgroundColor: p2bg }}>{r.p2 ? r.p2.time : "—"}</td>
+                              <td style={numTd}>{r.p2 ? `#${r.p2.rank}` : "—"}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </>;
+                  })()}
                 </table>
               </div>
             </>

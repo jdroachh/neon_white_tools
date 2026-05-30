@@ -8,6 +8,14 @@ import SavedProfilesDropdown from "../components/SavedProfilesDropdown.jsx";
 const TH = { padding: "4px 8px", fontWeight: 600, fontSize: "0.91em", borderBottom: "1px solid var(--border)", textAlign: "left" };
 const TD = { padding: "3px 8px", fontSize: "1em" };
 
+// Default sort direction per key — matches the CP convention.
+const SORT_DEFAULTS = {
+  level:      "asc",
+  rank:       "asc",
+  time:       "asc",
+  medal_tier: "asc",
+};
+
 export default function PlayerLookup({ outputFolder: defaultFolder = "", visible = false }) {
   const [steamId, setSteamId]         = useState("");
   const [mode, setMode]               = useState("level");
@@ -27,6 +35,7 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "", visible
   const [largeText, setLargeText]     = useState(false);
   const [totalLevels, setTotalLevels] = useState(0);
   const [sortKey, setSortKey]         = useState("level");
+  const [sortDir, setSortDir]         = useState("asc");
   const [filterKey, setFilterKey]     = useState("all");
   const [savedProfiles, setSavedProfiles] = useState([]);
   const [neonRank, setNeonRank]       = useState(null);
@@ -71,10 +80,25 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "", visible
 
   useEffect(() => {
     if (!showMedals) {
-      if (sortKey === "medal_tier") setSortKey("level");
+      if (sortKey === "medal_tier") { setSortKey("level"); setSortDir("asc"); }
       if (filterKey === "community_medal") setFilterKey("all");
     }
   }, [showMedals]);
+
+  // Header click: same column → toggle direction; new column → reset to default.
+  function applySort(key) {
+    if (sortKey === key) {
+      setSortDir(d => d === "asc" ? "desc" : "asc");
+    } else {
+      setSortKey(key);
+      setSortDir(SORT_DEFAULTS[key] || "asc");
+    }
+  }
+  // Dropdown change: reset direction to the new key's default.
+  function onDropdownSort(v) {
+    setSortKey(v);
+    setSortDir(SORT_DEFAULTS[v] || "asc");
+  }
 
   async function handlePickFolder() {
     const r = await pickFolder();
@@ -178,19 +202,25 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "", visible
         default:                return true;
       }
     });
-    if (sortKey === "level") return filtered;
+    if (sortKey === "level") {
+      return sortDir === "asc" ? filtered : [...filtered].reverse();
+    }
+    const sign = sortDir === "asc" ? 1 : -1;
     return [...filtered].sort((a, b) => {
+      let cmp = 0;
       switch (sortKey) {
-        case "rank":       return a.rank - b.rank;
-        case "time":       return (a.score_ms || 0) - (b.score_ms || 0);
+        case "rank":       cmp = a.rank - b.rank; break;
+        case "time":       cmp = (a.score_ms || 0) - (b.score_ms || 0); break;
         case "medal_tier": {
           const ai = MEDAL_TIER_ORDER.indexOf(a.medal); const bi = MEDAL_TIER_ORDER.indexOf(b.medal);
-          return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+          cmp = (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+          break;
         }
         default: return 0;
       }
+      return sign * cmp;
     });
-  }, [rows, sortKey, filterKey]);
+  }, [rows, sortKey, sortDir, filterKey]);
 
   return (
     <>
@@ -331,7 +361,7 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "", visible
                 )}
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginLeft: "auto" }}>
                   {mode !== "level" && <>
-                    <select className="input" value={sortKey} onChange={e => setSortKey(e.target.value)}
+                    <select className="input" value={sortKey} onChange={e => onDropdownSort(e.target.value)}
                             style={{ fontSize: 11 }}>
                       <option value="level">Sort: Level</option>
                       <option value="rank">Sort: Rank</option>
@@ -353,29 +383,71 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "", visible
                 </div>
               </div>
               <div style={{ fontSize: largeText ? 14 : 11, overflow: "auto", flex: 1 }}>
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                  <thead style={{ position: "sticky", top: 0, background: "var(--bg-2)" }}>
-                    <tr>
-                      <th style={TH}>Level</th>
-                      <th style={TH}>Rank</th>
-                      <th style={TH}>Time</th>
-                      {showMedals && <th style={TH}>Medal</th>}
-                      <th style={TH}>/ Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {displayRows.map((r, i) => (
-                      <tr key={r.level} style={{ borderBottom: "1px solid var(--border)" }}>
-                        <td style={TD}>{r.level}</td>
-                        <td style={TD}>#{r.rank}</td>
-                        <td style={TD}>{r.time}</td>
-                        {showMedals && <td style={TD}><MedalBadge medal={r.medal} plain /></td>}
-                        <td style={{ ...TD, color: "var(--text-3)" }}>
-                          {r.total ? `/ ${r.total.toLocaleString()}` : ""}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
+                <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
+                  {(() => {
+                    // Percentage widths so columns spread evenly. "/ Total" is
+                    // not sortable. Sortable: rank, time, medal_tier.
+                    const cols = showMedals
+                      ? [
+                          { key: "level",      label: "Level",   width: "32%", align: "left"  },
+                          { key: "rank",       label: "Rank",    width: "13%", align: "right" },
+                          { key: "time",       label: "Time",    width: "16%", align: "right" },
+                          { key: "medal_tier", label: "Medal",   width: "13%", align: "left"  },
+                          { key: null,         label: "/ Total", width: "16%", align: "right" },
+                        ]
+                      : [
+                          { key: "level",      label: "Level",   width: "38%", align: "left"  },
+                          { key: "rank",       label: "Rank",    width: "16%", align: "right" },
+                          { key: "time",       label: "Time",    width: "20%", align: "right" },
+                          { key: null,         label: "/ Total", width: "20%", align: "right" },
+                        ];
+                    return <>
+                      <colgroup>
+                        {cols.map((c, i) => (
+                          <col key={i} style={c.width ? { width: c.width } : undefined} />
+                        ))}
+                      </colgroup>
+                      <thead style={{ position: "sticky", top: 0, background: "var(--bg-2)" }}>
+                        <tr>
+                          {cols.map((h, i) => {
+                            const baseTh = { ...TH, textAlign: h.align };
+                            if (mode === "level" || h.key == null) {
+                              return <th key={i} style={baseTh}>{h.label}</th>;
+                            }
+                            const active = sortKey === h.key;
+                            const arrow  = active ? (sortDir === "asc" ? " ▲" : " ▼") : "";
+                            return (
+                              <th key={i}
+                                  style={{ ...baseTh, cursor: "pointer", userSelect: "none",
+                                           color: active ? "var(--accent)" : undefined,
+                                           whiteSpace: "nowrap" }}
+                                  title={active ? "Click to reverse" : "Click to sort by " + h.label}
+                                  onClick={() => applySort(h.key)}>
+                                {h.label}{arrow}
+                              </th>
+                            );
+                          })}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {displayRows.map((r, i) => {
+                          const numTd = { ...TD, textAlign: "right", whiteSpace: "nowrap" };
+                          const lvlTd = { ...TD, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" };
+                          return (
+                            <tr key={r.level} style={{ borderBottom: "1px solid var(--border)" }}>
+                              <td style={lvlTd} title={r.level}>{r.level}</td>
+                              <td style={numTd}>#{r.rank}</td>
+                              <td style={numTd}>{r.time}</td>
+                              {showMedals && <td style={TD}><MedalBadge medal={r.medal} plain /></td>}
+                              <td style={{ ...numTd, color: "var(--text-3)" }}>
+                                {r.total ? `/ ${r.total.toLocaleString()}` : ""}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </>;
+                  })()}
                 </table>
                 {!running && rows.length > 0 && (() => {
                   const avgRank = Math.round(rows.reduce((s, r) => s + r.rank, 0) / rows.length);

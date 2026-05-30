@@ -12,27 +12,16 @@ function extractYouTubeId(url) {
 }
 
 function WatchCycleBtn({ state, onClick }) {
-  if (state === "watchlist") {
-    return (
-      <span title="In watchlist — click to mark watched" onClick={onClick}
-        style={{ cursor: "pointer", fontSize: 14, userSelect: "none", flexShrink: 0, color: "var(--accent)", lineHeight: 1 }}>
-        ✓
-      </span>
-    );
-  }
-  if (state === "watched") {
-    return (
-      <span title="Watched — click to clear" onClick={onClick}
-        style={{ cursor: "pointer", fontSize: 14, userSelect: "none", flexShrink: 0, color: "#f87171", lineHeight: 1 }}>
-        ✗
-      </span>
-    );
-  }
+  const cfg = state === "watchlist"
+    ? { glyph: "★", color: "var(--accent)", title: "In watchlist — click to mark watched" }
+    : state === "watched"
+    ? { glyph: "✓", color: "#3ddc84",      title: "Watched — click to clear" }
+    : { glyph: "☆", color: "var(--text-2)", title: "Add to watchlist" };
   return (
-    <span title="Add to watchlist" onClick={onClick}
-      style={{ cursor: "pointer", fontSize: 14, userSelect: "none", flexShrink: 0, color: "var(--text-3)", opacity: 0.35, lineHeight: 1 }}>
-      ○
-    </span>
+    <button type="button" className="watch-btn" title={cfg.title} onClick={onClick}
+            aria-label={cfg.title}>
+      <span key={state || "empty"} className="glyph" style={{ color: cfg.color }}>{cfg.glyph}</span>
+    </button>
   );
 }
 
