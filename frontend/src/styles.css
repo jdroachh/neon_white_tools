@@ -1092,3 +1092,48 @@
   60%  { transform: scale(1.18); opacity: 1;   }
   100% { transform: scale(1);                  }
 }
+
+/* === Level Picker Modal (custom search mode) === */
+.lpm-overlay {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(0,0,0,0.55);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+}
+.lpm-modal {
+  width: 720px; max-width: 100%; max-height: 88vh;
+  display: flex; flex-direction: column;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 6px; box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+  padding: 14px 16px;
+}
+.lpm-row { display: flex; align-items: center; gap: 8px; }
+.lpm-x {
+  background: none; border: none; color: var(--text-3); cursor: pointer;
+  font-size: 14px; padding: 2px 6px; margin-left: 6px;
+}
+.lpm-x:hover { color: var(--text); }
+.lpm-body {
+  flex: 1; overflow-y: auto; margin-top: 10px;
+  border: 1px solid var(--border); border-radius: 4px;
+  padding: 8px; background: var(--bg-2);
+}
+.lpm-chapter {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 6px; border-radius: 3px; background: var(--surface-2);
+}
+.lpm-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 3px 6px 3px 24px; cursor: pointer; border-radius: 3px;
+}
+.lpm-item:hover { background: var(--surface-2); }
+.lpm-preset {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 12px; padding: 3px 4px 3px 10px; font-size: 11px; cursor: pointer;
+}
+.lpm-preset:hover { border-color: var(--accent); }
+.lpm-preset-x {
+  color: var(--text-3); padding: 0 5px; border-radius: 50%; font-size: 13px;
+}
+.lpm-preset-x:hover { color: var(--bad); background: var(--bg-2); }

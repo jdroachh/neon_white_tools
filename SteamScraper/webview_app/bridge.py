@@ -118,6 +118,10 @@ _DEFAULT_CONFIG = {
     "guide_watched":       [],
     "guide_hide_watched":  False,
     "guide_watchlist_only": False,
+    "custom_levels_last_pl": [],
+    "custom_levels_last_cp": [],
+    "custom_levels_last_mc": [],
+    "custom_level_presets":  [],
 }
 
 _CONFIG_LOCK = __import__("threading").Lock()
@@ -1161,6 +1165,22 @@ class JsApi:
         elif mode == "game":
             levels_to_search = list(WHOLE_GAME_LEVELS)
             context = "Whole Game"
+        elif mode == "custom":
+            # target arrives as a JSON-encoded list of display names (the frontend
+            # JSON.stringifies it so it survives api.js's String() wrapper).
+            try:
+                requested = target if isinstance(target, list) else json.loads(target or "[]")
+            except (ValueError, TypeError):
+                requested = []
+            seen = set()
+            for name in requested:
+                m = LEVEL_LOOKUP.get(str(name).strip().lower())
+                if m and m[0] not in seen:  # dedupe + drop unknown (stale presets)
+                    levels_to_search.append(m)
+                    seen.add(m[0])
+            if not levels_to_search:
+                return {"ok": False, "error": "Pick at least one level for custom search."}
+            context = f"Custom_{len(levels_to_search)}_levels"
         else:
             return {"ok": False, "error": f"Unknown mode '{mode}'."}
 
@@ -1276,6 +1296,21 @@ class JsApi:
         elif mode == "game":
             levels_to_search = list(WHOLE_GAME_LEVELS)
             context = "Whole Game"
+        elif mode == "custom":
+            # target arrives as a JSON-encoded list of display names.
+            try:
+                requested = target if isinstance(target, list) else json.loads(target or "[]")
+            except (ValueError, TypeError):
+                requested = []
+            seen = set()
+            for name in requested:
+                m = LEVEL_LOOKUP.get(str(name).strip().lower())
+                if m and m[0] not in seen:  # dedupe + drop unknown (stale presets)
+                    levels_to_search.append(m)
+                    seen.add(m[0])
+            if not levels_to_search:
+                return {"ok": False, "error": "Pick at least one level for custom search."}
+            context = f"Custom_{len(levels_to_search)}_levels"
         else:
             return {"ok": False, "error": f"Unknown mode '{mode}'."}
 
@@ -1429,6 +1464,20 @@ class JsApi:
                     levels_to_search.append(m)
         elif req.mode == "game":
             levels_to_search = list(WHOLE_GAME_LEVELS)
+        elif req.mode == "custom":
+            # req.target is a JSON-encoded list of display names.
+            try:
+                requested = json.loads(req.target or "[]")
+            except (ValueError, TypeError):
+                requested = []
+            seen = set()
+            for name in requested:
+                m = LEVEL_LOOKUP.get(str(name).strip().lower())
+                if m and m[0] not in seen:  # dedupe + drop unknown (stale presets)
+                    levels_to_search.append(m)
+                    seen.add(m[0])
+            if not levels_to_search:
+                return {"ok": False, "error": "Pick at least one level for custom search."}
         else:
             return {"ok": False, "error": f"Unknown mode '{req.mode}'."}
 

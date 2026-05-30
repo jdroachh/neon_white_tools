@@ -3,7 +3,9 @@ import { PageHead, Field, Seg, Btn, ErrorBanner, MedalBadge, MedalToggle } from 
 import { getLevels, getChapters, getSteamStatus, runPlayerLookup, stopLeaderboard, pickFolder, getGlobalNeonRank } from "../api.js";
 import { loadLevelsWithRetry } from "../lib/retryLevels.js";
 import { loadProfiles, saveProfiles, addProfile, isValidNewId } from "../lib/savedProfiles.js";
+import { loadLastSelection, saveLastSelection } from "../lib/customLevels.js";
 import SavedProfilesDropdown from "../components/SavedProfilesDropdown.jsx";
+import LevelPickerModal from "../components/LevelPickerModal.jsx";
 
 const TH = { padding: "4px 8px", fontWeight: 600, fontSize: "0.91em", borderBottom: "1px solid var(--border)", textAlign: "left" };
 const TD = { padding: "3px 8px", fontSize: "1em" };
@@ -40,6 +42,9 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "", visible
   const [savedProfiles, setSavedProfiles] = useState([]);
   const [neonRank, setNeonRank]       = useState(null);
   const [mySteamId, setMySteamId]     = useState("");
+  const [customLevels, setCustomLevels] = useState([]);
+  const [pickerOpen, setPickerOpen]   = useState(false);
+  const customHydrated = React.useRef(false);
 
   useEffect(() => {
     const cancelLevels = loadLevelsWithRetry(getLevels, {
@@ -84,6 +89,19 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "", visible
       if (filterKey === "community_medal") setFilterKey("all");
     }
   }, [showMedals]);
+
+  // Hydrate the last-used custom selection the first time the user picks "custom".
+  useEffect(() => {
+    if (mode === "custom" && !customHydrated.current) {
+      customHydrated.current = true;
+      loadLastSelection("pl").then(setCustomLevels);
+    }
+  }, [mode]);
+
+  function handleCustomLevelsChange(next) {
+    setCustomLevels(next);
+    saveLastSelection("pl", next);
+  }
 
   // Header click: same column → toggle direction; new column → reset to default.
   function applySort(key) {
@@ -130,7 +148,10 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "", visible
   async function handleRun() {
     setError(""); setStatus(""); setRows([]); setPlayerName(""); setTotalLevels(0);
     setSortKey("level"); setFilterKey("all"); setNeonRank(null);
-    const target = mode === "level" ? levelName : mode === "chapter" ? chapterName : "";
+    const target = mode === "custom"  ? JSON.stringify(customLevels)
+                 : mode === "level"   ? levelName
+                 : mode === "chapter" ? chapterName
+                 : "";
     const r = await runPlayerLookup(steamId, mode, target, outMode, folder);
     if (!r.ok) { setError(r.error); return; }
     setRunning(true);
@@ -252,7 +273,7 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "", visible
               </div>
             </Field>
             <Field label="Search mode">
-              <Seg options={["level", "chapter", "game"]} value={mode}
+              <Seg options={["level", "chapter", "game", "custom"]} value={mode}
                    onChange={v => { setMode(v); setError(""); }} />
             </Field>
             {mode === "level" && (
@@ -280,6 +301,19 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "", visible
                 All 121 levels will be searched.
               </div>
             )}
+            {mode === "custom" && (
+              <Field label="Custom level set">
+                <div style={{ display: "flex", gap: 8 }}>
+                  <Btn kind="ghost" size="sm" onClick={() => setPickerOpen(true)} disabled={running}>
+                    {customLevels.length ? `${customLevels.length} levels selected` : "Pick levels…"}
+                  </Btn>
+                  {customLevels.length > 0 && (
+                    <Btn kind="ghost" size="sm" disabled={running}
+                         onClick={() => handleCustomLevelsChange([])}>Clear</Btn>
+                  )}
+                </div>
+              </Field>
+            )}
             <Field label="Output">
               <Seg options={["display", "csv", "both"]} value={outMode} onChange={setOutMode} />
             </Field>
@@ -297,7 +331,8 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "", visible
             <div style={{ display: "flex", gap: 8 }}>
               {running
                 ? <Btn kind="danger" size="lg" onClick={handleStop}>Stop</Btn>
-                : <Btn kind="primary" size="lg" icn="user" onClick={handleRun}>Look Up</Btn>}
+                : <Btn kind="primary" size="lg" icn="user" onClick={handleRun}
+                       disabled={mode === "custom" && customLevels.length === 0}>Look Up</Btn>}
             </div>
             {status && <div className="muted" style={{ fontSize: 11 }}>{status}</div>}
           </div>
@@ -471,6 +506,11 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "", visible
           )}
         </div>
       </div>
+      <LevelPickerModal
+        open={pickerOpen} onClose={() => setPickerOpen(false)}
+        value={customLevels} onChange={handleCustomLevelsChange}
+        levels={levels} chapters={chapters}
+      />
     </>
   );
 }

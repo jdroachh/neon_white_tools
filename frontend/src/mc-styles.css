@@ -381,6 +381,19 @@
   z-index: 3;
 }
 .mc-scope .nwt-cell.filtered-out { opacity: 0.12; }
+/* Custom-mode scope mask: levels not in the picked set stay on the map but are
+   darkened + inert. Distinct from .filtered-out (player filter) so they can co-occur. */
+.mc-scope .nwt-cell.out-of-scope {
+  opacity: 0.22;
+  filter: grayscale(1);
+  cursor: default;
+}
+.mc-scope .nwt-cell.out-of-scope:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: var(--mc-border);
+  z-index: auto;
+}
 
 /* Per-row summary chips */
 .mc-scope .nwt-ch-summary {

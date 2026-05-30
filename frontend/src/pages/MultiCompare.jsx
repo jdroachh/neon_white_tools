@@ -3,6 +3,8 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { MedalBadge, Seg, PageHead, Btn, MedalToggle } from "../shared.jsx";
 import { loadProfiles } from "../lib/savedProfiles.js";
 import SavedProfilesDropdown from "../components/SavedProfilesDropdown.jsx";
+import LevelPickerModal from "../components/LevelPickerModal.jsx";
+import { loadLastSelection, saveLastSelection } from "../lib/customLevels.js";
 import {
   loadRosters, saveRosters, addRoster, removeRoster, MAX as MAX_ROSTERS,
 } from "../lib/savedRosters.js";
@@ -99,6 +101,9 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
   const [filterPlayer, setFilterPlayer] = useState(null);  // steam_id | null
   const [sortMode, setSortMode] = useState("chapter");  // chapter | most contested | biggest Δ
   const [neonRanks, setNeonRanks] = useState({});  // sid -> {ok, rank, score_ms, time}
+  const [customLevels, setCustomLevels] = useState([]);  // display names
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const customHydrated = useRef(false);
 
   const runIdRef = useRef(0);
 
@@ -197,7 +202,8 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
   const canRun = !running && validRoster.length >= 1 && (
     mode === "game" ||
     (mode === "level" && !!levelTarget) ||
-    (mode === "chapter" && !!chapterTarget)
+    (mode === "chapter" && !!chapterTarget) ||
+    (mode === "custom" && customLevels.length > 0)
   );
 
   // ── Global Neon Rankings fetch (whole-game mode only) ──────────────────
@@ -227,6 +233,30 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
     return () => { cancelled = true; };
   }, [running, mode, results, validRoster, neonRanks]);
 
+  // Hydrate the last-used custom selection the first time the user picks "custom".
+  useEffect(() => {
+    if (mode === "custom" && !customHydrated.current) {
+      customHydrated.current = true;
+      loadLastSelection("mc").then(setCustomLevels);
+    }
+  }, [mode]);
+
+  function handleCustomLevelsChange(next) {
+    setCustomLevels(next);
+    saveLastSelection("mc", next);
+  }
+
+  // chapters is a {name: [levels]} dict here; the modal wants [{name, levels}].
+  const chaptersList = useMemo(
+    () => Object.entries(chapters).map(([name, lv]) => ({ name, levels: lv })),
+    [chapters]
+  );
+  // In custom mode, the set of picked levels that should stay active on the map.
+  const customScope = useMemo(
+    () => (mode === "custom" ? new Set(customLevels) : null),
+    [mode, customLevels]
+  );
+
   function handleRun() {
     if (!canRun) return;
     setResults({});
@@ -237,7 +267,10 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
     runIdRef.current += 1;
     setRunning(true);
     const steam_ids = validRoster.map(r => r.steam_id.trim());
-    const target = mode === "level" ? levelTarget : (mode === "chapter" ? chapterTarget : "");
+    const target = mode === "custom"  ? JSON.stringify(customLevels)
+                 : mode === "level"   ? levelTarget
+                 : mode === "chapter" ? chapterTarget
+                 : "";
     runMultiCompare(steam_ids, mode, target).then(res => {
       if (!res.ok) {
         console.error("[multi-compare] run failed:", res.error);
@@ -460,7 +493,9 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
     ? `· level: ${levelTarget || "(none)"}`
     : mode === "chapter"
       ? `· chapter: ${chapterTarget || "(none)"}`
-      : "· all 121 levels searched";
+      : mode === "custom"
+        ? `· custom: ${customLevels.length} level${customLevels.length === 1 ? "" : "s"}`
+        : "· all 121 levels searched";
   const runStatusHint = running
     ? (progress.total ? `· running… ${progress.done} / ${progress.total}` : "· running…")
     : "";
@@ -520,6 +555,9 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
             onStop={handleStop}
             searchHint={searchHint}
             runStatusHint={runStatusHint}
+            customCount={customLevels.length}
+            onOpenPicker={() => setPickerOpen(true)}
+            onClearCustom={() => handleCustomLevelsChange([])}
           />
 
           {mode === "game" && Object.keys(neonRanks).length > 0 && (
@@ -558,6 +596,7 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
               anyResults={anyResults}
               scopeLevelCount={scopeLevelCount}
               chapterTarget={chapterTarget}
+              customScope={customScope}
             />
           )}
         </div>
@@ -572,6 +611,12 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
           onClose={() => setDrill(null)}
         />
       )}
+
+      <LevelPickerModal
+        open={pickerOpen} onClose={() => setPickerOpen(false)}
+        value={customLevels} onChange={handleCustomLevelsChange}
+        levels={levels} chapters={chaptersList}
+      />
     </div>
   );
 }
@@ -875,6 +920,7 @@ function SearchModePanel({
   mode, onModeChange, levels, chapters, levelTarget, chapterTarget,
   onLevelTargetChange, onChapterTargetChange,
   running, canRun, onRun, onStop, searchHint, runStatusHint,
+  customCount, onOpenPicker, onClearCustom,
 }) {
   return (
     <div className="nwt-panel">
@@ -883,7 +929,17 @@ function SearchModePanel({
         <span className="title">Search mode</span>
       </div>
       <div className="nwt-controls-row">
-        <Seg options={["level", "chapter", "game"]} value={mode} onChange={onModeChange} />
+        <Seg options={["level", "chapter", "game", "custom"]} value={mode} onChange={onModeChange} />
+        {mode === "custom" && (
+          <>
+            <Btn kind="ghost" size="sm" onClick={onOpenPicker} disabled={running}>
+              {customCount ? `${customCount} levels selected` : "Pick levels…"}
+            </Btn>
+            {customCount > 0 && (
+              <Btn kind="ghost" size="sm" onClick={onClearCustom} disabled={running}>Clear</Btn>
+            )}
+          </>
+        )}
         {mode === "level" && (
           <select
             className="nwt-select"
@@ -1011,7 +1067,7 @@ function MedalsStrip({ standings, medalsPerPlayer }) {
 function ResultsGrid({
   mode, chapterKeys, chapters, mcData, rosterById,
   filterPlayer, onFilterPlayer, sortMode, onSortMode,
-  selectedKey, onCellClick, anyResults, scopeLevelCount, chapterTarget,
+  selectedKey, onCellClick, anyResults, scopeLevelCount, chapterTarget, customScope,
 }) {
   const rosterEntries = Object.entries(rosterById);  // [[sid, row], ...]
   // Sort seg only meaningful when there's more than one chapter to reorder.
@@ -1086,13 +1142,14 @@ function ResultsGrid({
           filterPlayer={filterPlayer}
           selectedKey={selectedKey}
           onCellClick={onCellClick}
+          customScope={customScope}
         />
       ))}
     </div>
   );
 }
 
-function ChapterRow({ chapterKey, levels, levelData, rosterById, filterPlayer, selectedKey, onCellClick }) {
+function ChapterRow({ chapterKey, levels, levelData, rosterById, filterPlayer, selectedKey, onCellClick, customScope }) {
   const padded = [];
   for (let i = 0; i < 10; i++) {
     padded.push(i < levelData.length ? levelData[i] : null);
@@ -1108,6 +1165,9 @@ function ChapterRow({ chapterKey, levels, levelData, rosterById, filterPlayer, s
             return <div key={i} className="nwt-cell compact empty" />;
           }
           const cellKey = chapterKey + "::" + i;
+          // In custom mode, levels outside the picked set stay on the map but are
+          // darkened + non-interactive ("scope mask").
+          const outOfScope = customScope && !customScope.has(lvl.levelDisplay);
           const dim = filterPlayer && lvl.winnerSid !== filterPlayer;
           const sel = selectedKey === cellKey;
           let bg = "transparent";
@@ -1119,18 +1179,21 @@ function ChapterRow({ chapterKey, levels, levelData, rosterById, filterPlayer, s
           } else {
             extraClass = " empty";  // no data yet
           }
-          const classes = ["nwt-cell", "compact", sel ? "selected" : "", dim ? "filtered-out" : "", extraClass.trim()]
+          const classes = ["nwt-cell", "compact", sel ? "selected" : "",
+                           dim ? "filtered-out" : "", outOfScope ? "out-of-scope" : "", extraClass.trim()]
             .filter(Boolean).join(" ");
           return (
             <div
               key={i}
               className={classes}
-              style={lvl.winnerSid ? { background: bg } : undefined}
-              onClick={() => onCellClick(chapterKey, lvl.levelDisplay, cellKey)}
+              style={(lvl.winnerSid && !outOfScope) ? { background: bg } : undefined}
+              onClick={outOfScope ? undefined : () => onCellClick(chapterKey, lvl.levelDisplay, cellKey)}
               title={
-                lvl.winnerSid
-                  ? `${lvl.levelDisplay} — ${rosterById[lvl.winnerSid]?.name || ""} ${formatTimeUs(lvl.winnerTime)}${lvl.winnerDelta != null ? ` (+${formatTimeUs(lvl.winnerDelta).replace("s","")}s)` : ""}`
-                  : lvl.levelDisplay
+                outOfScope
+                  ? `${lvl.levelDisplay} — not in custom set`
+                  : lvl.winnerSid
+                    ? `${lvl.levelDisplay} — ${rosterById[lvl.winnerSid]?.name || ""} ${formatTimeUs(lvl.winnerTime)}${lvl.winnerDelta != null ? ` (+${formatTimeUs(lvl.winnerDelta).replace("s","")}s)` : ""}`
+                    : lvl.levelDisplay
               }
             />
           );

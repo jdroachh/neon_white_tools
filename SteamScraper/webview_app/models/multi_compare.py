@@ -16,8 +16,9 @@ from pydantic import BaseModel, Field, field_validator
 class MultiCompareRequest(BaseModel):
     """Input to JsApi.run_multi_compare."""
     steam_ids: list[str] = Field(min_length=1, max_length=10)
-    mode: Literal["level", "chapter", "game"]
-    target: str = ""  # level display name (mode=level), chapter key (mode=chapter), ignored for mode=game
+    mode: Literal["level", "chapter", "game", "custom"]
+    target: str = ""  # level display name (mode=level), chapter key (mode=chapter),
+                      # JSON list of display names (mode=custom), ignored for mode=game
 
     @field_validator("steam_ids")
     @classmethod

@@ -3,7 +3,9 @@ import { PageHead, Field, Seg, Btn, ErrorBanner, MedalBadge, MedalToggle } from 
 import { getLevels, getChapters, getSteamStatus, runComparePlayers, stopLeaderboard, pickFolder, getGlobalNeonRank } from "../api.js";
 import { loadProfiles, saveProfiles, addProfile, isValidNewId } from "../lib/savedProfiles.js";
 import SavedProfilesDropdown from "../components/SavedProfilesDropdown.jsx";
+import LevelPickerModal from "../components/LevelPickerModal.jsx";
 import { loadLevelsWithRetry } from "../lib/retryLevels.js";
+import { loadLastSelection, saveLastSelection } from "../lib/customLevels.js";
 
 const TH = { padding: "4px 8px", fontWeight: 600, fontSize: "0.91em", borderBottom: "1px solid var(--border)", textAlign: "left" };
 const TD = { padding: "3px 8px", fontSize: "1em" };
@@ -60,6 +62,9 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
   const [neonRank1, setNeonRank1]         = useState(null);
   const [neonRank2, setNeonRank2]         = useState(null);
   const [mySteamId, setMySteamId]         = useState("");
+  const [customLevels, setCustomLevels]   = useState([]);
+  const [pickerOpen, setPickerOpen]       = useState(false);
+  const customHydrated = React.useRef(false);
 
   // Whole-game mode: fetch each player's GlobalNeonRankings entry after the
   // compare finishes. Story-only — see project_global_neon_rankings.md.
@@ -116,6 +121,19 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
       if (filterKey === "medal_mismatch") setFilterKey("all");
     }
   }, [showMedals]);
+
+  // Hydrate the last-used custom selection the first time the user picks "custom".
+  useEffect(() => {
+    if (mode === "custom" && !customHydrated.current) {
+      customHydrated.current = true;
+      loadLastSelection("cp").then(setCustomLevels);
+    }
+  }, [mode]);
+
+  function handleCustomLevelsChange(next) {
+    setCustomLevels(next);
+    saveLastSelection("cp", next);
+  }
 
   // Header click: same key → toggle direction; new key → reset to its default.
   function applySort(key) {
@@ -180,7 +198,10 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
     setError(""); setStatus(""); setRows([]); setPlayerName1(""); setPlayerName2("");
     setNeonRank1(null); setNeonRank2(null);
     setSortKey("level"); setFilterKey("all");
-    const target = mode === "level" ? levelName : mode === "chapter" ? chapterName : "";
+    const target = mode === "custom"  ? JSON.stringify(customLevels)
+                 : mode === "level"   ? levelName
+                 : mode === "chapter" ? chapterName
+                 : "";
     const r = await runComparePlayers(steamId1, steamId2, mode, target, outMode, folder);
     if (!r.ok) { setError(r.error); return; }
     setRunning(true);
@@ -323,7 +344,7 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
               </div>
             </Field>
             <Field label="Search mode">
-              <Seg options={["level", "chapter", "game"]} value={mode}
+              <Seg options={["level", "chapter", "game", "custom"]} value={mode}
                    onChange={v => { setMode(v); setError(""); }} />
             </Field>
             {mode === "level" && (
@@ -344,6 +365,19 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
                     <option key={c.name} value={c.name}>{c.name}</option>
                   ))}
                 </select>
+              </Field>
+            )}
+            {mode === "custom" && (
+              <Field label="Custom level set">
+                <div style={{ display: "flex", gap: 8 }}>
+                  <Btn kind="ghost" size="sm" onClick={() => setPickerOpen(true)} disabled={running}>
+                    {customLevels.length ? `${customLevels.length} levels selected` : "Pick levels…"}
+                  </Btn>
+                  {customLevels.length > 0 && (
+                    <Btn kind="ghost" size="sm" disabled={running}
+                         onClick={() => handleCustomLevelsChange([])}>Clear</Btn>
+                  )}
+                </div>
               </Field>
             )}
             {mode === "game" && (
@@ -368,7 +402,8 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
             <div style={{ display: "flex", gap: 8 }}>
               {running
                 ? <Btn kind="danger" size="lg" onClick={handleStop}>Stop</Btn>
-                : <Btn kind="primary" size="lg" icn="user" onClick={handleRun}>Compare</Btn>}
+                : <Btn kind="primary" size="lg" icn="user" onClick={handleRun}
+                       disabled={mode === "custom" && customLevels.length === 0}>Compare</Btn>}
             </div>
             {status && <div className="muted" style={{ fontSize: 11 }}>{status}</div>}
           </div>
@@ -584,6 +619,11 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
 
         </div>
       </div>
+      <LevelPickerModal
+        open={pickerOpen} onClose={() => setPickerOpen(false)}
+        value={customLevels} onChange={handleCustomLevelsChange}
+        levels={levels} chapters={chapters}
+      />
     </>
   );
 }
