@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { PageHead, Field, Seg, Btn } from "../shared.jsx";
-import { getGuides, openExternalUrl, getConfig, saveConfigFields, getResourcesStatus } from "../api.js";
+import { getGuides, openExternalUrl, getConfig, saveConfigFields, getResourcesStatus, getLevels } from "../api.js";
 
 const CAT_OPTIONS = ["Route Guides", "Technical Guides", "Medal Playlists"];
 const CAT_BY_LABEL = { "Route Guides": "route", "Technical Guides": "technical", "Medal Playlists": "playlist" };
@@ -40,6 +40,10 @@ export default function Guides() {
 
   const [hideWatched, setHideWatched]     = useState(false);
   const [watchlistOnly, setWatchlistOnly] = useState(false);
+  // display name -> canonical catalog index, so the Level dropdown matches the
+  // game order used by every other tab (route guides' g.level is a rush_data
+  // LEVELS display name — see resources.py).
+  const [levelOrder, setLevelOrder] = useState(null);
 
   const activeCat = CAT_BY_LABEL[activeCatLabel];
 
@@ -52,6 +56,15 @@ export default function Guides() {
       setHideWatched(!!cfg.guide_hide_watched);
       setWatchlistOnly(!!cfg.guide_watchlist_only);
     }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    getLevels()
+      .then(ls => {
+        if (!Array.isArray(ls)) return;
+        setLevelOrder(new Map(ls.map((l, i) => [l.display, i])));
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -132,7 +145,13 @@ export default function Guides() {
 
   const levelOptions = [...new Set(
     guides.filter(g => g.category === "route" && g.level).map(g => g.level)
-  )].sort();
+  )].sort((a, b) => {
+    const ia = levelOrder?.get(a), ib = levelOrder?.get(b);
+    if (ia != null && ib != null) return ia - ib;   // both known → game order
+    if (ia != null) return -1;                       // known levels before unknown
+    if (ib != null) return 1;
+    return a.localeCompare(b);                        // both unknown → alphabetical
+  });
 
   const filtered = guides.filter(g => {
     if (g.category !== activeCat) return false;
