@@ -14,6 +14,7 @@ All notable changes to Neon White Tools are documented here.
 - hover row + crosshair highlight on result tables (fa9f37a)
 - custom level-set search on Player Lookup, Compare Players, Multi Compare (637dd50)
 - CP/PL column sort + boot-race retry + Guides watch button (9c23c29)
+- Guides Level dropdown now ordered by game order, matching other tabs (24a8099)
 
 ### Fixed
 - validate export folder + worker-thread safety net (05b69ef)
