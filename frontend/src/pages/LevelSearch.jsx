@@ -157,7 +157,7 @@ export default function LevelSearch({ outputFolder: defaultFolder = "" }) {
                 </div>
               </div>
               <div style={{ fontSize: largeText ? 14 : 11, overflow: "auto", flex: 1 }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
+                <table className="nwt-hover-rows" style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
                   <colgroup>
                     <col style={{ width: 80 }} />
                     <col />

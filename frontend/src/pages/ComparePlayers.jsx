@@ -6,6 +6,7 @@ import SavedProfilesDropdown from "../components/SavedProfilesDropdown.jsx";
 import LevelPickerModal from "../components/LevelPickerModal.jsx";
 import { loadLevelsWithRetry } from "../lib/retryLevels.js";
 import { loadLastSelection, saveLastSelection } from "../lib/customLevels.js";
+import { useCrosshair } from "../lib/useCrosshair.js";
 
 const TH = { padding: "4px 8px", fontWeight: 600, fontSize: "0.91em", borderBottom: "1px solid var(--border)", textAlign: "left" };
 const TD = { padding: "3px 8px", fontSize: "1em" };
@@ -50,6 +51,7 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
   const [running, setRunning]             = useState(false);
   const [status, setStatus]               = useState("");
   const [error, setError]                 = useState("");
+  const { tbodyProps, cellHL }            = useCrosshair();
   const [rows, setRows]                   = useState([]);
   const [playerName1, setPlayerName1]     = useState("");
   const [playerName2, setPlayerName2]     = useState("");
@@ -584,7 +586,7 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
                           })}
                         </tr>
                       </thead>
-                      <tbody>
+                      <tbody {...tbodyProps}>
                         {displayRows.map((r, i) => {
                           const p1bg    = r.faster === "p1" ? P1_BG : undefined;
                           const p2bg    = r.faster === "p2" ? P2_BG : undefined;
@@ -592,16 +594,20 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
                           const delta   = r.delta_ms != null ? formatDelta(r.delta_ms) : "—";
                           const numTd   = { ...TD, textAlign: "right", whiteSpace: "nowrap" };
                           const lvlTd   = { ...TD, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" };
+                          // DOM column indices (shift when the medal cols show).
+                          const c = showMedals
+                            ? { level: 0, p1rank: 1, p1time: 2, p1medal: 3, delta: 4, p2medal: 5, p2time: 6, p2rank: 7 }
+                            : { level: 0, p1rank: 1, p1time: 2, delta: 3, p2time: 4, p2rank: 5 };
                           return (
-                            <tr key={r.level} style={{ borderBottom: "1px solid var(--border)" }}>
-                              <td style={lvlTd} title={r.level}>{r.level}</td>
-                              <td style={numTd}>{r.p1 ? `#${r.p1.rank}` : "—"}</td>
-                              <td style={{ ...numTd, backgroundColor: p1bg }}>{r.p1 ? r.p1.time : "—"}</td>
-                              {showMedals && <td style={TD}>{r.p1 ? <MedalBadge medal={r.p1.medal} plain /> : "—"}</td>}
-                              <td style={{ ...numTd, color: dColor }}>{delta}</td>
-                              {showMedals && <td style={TD}>{r.p2 ? <MedalBadge medal={r.p2.medal} plain /> : "—"}</td>}
-                              <td style={{ ...numTd, backgroundColor: p2bg }}>{r.p2 ? r.p2.time : "—"}</td>
-                              <td style={numTd}>{r.p2 ? `#${r.p2.rank}` : "—"}</td>
+                            <tr key={r.level} data-row={i} style={{ borderBottom: "1px solid var(--border)" }}>
+                              <td style={{ ...lvlTd, ...cellHL(i, c.level) }} title={r.level}>{r.level}</td>
+                              <td style={{ ...numTd, ...cellHL(i, c.p1rank) }}>{r.p1 ? `#${r.p1.rank}` : "—"}</td>
+                              <td style={{ ...numTd, backgroundColor: p1bg, ...cellHL(i, c.p1time) }}>{r.p1 ? r.p1.time : "—"}</td>
+                              {showMedals && <td style={{ ...TD, ...cellHL(i, c.p1medal) }}>{r.p1 ? <MedalBadge medal={r.p1.medal} plain /> : "—"}</td>}
+                              <td style={{ ...numTd, color: dColor, ...cellHL(i, c.delta) }}>{delta}</td>
+                              {showMedals && <td style={{ ...TD, ...cellHL(i, c.p2medal) }}>{r.p2 ? <MedalBadge medal={r.p2.medal} plain /> : "—"}</td>}
+                              <td style={{ ...numTd, backgroundColor: p2bg, ...cellHL(i, c.p2time) }}>{r.p2 ? r.p2.time : "—"}</td>
+                              <td style={{ ...numTd, ...cellHL(i, c.p2rank) }}>{r.p2 ? `#${r.p2.rank}` : "—"}</td>
                             </tr>
                           );
                         })}

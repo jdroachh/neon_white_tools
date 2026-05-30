@@ -6,6 +6,7 @@ import { loadProfiles, saveProfiles, addProfile, isValidNewId } from "../lib/sav
 import { loadLastSelection, saveLastSelection } from "../lib/customLevels.js";
 import SavedProfilesDropdown from "../components/SavedProfilesDropdown.jsx";
 import LevelPickerModal from "../components/LevelPickerModal.jsx";
+import { useCrosshair } from "../lib/useCrosshair.js";
 
 const TH = { padding: "4px 8px", fontWeight: 600, fontSize: "0.91em", borderBottom: "1px solid var(--border)", textAlign: "left" };
 const TD = { padding: "3px 8px", fontSize: "1em" };
@@ -31,6 +32,7 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "", visible
   const [running, setRunning]         = useState(false);
   const [status, setStatus]           = useState("");
   const [error, setError]             = useState("");
+  const { tbodyProps, cellHL }        = useCrosshair();
   const [rows, setRows]               = useState([]);
   const [playerName, setPlayerName]   = useState("");
   const [showMedals, setShowMedals]   = useState(false);
@@ -464,17 +466,21 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "", visible
                           })}
                         </tr>
                       </thead>
-                      <tbody>
+                      <tbody {...tbodyProps}>
                         {displayRows.map((r, i) => {
                           const numTd = { ...TD, textAlign: "right", whiteSpace: "nowrap" };
                           const lvlTd = { ...TD, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" };
+                          // DOM column indices (shift when the medal col shows).
+                          const c = showMedals
+                            ? { level: 0, rank: 1, time: 2, medal: 3, total: 4 }
+                            : { level: 0, rank: 1, time: 2, total: 3 };
                           return (
-                            <tr key={r.level} style={{ borderBottom: "1px solid var(--border)" }}>
-                              <td style={lvlTd} title={r.level}>{r.level}</td>
-                              <td style={numTd}>#{r.rank}</td>
-                              <td style={numTd}>{r.time}</td>
-                              {showMedals && <td style={TD}><MedalBadge medal={r.medal} plain /></td>}
-                              <td style={{ ...numTd, color: "var(--text-3)" }}>
+                            <tr key={r.level} data-row={i} style={{ borderBottom: "1px solid var(--border)" }}>
+                              <td style={{ ...lvlTd, ...cellHL(i, c.level) }} title={r.level}>{r.level}</td>
+                              <td style={{ ...numTd, ...cellHL(i, c.rank) }}>#{r.rank}</td>
+                              <td style={{ ...numTd, ...cellHL(i, c.time) }}>{r.time}</td>
+                              {showMedals && <td style={{ ...TD, ...cellHL(i, c.medal) }}><MedalBadge medal={r.medal} plain /></td>}
+                              <td style={{ ...numTd, color: "var(--text-3)", ...cellHL(i, c.total) }}>
                                 {r.total ? `/ ${r.total.toLocaleString()}` : ""}
                               </td>
                             </tr>
