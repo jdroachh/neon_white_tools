@@ -53,9 +53,18 @@ From the repo root (`E:\Claude-Neon-White-App`):
 cd frontend
 npm run build
 cd ..\SteamScraper
-python -m PyInstaller neonwhite.spec
+# Clear any prior build first — PyInstaller will NOT overwrite a non-empty
+# dist output dir, and when it can't it aborts COLLECT *while still exiting 0*,
+# leaving a stale exe behind. --noconfirm forces the overwrite.
+Remove-Item dist\NeonWhiteLeaderboardTool -Recurse -Force -ErrorAction SilentlyContinue
+python -m PyInstaller --noconfirm neonwhite.spec
 # Output: SteamScraper\dist\NeonWhiteLeaderboardTool\
 ```
+
+> **Sanity check:** confirm the built exe's timestamp is fresh before
+> continuing — `(Get-Item dist\NeonWhiteLeaderboardTool\NeonWhiteLeaderboardTool.exe).LastWriteTime`.
+> A stale timestamp means COLLECT silently failed and you're about to ship the
+> previous build.
 
 ### 4. Smoke test
 
