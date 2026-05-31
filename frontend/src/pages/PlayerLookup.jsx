@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { PageHead, Field, Seg, Btn, ErrorBanner, MedalBadge, MedalToggle } from "../shared.jsx";
 import { getLevels, getChapters, getSteamStatus, runPlayerLookup, stopLeaderboard, pickFolder, getGlobalNeonRank } from "../api.js";
-import { loadLevelsWithRetry } from "../lib/retryLevels.js";
+import { loadLevelsWithRetry, loadWithRetry } from "../lib/retryLevels.js";
 import { loadProfiles, saveProfiles, addProfile, isValidNewId } from "../lib/savedProfiles.js";
 import { loadLastSelection, saveLastSelection } from "../lib/customLevels.js";
 import SavedProfilesDropdown from "../components/SavedProfilesDropdown.jsx";
@@ -52,7 +52,9 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "", visible
     const cancelLevels = loadLevelsWithRetry(getLevels, {
       onLevels: ls => { setLevels(ls); setLevelName(ls[0].display); }
     });
-    getChapters().then(cs => { setChapters(cs); if (cs.length) setChapterName(cs[0].name); });
+    const cancelChapters = loadWithRetry(getChapters, {
+      onData: cs => { setChapters(cs); setChapterName(cs[0].name); }
+    });
     loadProfiles().then(setSavedProfiles);
     window._nwPlayerEvent = (ev) => {
       if (ev.type === "status") {
@@ -69,7 +71,7 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "", visible
         setRunning(false);
       }
     };
-    return () => { cancelLevels(); window._nwPlayerEvent = null; };
+    return () => { cancelLevels(); cancelChapters(); window._nwPlayerEvent = null; };
   }, []);
 
   useEffect(() => {

@@ -4,7 +4,7 @@ import { getLevels, getChapters, getSteamStatus, runComparePlayers, stopLeaderbo
 import { loadProfiles, saveProfiles, addProfile, isValidNewId } from "../lib/savedProfiles.js";
 import SavedProfilesDropdown from "../components/SavedProfilesDropdown.jsx";
 import LevelPickerModal from "../components/LevelPickerModal.jsx";
-import { loadLevelsWithRetry } from "../lib/retryLevels.js";
+import { loadLevelsWithRetry, loadWithRetry } from "../lib/retryLevels.js";
 import { loadLastSelection, saveLastSelection } from "../lib/customLevels.js";
 import { useCrosshair } from "../lib/useCrosshair.js";
 
@@ -23,7 +23,8 @@ const SORT_DEFAULTS = {
   time_p2:      "asc",
   delta:        "desc",
   gap_closest:  "asc",
-  medal_tier:   "asc",
+  medal_tier_p1: "asc",
+  medal_tier_p2: "asc",
 };
 const P1_BG    = "rgba(80, 160, 255, 0.18)";
 const P1_COLOR = "rgb(80, 160, 255)";
@@ -83,7 +84,9 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
     const cancelLevels = loadLevelsWithRetry(getLevels, {
       onLevels: ls => { setLevels(ls); setLevelName(ls[0].display); }
     });
-    getChapters().then(cs => { setChapters(cs); if (cs.length) setChapterName(cs[0].name); });
+    const cancelChapters = loadWithRetry(getChapters, {
+      onData: cs => { setChapters(cs); setChapterName(cs[0].name); }
+    });
     loadProfiles().then(setSavedProfiles);
     window._nwCompareEvent = (ev) => {
       if (ev.type === "status") {
@@ -100,7 +103,7 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
         setRunning(false);
       }
     };
-    return () => { cancelLevels(); window._nwCompareEvent = null; };
+    return () => { cancelLevels(); cancelChapters(); window._nwCompareEvent = null; };
   }, []);
 
 
@@ -119,7 +122,7 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
 
   useEffect(() => {
     if (!showMedals) {
-      if (sortKey === "medal_tier") { setSortKey("level"); setSortDir("asc"); }
+      if (sortKey === "medal_tier_p1" || sortKey === "medal_tier_p2") { setSortKey("level"); setSortDir("asc"); }
       if (filterKey === "medal_mismatch") setFilterKey("all");
     }
   }, [showMedals]);
@@ -287,8 +290,13 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
         case "time_p2":      cmp = a.p2.score_ms - b.p2.score_ms; break;
         case "delta":        cmp = a.delta_ms    - b.delta_ms;    break;
         case "gap_closest":  cmp = Math.abs(a.delta_ms) - Math.abs(b.delta_ms); break;
-        case "medal_tier": {
+        case "medal_tier_p1": {
           const ai = MEDAL_TIER_ORDER.indexOf(a.p1?.medal); const bi = MEDAL_TIER_ORDER.indexOf(b.p1?.medal);
+          cmp = (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+          break;
+        }
+        case "medal_tier_p2": {
+          const ai = MEDAL_TIER_ORDER.indexOf(a.p2?.medal); const bi = MEDAL_TIER_ORDER.indexOf(b.p2?.medal);
           cmp = (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
           break;
         }
@@ -514,7 +522,8 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
                       <option value="gap_p1_lead">Sort: P1 Lead</option>
                       <option value="gap_p2_lead">Sort: P2 Lead</option>
                       <option value="gap_closest">Sort: Closest</option>
-                      {showMedals && <option value="medal_tier">Sort: Medal</option>}
+                      {showMedals && <option value="medal_tier_p1">Sort: P1 Medal</option>}
+                      {showMedals && <option value="medal_tier_p2">Sort: P2 Medal</option>}
                     </select>
                     <select className="input" value={filterKey} onChange={e => setFilterKey(e.target.value)}
                             style={{ fontSize: 11 }}>
@@ -544,9 +553,9 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
                           { key: "level",        label: "Level",    width: "22%", align: "left"  },
                           { key: "rank_best_p1", label: "P1 Rank",  width: "10%", align: "right" },
                           { key: "time_p1",      label: "P1 Time",  width: "13%", align: "right" },
-                          { key: null,           label: "P1 Medal", width: "9%",  align: "left"  },
+                          { key: "medal_tier_p1", label: "P1 Medal", width: "9%",  align: "left"  },
                           { key: "delta",        label: "Δ",        width: "14%", align: "right" },
-                          { key: null,           label: "P2 Medal", width: "9%",  align: "left"  },
+                          { key: "medal_tier_p2", label: "P2 Medal", width: "9%",  align: "left"  },
                           { key: "time_p2",      label: "P2 Time",  width: "13%", align: "right" },
                           { key: "rank_best_p2", label: "P2 Rank",  width: "10%", align: "right" },
                         ]
