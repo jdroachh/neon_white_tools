@@ -9,7 +9,7 @@ import {
   loadRosters, saveRosters, addRoster, removeRoster, MAX as MAX_ROSTERS,
 } from "../lib/savedRosters.js";
 import { PLAYER_COLORS, hexFor, nextAvailableColor } from "../lib/playerColors.js";
-import { getLevels, getChapters, getSteamStatus, runMultiCompare, stopMultiCompare, getGlobalNeonRank } from "../api.js";
+import { getLevels, getChapters, getSteamStatus, runMultiCompare, stopMultiCompare, clearMultiCompareCache, getGlobalNeonRank } from "../api.js";
 
 const STEAM_ID_RE = /^\d{17}$/;
 const MEDAL_TIER_ORDER = ["BLOOD DIAMOND","TOPAZ","SAPPHIRE","AMETHYST","EMERALD","DEV","ACE","GOLD","SILVER","BRONZE"];
@@ -279,6 +279,15 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
     });
   }
   function handleStop() { stopMultiCompare(); }
+
+  // Refresh: keep the roster, drop its cached times, and re-run so the query
+  // hits Steam fresh. Only meaningful once a run has produced results.
+  async function handleRefresh() {
+    if (!canRun || !anyResults) return;
+    const steam_ids = validRoster.map(r => r.steam_id.trim());
+    await clearMultiCompareCache(steam_ids);
+    handleRun();
+  }
 
   function openSavePrompt() {
     setSavePromptNickname(""); setSavePromptError(""); setSavePromptOpen(true);
@@ -551,8 +560,10 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
             onChapterTargetChange={setChapterTarget}
             running={running}
             canRun={canRun}
+            anyResults={anyResults}
             onRun={handleRun}
             onStop={handleStop}
+            onRefresh={handleRefresh}
             searchHint={searchHint}
             runStatusHint={runStatusHint}
             customCount={customLevels.length}
@@ -919,7 +930,7 @@ function SaveRosterPrompt({ nickname, error, onNicknameChange, onSubmit, onCance
 function SearchModePanel({
   mode, onModeChange, levels, chapters, levelTarget, chapterTarget,
   onLevelTargetChange, onChapterTargetChange,
-  running, canRun, onRun, onStop, searchHint, runStatusHint,
+  running, canRun, anyResults, onRun, onStop, onRefresh, searchHint, runStatusHint,
   customCount, onOpenPicker, onClearCustom,
 }) {
   return (
@@ -962,7 +973,13 @@ function SearchModePanel({
         <span style={{ flex: 1 }} />
         {running
           ? <Btn kind="danger" size="lg" onClick={onStop}>Stop</Btn>
-          : <Btn kind="primary" size="lg" icn="multicompare" onClick={onRun} disabled={!canRun}>Run</Btn>}
+          : <>
+              {anyResults && (
+                <Btn kind="ghost" size="lg" icn="refresh" onClick={onRefresh} disabled={!canRun}
+                     title="Clear these players' cached times and re-run for fresh data">Refresh</Btn>
+              )}
+              <Btn kind="primary" size="lg" icn="multicompare" onClick={onRun} disabled={!canRun}>Run</Btn>
+            </>}
         {runStatusHint && (
           <span style={{ color: "var(--mc-text-3)", fontSize: 11 }}>{runStatusHint}</span>
         )}

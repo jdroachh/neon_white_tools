@@ -1568,6 +1568,19 @@ class JsApi:
             self._lb_stop_event.set()
         return {"ok": True}
 
+    def clear_multi_compare_cache(self, steam_ids: list) -> dict:
+        """Drop cached Multi-Compare times for the given roster's Steam IDs so
+        the next run re-fetches fresh data. Roster/UI state is untouched.
+        Returns {ok, removed} where removed is the key count evicted."""
+        sids = []
+        for s in steam_ids or []:
+            try:
+                sids.append(int(str(s).strip()))
+            except (TypeError, ValueError):
+                continue
+        removed = multi_compare_cache.clear_for_sids(sids)
+        return {"ok": True, "removed": removed}
+
     def stop_leaderboard(self) -> dict:
         if hasattr(self, "_lb_stop_event"):
             self._lb_stop_event.set()

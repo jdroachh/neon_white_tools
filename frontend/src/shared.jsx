@@ -45,6 +45,7 @@ export const Icon = ({ name, size = 14 }) => {
     case "link":     return <svg viewBox="0 0 16 16" style={s}><g {...sp}><path d="M6 10l4-4M7 4l1-1a3 3 0 014 4l-1 1M9 12l-1 1a3 3 0 01-4-4l1-1"/></g></svg>;
     case "globe":    return <svg viewBox="0 0 16 16" style={s}><g {...sp}><circle cx="8" cy="8" r="5.5"/><ellipse cx="8" cy="8" rx="5.5" ry="2.2"/><ellipse cx="8" cy="8" rx="2.2" ry="5.5"/></g></svg>;
     case "crown":    return <svg viewBox="0 0 16 16" style={s}><g {...sp}><path d="M2 11l1-5 2.5 3L8 4l2.5 5L13 6l1 5z"/><path d="M2.5 13.5h11"/></g></svg>;
+    case "refresh":  return <svg viewBox="0 0 16 16" style={s}><g {...sp}><path d="M13 3v3.5H9.5"/><path d="M3 13V9.5H6.5"/><path d="M12.5 6.5A5 5 0 003.5 5M3.5 9.5A5 5 0 0012.5 11"/></g></svg>;
     default: return null;
   }
 };

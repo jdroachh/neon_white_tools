@@ -47,6 +47,21 @@ def clear() -> None:
         _store.clear()
 
 
+def clear_for_sids(steam_ids) -> int:
+    """Evict every cached entry for the given Steam IDs, across all levels.
+
+    Used by the Multi-Compare "Refresh" button: the roster (UI state) is kept,
+    but those players' cached times are dropped so the next run re-fetches them
+    fresh. Returns the number of keys removed (diagnostic).
+    """
+    targets = set(steam_ids)
+    with _lock:
+        stale = [k for k in _store if k[0] in targets]
+        for k in stale:
+            del _store[k]
+    return len(stale)
+
+
 def size() -> int:
     """Diagnostic — current number of cached keys."""
     with _lock:
