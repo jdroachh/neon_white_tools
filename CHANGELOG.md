@@ -8,6 +8,19 @@ All notable changes to Neon White Tools are documented here.
 
 ---
 
+## [1.5.1] — 2026-05-31
+
+### Added
+- Compare Players: sort by medal tier via clickable P1/P2 Medal column headers + synced dropdown options (1db5d60)
+
+### Fixed
+- Chapter dropdown could render empty on a cold launch (Compare Players, Player Lookup) — now retried like the level list (1db5d60)
+
+### Docs
+- clear dist before PyInstaller build to avoid stale exe (a0b055c)
+
+---
+
 ## [1.5.0] — 2026-05-30
 
 ### Added
