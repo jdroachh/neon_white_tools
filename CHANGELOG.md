@@ -12,6 +12,7 @@ All notable changes to Neon White Tools are documented here.
 
 ### Added
 - Compare Players: sort by medal tier via clickable P1/P2 Medal column headers + synced dropdown options (1db5d60)
+- Multi Compare: "Refresh" button (shown after a run) clears the roster's cached times and re-runs for fresh data (0e5d742)
 
 ### Fixed
 - Chapter dropdown could render empty on a cold launch (Compare Players, Player Lookup) — now retried like the level list (1db5d60)
