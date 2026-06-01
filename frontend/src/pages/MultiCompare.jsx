@@ -257,6 +257,18 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
     [mode, customLevels]
   );
 
+  // Active scope for the summary strips (standings / medals / level count).
+  // `null` = whole game (no filter). Mode-switching never clears `results`, so
+  // the cached per-level data already covers every mode — we just re-scope the
+  // aggregations below instead of re-querying Steam.
+  const scopeSet = useMemo(() => {
+    if (mode === "custom")  return new Set(customLevels);
+    if (mode === "level")   return new Set(levelTarget ? [levelTarget] : []);
+    if (mode === "chapter") return new Set(chapters[chapterTarget] || []);
+    return null;  // game
+  }, [mode, customLevels, levelTarget, chapterTarget, chapters]);
+  const inScope = (disp) => !scopeSet || scopeSet.has(disp);
+
   function handleRun() {
     if (!canRun) return;
     setResults({});
@@ -376,6 +388,7 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
       const chWins = {};
       for (const sid of Object.keys(rosterById)) chWins[sid] = 0;
       for (const lvl of mcData[ck] || []) {
+        if (!inScope(lvl.levelDisplay)) continue;
         total++;
         if (lvl.winnerSid) {
           per[lvl.winnerSid] = (per[lvl.winnerSid] || 0) + 1;
@@ -385,7 +398,7 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
       perChapter[ck] = chWins;
     }
     return { winsPerPlayer: per, winsPerChapter: perChapter, totalLevels: total };
-  }, [chapterKeys, mcData, rosterById]);
+  }, [chapterKeys, mcData, rosterById, scopeSet]);
 
   // Medal counts per player — keyed by sid, then by medal tier.
   // Only counts rows in the current results scope (chapter/game/level mode handled
@@ -395,6 +408,7 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
     for (const sid of Object.keys(rosterById)) out[sid] = {};
     for (const ck of chapterKeys) {
       for (const lvl of mcData[ck] || []) {
+        if (!inScope(lvl.levelDisplay)) continue;
         for (const row of lvl.sortedRows) {
           if (row.medal && out[row.steam_id]) {
             out[row.steam_id][row.medal] = (out[row.steam_id][row.medal] || 0) + 1;
@@ -403,7 +417,7 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
       }
     }
     return out;
-  }, [chapterKeys, mcData, rosterById]);
+  }, [chapterKeys, mcData, rosterById, scopeSet]);
 
   // Sorted chapter order based on sortMode
   const sortedChapterKeys = useMemo(() => {
@@ -484,18 +498,10 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
   }
 
   // ── Render ──────────────────────────────────────────────────────────────
-  // Scope = levels actually in scope for the current/last run. In chapter mode
-  // this is just the chosen chapter's levels; in game mode all 121; in level
-  // mode just one. Falls back to "all" when no run has happened yet.
-  const scopeLevelCount = useMemo(() => {
-    let n = 0;
-    for (const ck of chapterKeys) {
-      for (const lvl of mcData[ck] || []) {
-        if (lvl.hasAnyData || lvl.missingRows.length > 0) n++;
-      }
-    }
-    return n || totalLevels;
-  }, [chapterKeys, mcData, totalLevels]);
+  // Scope = levels in scope for the active mode. `totalLevels` is already
+  // scoped (custom → picked count, chapter → that chapter, level → 1, game →
+  // all), so it doubles as the level-count tag. Falls back to 121 pre-load.
+  const scopeLevelCount = totalLevels;
 
   const totalsTag = `${scopeLevelCount || 121} levels · ${validRoster.length || roster.length} players`;
   const searchHint = mode === "level"
