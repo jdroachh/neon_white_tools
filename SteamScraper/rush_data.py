@@ -190,6 +190,21 @@ RUSH_ALIASES = {
     "rsii": "resident saw ii", "rs2": "resident saw ii",
 }
 
+# ── Level Rush Steam leaderboards — for the Rush Rankings tool ────────────
+# Naming convention cracked via tools/audit_rush_leaderboards.py (2026-06-01):
+# {CHARACTER}RUSH_{DIFFICULTY}, case-insensitive. White's main-game rush uses a
+# divergent (older) scheme that probing hasn't surfaced yet — it ships disabled
+# (heaven/hell = None) and lights up the instant its board name is filled in.
+RUSH_BOARDS = [
+    {"key": "white",  "label": "White",  "heaven": None,               "hell": None},
+    {"key": "red",    "label": "Red",    "heaven": "REDRUSH_HEAVEN",    "hell": "REDRUSH_HELL"},
+    {"key": "violet", "label": "Violet", "heaven": "VIOLETRUSH_HEAVEN", "hell": "VIOLETRUSH_HELL"},
+    {"key": "yellow", "label": "Yellow", "heaven": "YELLOWRUSH_HEAVEN", "hell": "YELLOWRUSH_HELL"},
+    {"key": "mikey",  "label": "Mikey",  "heaven": "MIKEYRUSH_HEAVEN",  "hell": "MIKEYRUSH_HELL"},
+]
+
+RUSH_BOARD_LOOKUP = {b["key"]: b for b in RUSH_BOARDS}
+
 # ── Standard medal data — [bronze_us, silver_us, gold_us, ace_us, dev_us] ─
 STANDARD_MEDAL_DATA = {
     "TUT_MOVEMENT":[900000000,38000000,31000000,24000000,18930000],

@@ -67,6 +67,7 @@ const NAV_ITEMS = {
     { key: "global",      label: "Global Export",    icn: "export" },
     { key: "neonrankings", label: "Global Rankings", icn: "globe" },
     { key: "levelsearch", label: "Level Search",     icn: "search" },
+    { key: "rushrankings", label: "Rush Rankings",   icn: "timer"  },
     { key: "lookup",      label: "Player Lookup",    icn: "user"   },
     { key: "compare",     label: "Compare Players",  icn: "compare" },
     { key: "multicompare", label: "Multi Compare",   icn: "multicompare" },

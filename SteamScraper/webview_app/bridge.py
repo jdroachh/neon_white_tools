@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from shuffle_lib import _load_c_shuffle, full_shuffle
 from .hell_rush import score_hell_rush, HEALTHPACK_LEVELS
 from rush_data import (LEVELS, LEVEL_LOOKUP, RUSH_LEVELS, RUSH_ALIASES, STANDARD_MEDAL_DATA,
-                       CHAPTERS, WHOLE_GAME_LEVELS)
+                       CHAPTERS, WHOLE_GAME_LEVELS, RUSH_BOARDS, RUSH_BOARD_LOOKUP)
 from seed_search import _seed_search_worker, _expected_match_count
 from .models.resources import GuidesResponse, HelpfulLinksResponse
 from .models.multi_compare import MultiCompareRequest
@@ -293,6 +293,17 @@ def _emit_to(handler: str, event_data: dict) -> None:
             webview.windows[0].evaluate_js(js)
     except Exception:
         pass
+
+
+def _fmt_ms_clock(score_ms) -> str:
+    """Format a millisecond leaderboard score as mm:ss.mmm. Used for Rush
+    Rankings, where totals run long (White ~18 min) — the level-search
+    '{s}.{ms}' format would be unreadable for whole-rush sums."""
+    total_ms = max(0, int(score_ms))
+    minutes = total_ms // 60000
+    seconds = (total_ms % 60000) // 1000
+    millis = total_ms % 1000
+    return f"{minutes:02d}:{seconds:02d}.{millis:03d}"
 
 
 def _guard_output_folder(folder: str, out_mode: str) -> dict | None:
@@ -1042,9 +1053,16 @@ class JsApi:
         entry = steam_api.get_player_entry(lb, sid)
         if not entry:
             return {"ok": False, "error": "No entry on Global Rankings."}
+        nb = steam_api.steam.SteamAPI_ISteamFriends_GetFriendPersonaName(
+            steam_api.friends, sid)
+        pname = nb.decode("utf-8", errors="replace") if nb else str(sid)
+        total = steam_api.steam.SteamAPI_ISteamUserStats_GetLeaderboardEntryCount(
+            steam_api.user_stats, lb)
         return {
             "ok": True,
             "rank": entry.global_rank,
+            "name": pname,
+            "total": total,
             "score_ms": entry.score,
             "time": f"{entry.score / 1000:.3f}",
         }
@@ -1131,6 +1149,152 @@ class JsApi:
             daemon=True,
         ).start()
         return {"ok": True}
+
+    # ── Rush Rankings ─────────────────────────────────────────────────────────
+
+    def get_rush_boards(self) -> list:
+        """Return the Rush Rankings board list with per-difficulty availability
+        flags. White ships disabled (heaven/hell = None) until its divergent
+        board name surfaces — see [[project-rush-leaderboards]]."""
+        return [
+            {"key": b["key"], "label": b["label"],
+             "heaven_available": b["heaven"] is not None,
+             "hell_available": b["hell"] is not None}
+            for b in RUSH_BOARDS
+        ]
+
+    def run_rush_search(self, rush_key: str, difficulty: str, count: str,
+                        out_mode: str = "display", folder: str = "") -> dict:
+        """Top-N fetch on a Level Rush board. Clone of run_level_search streaming
+        via _nwRushEvent — no medal field (no rush threshold data), times as
+        mm:ss.mmm via _fmt_ms_clock."""
+        import steam_api, time as _time, csv as _csv
+        if not steam_api.steam_ready:
+            return {"ok": False, "error": "Steam not connected. Connect in Settings first."}
+        if getattr(self, "_lb_running", False):
+            return {"ok": False, "error": "An operation is already running."}
+
+        board = RUSH_BOARD_LOOKUP.get(str(rush_key).strip().lower())
+        if not board:
+            return {"ok": False, "error": f"Unknown rush '{rush_key}'."}
+        diff = str(difficulty).strip().lower()
+        if diff not in ("heaven", "hell"):
+            return {"ok": False, "error": "Difficulty must be Heaven or Hell."}
+        board_name = board[diff]
+        if not board_name:
+            return {"ok": False, "error": f"{board['label']} {diff.title()} Rush board name is not known yet."}
+
+        try:
+            count_int = max(1, int(str(count).strip()))
+        except ValueError:
+            return {"ok": False, "error": "Entry count must be a number."}
+        err = _guard_output_folder(folder, out_mode)
+        if err:
+            return err
+
+        label = f"{board['label']} {diff.title()}"
+        self._lb_stop_event = threading.Event()
+        self._lb_running = True
+
+        def worker():
+            _emit_to("_nwRushEvent", {"type": "status", "message": f"Finding {label} Rush..."})
+            lb = steam_api.find_leaderboard(board_name)
+            if not lb:
+                _emit_to("_nwRushEvent", {"type": "error", "message": "Leaderboard not found."})
+                self._lb_running = False
+                return
+            total_lb = steam_api.steam.SteamAPI_ISteamUserStats_GetLeaderboardEntryCount(
+                steam_api.user_stats, lb)
+            fetch = min(total_lb, count_int)
+            _emit_to("_nwRushEvent", {
+                "type": "status",
+                "message": f"Total: {total_lb:,}  |  Fetching top {fetch:,}...",
+            })
+            all_entries = []
+            start = 1
+            while start <= fetch and not self._lb_stop_event.is_set():
+                end = min(start + steam_api.BATCH_SIZE - 1, fetch)
+                batch = steam_api.fetch_batch(lb, start, end)
+                if not batch:
+                    break
+                for e in batch:
+                    clock = _fmt_ms_clock(e["score_ms"])
+                    if out_mode in ("display", "both"):
+                        _emit_to("_nwRushEvent", {
+                            "type": "row", "rank": e["rank"],
+                            "name": e["name"], "time": clock, "score_ms": e["score_ms"],
+                        })
+                    if out_mode in ("csv", "both"):
+                        all_entries.append({**e, "time": clock})
+                start = end + 1
+                _time.sleep(0.05)
+
+            csv_path = None
+            if out_mode in ("csv", "both") and all_entries:
+                safe = f"{board['label']}_{diff.title()}"
+                csv_path = os.path.join(folder.strip(), f"{safe}_top{len(all_entries)}.csv")
+                with open(csv_path, "w", newline="", encoding="utf-8") as f:
+                    writer = _csv.DictWriter(f, fieldnames=["rank", "name", "score_ms", "time"])
+                    writer.writeheader()
+                    for e in all_entries:
+                        writer.writerow({"rank": e["rank"], "name": e["name"],
+                                         "score_ms": e["score_ms"], "time": e["time"]})
+
+            stopped = self._lb_stop_event.is_set()
+            total = len(all_entries) if out_mode in ("csv", "both") else (start - 1)
+            _emit_to("_nwRushEvent", {
+                "type": "done", "total": total, "stopped": stopped,
+                "csv_path": csv_path or "",
+                "message": (f"Stopped. {total} entries." if stopped else f"Done. {total} entries."),
+            })
+            self._lb_running = False
+
+        threading.Thread(
+            target=lambda: self._run_worker_safe(worker, "_nwRushEvent"),
+            daemon=True,
+        ).start()
+        return {"ok": True}
+
+    def find_rush_player(self, rush_key: str, difficulty: str, steam_id: str) -> dict:
+        """Single-player lookup on a Level Rush board. Synchronous on the
+        pywebview worker thread. Returns {ok, rank, name, total, time} or
+        {ok: False, error}."""
+        import steam_api
+        if not steam_api.steam_ready:
+            return {"ok": False, "error": "Steam not connected."}
+        board = RUSH_BOARD_LOOKUP.get(str(rush_key).strip().lower())
+        if not board:
+            return {"ok": False, "error": f"Unknown rush '{rush_key}'."}
+        diff = str(difficulty).strip().lower()
+        if diff not in ("heaven", "hell"):
+            return {"ok": False, "error": "Difficulty must be Heaven or Hell."}
+        board_name = board[diff]
+        if not board_name:
+            return {"ok": False, "error": f"{board['label']} {diff.title()} Rush board name is not known yet."}
+        try:
+            sid = int(str(steam_id).strip())
+        except ValueError:
+            return {"ok": False, "error": "Steam ID must be a 17-digit number."}
+
+        lb = steam_api.find_leaderboard(board_name)
+        if not lb:
+            return {"ok": False, "error": "Leaderboard not found."}
+        entry = steam_api.get_player_entry(lb, sid)
+        if not entry:
+            return {"ok": False, "error": f"No entry on {board['label']} {diff.title()} Rush."}
+        nb = steam_api.steam.SteamAPI_ISteamFriends_GetFriendPersonaName(
+            steam_api.friends, sid)
+        pname = nb.decode("utf-8", errors="replace") if nb else str(sid)
+        total = steam_api.steam.SteamAPI_ISteamUserStats_GetLeaderboardEntryCount(
+            steam_api.user_stats, lb)
+        return {
+            "ok": True,
+            "rank": entry.global_rank,
+            "name": pname,
+            "total": total,
+            "score_ms": entry.score,
+            "time": _fmt_ms_clock(entry.score),
+        }
 
     def run_player_lookup(self, steam_id: str, mode: str, target: str,
                           out_mode: str = "display", folder: str = "") -> dict:

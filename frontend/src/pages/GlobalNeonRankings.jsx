@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { PageHead, Field, Seg, Btn, ErrorBanner } from "../shared.jsx";
-import { runGlobalNeonRankings, stopLeaderboard, pickFolder, getCheaterCount } from "../api.js";
+import { runGlobalNeonRankings, stopLeaderboard, pickFolder, getCheaterCount,
+         getGlobalNeonRank, getSteamStatus } from "../api.js";
+import { loadProfiles, saveProfiles, addProfile, isValidNewId } from "../lib/savedProfiles.js";
+import SavedProfilesDropdown from "../components/SavedProfilesDropdown.jsx";
 
 const TH = { padding: "4px 8px", fontWeight: 600, fontSize: "0.91em", borderBottom: "1px solid var(--border)", textAlign: "left" };
 const TD = { padding: "3px 8px", fontSize: "1em" };
@@ -23,6 +26,13 @@ export default function GlobalNeonRankings({ outputFolder: defaultFolder = "" })
   const [cheaterCount, setCheaterCount] = useState(0);
   const [nameFilter, setNameFilter]     = useState("");
 
+  // ── "Find your rank" lookup (independent of the Top-N export) ──
+  const [rankSid, setRankSid]           = useState("");
+  const [rankResult, setRankResult]     = useState(null);   // null | {ok, ...}
+  const [rankLoading, setRankLoading]   = useState(false);
+  const [savedProfiles, setSavedProfiles] = useState([]);
+  const [mySteamId, setMySteamId]       = useState("");
+
   const filteredRows = useMemo(() => {
     const q = nameFilter.trim().toLowerCase();
     if (!q) return rows;
@@ -35,6 +45,13 @@ export default function GlobalNeonRankings({ outputFolder: defaultFolder = "" })
   }, [defaultFolder]);
 
   useEffect(() => { getCheaterCount().then(n => { if (n > 0) setCheaterCount(n); }); }, []);
+
+  useEffect(() => {
+    loadProfiles().then(setSavedProfiles);
+    getSteamStatus().then(s => {
+      setMySteamId(s.ready && s.steam_id ? String(s.steam_id) : "");
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     window._nwNeonRankingsEvent = (ev) => {
@@ -74,6 +91,35 @@ export default function GlobalNeonRankings({ outputFolder: defaultFolder = "" })
   async function handleStop() {
     await stopLeaderboard();
     setStatus("Stopping...");
+  }
+
+  async function handleUseMine() {
+    const s = await getSteamStatus();
+    if (s.ready && s.steam_id) setRankSid(String(s.steam_id));
+    else setRankResult({ ok: false, error: "Steam not connected. Connect in Settings first." });
+  }
+
+  function handleLoadProfile(profile) { setRankSid(profile.steam_id); }
+
+  async function handleQuickSave(id) {
+    const nickname = window.prompt(`Save this profile\nSteam ID: ${id}\n\nEnter a nickname (1–24 chars):`);
+    if (nickname === null) return;
+    const result = addProfile(savedProfiles, { nickname, steam_id: id });
+    if (result.error) { setRankResult({ ok: false, error: result.error }); return; }
+    setSavedProfiles(result.list);
+    await saveProfiles(result.list);
+  }
+
+  async function handleFindRank() {
+    const sid = rankSid.trim();
+    if (!/^\d{17}$/.test(sid)) {
+      setRankResult({ ok: false, error: "Steam ID must be a 17-digit number." });
+      return;
+    }
+    setRankLoading(true); setRankResult(null);
+    const r = await getGlobalNeonRank(sid).catch(() => ({ ok: false, error: "Lookup failed." }));
+    setRankResult(r);
+    setRankLoading(false);
   }
 
   function handleCopy() {
@@ -151,6 +197,56 @@ export default function GlobalNeonRankings({ outputFolder: defaultFolder = "" })
                 {rows.length.toLocaleString()} rows loaded
               </div>
             )}
+
+            <div style={{ borderTop: "1px solid var(--border)", margin: "4px 0 2px" }} />
+            <Field label="Find a player" hint="Look up a single player's Global Rankings position by Steam ID.">
+              <div style={{ display: "flex", gap: 8 }}>
+                <input className="input" style={{ flex: 1 }} value={rankSid}
+                       onChange={e => setRankSid(e.target.value)}
+                       placeholder="76561198..." disabled={rankLoading || running} />
+                <Btn kind="ghost" size="sm" onClick={handleUseMine} disabled={rankLoading || running}>Mine</Btn>
+                <SavedProfilesDropdown
+                  profiles={savedProfiles}
+                  onSelect={handleLoadProfile}
+                  disabled={rankLoading || running}
+                />
+                {isValidNewId(rankSid, savedProfiles) && rankSid !== mySteamId && (
+                  <Btn kind="ghost" size="sm" disabled={rankLoading || running}
+                       title="Save this ID as a profile"
+                       onClick={() => handleQuickSave(rankSid)}>★</Btn>
+                )}
+              </div>
+            </Field>
+            <Btn kind="primary" size="sm" icn="search" onClick={handleFindRank}
+                 disabled={rankLoading || running || !rankSid.trim()}>
+              {rankLoading ? "Looking up..." : "Find rank"}
+            </Btn>
+            {running && (
+              <div className="muted" style={{ fontSize: 10 }}>
+                Rank lookup pauses while a Top-N run is in progress.
+              </div>
+            )}
+            {rankResult && (rankResult.ok ? (
+              <div style={{
+                padding: "10px 12px", border: "1px solid var(--border)",
+                borderRadius: 4, background: "var(--surface-2)",
+              }}>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>{rankResult.name}</div>
+                <div style={{ fontSize: 12, marginTop: 4 }}>
+                  Global Rank{" "}
+                  <span style={{ color: "var(--accent)", fontWeight: 700 }}>
+                    #{Number(rankResult.rank).toLocaleString()}
+                  </span>
+                </div>
+                <div className="muted" style={{ fontSize: 10, marginTop: 2 }}>
+                  of {Number(rankResult.total).toLocaleString()} players
+                </div>
+              </div>
+            ) : (
+              <div className="muted" style={{ fontSize: 11, color: "var(--bad)" }}>
+                {rankResult.error}
+              </div>
+            ))}
           </div>
         </div>
         <div className="panel-right" style={{ overflow: "auto", display: "flex", flexDirection: "column" }}>

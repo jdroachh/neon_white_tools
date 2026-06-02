@@ -15,6 +15,7 @@ import RunTimer      from "./pages/RunTimer.jsx";
 import GlobalExport  from "./pages/GlobalExport.jsx";
 import GlobalNeonRankings from "./pages/GlobalNeonRankings.jsx";
 import LevelSearch   from "./pages/LevelSearch.jsx";
+import RushRankings  from "./pages/RushRankings.jsx";
 import PlayerLookup   from "./pages/PlayerLookup.jsx";
 import ComparePlayers from "./pages/ComparePlayers.jsx";
 import MultiCompare   from "./pages/MultiCompare.jsx";
@@ -35,6 +36,7 @@ const PAGE_TITLES = {
   global:      "Global Export",
   neonrankings: "Global Neon Rankings",
   levelsearch: "Level Search",
+  rushrankings: "Rush Rankings",
   lookup:      "Player Lookup",
   compare:     "Compare Players",
   multicompare: "Multi Compare",
@@ -59,6 +61,7 @@ const LB_PAGES = [
   { key: "global",      Component: GlobalExport   },
   { key: "neonrankings", Component: GlobalNeonRankings },
   { key: "levelsearch", Component: LevelSearch    },
+  { key: "rushrankings", Component: RushRankings  },
   { key: "lookup",      Component: PlayerLookup   },
   { key: "compare",     Component: ComparePlayers },
   { key: "multicompare", Component: MultiCompare   },
@@ -123,7 +126,7 @@ function Placeholder({ pageName }) {
 
 const VALID_LAST_TABS = new Set([
   "parse", "splits", "std", "find", "timer",
-  "global", "neonrankings", "levelsearch", "lookup", "compare", "multicompare",
+  "global", "neonrankings", "levelsearch", "rushrankings", "lookup", "compare", "multicompare",
   "ghosts", "videos", "wrs", "guides", "links",
 ]);
 

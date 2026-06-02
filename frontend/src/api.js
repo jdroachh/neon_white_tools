@@ -191,6 +191,21 @@ export async function runLevelSearch(levelName, count, outMode = "display", fold
   return api.run_level_search(levelName, String(count), outMode, folder);
 }
 
+export async function getRushBoards() {
+  const api = await waitForApi();
+  return api.get_rush_boards();
+}
+
+export async function runRushSearch(rushKey, difficulty, count, outMode = "display", folder = "") {
+  const api = await waitForApi();
+  return api.run_rush_search(rushKey, difficulty, String(count), outMode, folder);
+}
+
+export async function findRushPlayer(rushKey, difficulty, steamId) {
+  const api = await waitForApi();
+  return api.find_rush_player(rushKey, difficulty, String(steamId));
+}
+
 export async function runPlayerLookup(steamId, mode, target, outMode = "display", folder = "") {
   const api = await waitForApi();
   return api.run_player_lookup(String(steamId), mode, String(target), outMode, folder);
