@@ -8,6 +8,20 @@ All notable changes to Neon White Tools are documented here.
 
 ---
 
+## [1.6.0] — 2026-06-02
+
+### Added
+- Rush Rankings tool: Level Rush boards (Red/Violet/Yellow/Mikey/White × Heaven/Hell), Top-N + find-player by Steam ID, `mm:ss.mmm`, name filter, CSV, per-board cache + Refresh (ee435cc)
+- White Rush leaderboards activated — board name resolved as `HeavenRush_heaven`/`_hell`; White is the default rush (129e119)
+- Global Rankings: "Find a player" lookup — Steam ID / saved profile / "Mine" → global rank + field size (ee435cc)
+- Config + logs moved to `%APPDATA%\NeonWhiteLeaderboardTool\` so saved profiles/rosters/seeds/settings survive app updates; one-time auto-migration on first launch (079a431)
+- Settings → Backup & data: Export / Import full config to a `.json` + Open config folder (079a431)
+
+### Fixed
+- Multi Compare standings/medals now re-scope to the active mode (Level/Chapter/Whole-Game) from cache instead of the previously loaded one (1888da5)
+
+---
+
 ## [1.5.1] — 2026-05-31
 
 ### Added
