@@ -28,7 +28,7 @@ from . import multi_compare_cache
 
 _resources.start_background_fetch()
 
-APP_VERSION = "1.5.1"
+APP_VERSION = "1.6.0"
 
 _UPDATE_CACHE: dict = {}  # {"checked_at": float, "result": dict}
 _UPDATE_CACHE_TTL_SEC = 6 * 60 * 60
@@ -100,13 +100,28 @@ _loaded = _load_c_shuffle()
 MAX_SEED = 2_147_483_647
 
 # ── Config ────────────────────────────────────────────────────────────────
-# When frozen, neonwhite_config.json lives next to the EXE so users can edit
-# or reset it without spelunking into the bundle.
+# neonwhite_config.json lives in %APPDATA%\NeonWhiteLeaderboardTool\ so it
+# survives app updates/reinstalls — the EXE folder can be wiped or replaced
+# (incl. by a future self-updater) without touching the user's rosters, saved
+# IDs, seeds, or settings. A one-time migration (_migrate_legacy_config below)
+# copies a legacy beside-EXE / repo-root config forward on first launch.
+_APP_DIR_NAME = "NeonWhiteLeaderboardTool"
+
+# Legacy location (pre-APPDATA): beside the EXE when frozen, repo root in dev.
 if getattr(sys, "frozen", False):
-    _CONFIG_DIR = os.path.dirname(sys.executable)
+    _LEGACY_CONFIG_DIR = os.path.dirname(sys.executable)
 else:
-    _CONFIG_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-_CONFIG_FILE = os.path.join(_CONFIG_DIR, "neonwhite_config.json")
+    _LEGACY_CONFIG_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+_appdata = os.environ.get("APPDATA")
+if _appdata:
+    _CONFIG_DIR = os.path.join(_appdata, _APP_DIR_NAME)
+else:
+    # APPDATA unset (extremely rare) — fall back to the old beside-EXE behavior.
+    _CONFIG_DIR = _LEGACY_CONFIG_DIR
+
+_CONFIG_FILE        = os.path.join(_CONFIG_DIR, "neonwhite_config.json")
+_LEGACY_CONFIG_FILE = os.path.join(_LEGACY_CONFIG_DIR, "neonwhite_config.json")
 _DEFAULT_CONFIG = {
     "dll_path":        "",
     "output_folder":   os.path.expanduser("~\\Desktop"),
@@ -125,6 +140,32 @@ _DEFAULT_CONFIG = {
 }
 
 _CONFIG_LOCK = __import__("threading").Lock()
+
+def _migrate_legacy_config() -> None:
+    """One-time: copy a pre-APPDATA config forward so users keep their saved
+    data across the move. No-op if an APPDATA config already exists, if APPDATA
+    is unavailable (same dir), or if there's no legacy file."""
+    try:
+        if os.path.exists(_CONFIG_FILE):
+            return                       # already migrated / fresh APPDATA config
+        if _CONFIG_DIR == _LEGACY_CONFIG_DIR:
+            return                       # APPDATA fallback — nothing to migrate
+        if not os.path.exists(_LEGACY_CONFIG_FILE):
+            return
+        import shutil
+        os.makedirs(_CONFIG_DIR, exist_ok=True)
+        shutil.copy2(_LEGACY_CONFIG_FILE, _CONFIG_FILE)
+        from logger import get_logger
+        get_logger("bridge").info("Migrated legacy config %s -> %s",
+                                  _LEGACY_CONFIG_FILE, _CONFIG_FILE)
+    except Exception:
+        try:
+            from logger import get_logger
+            get_logger("bridge").exception("Legacy config migration failed")
+        except Exception:
+            pass
+
+_migrate_legacy_config()
 
 def _load_config_raw() -> dict:
     """Read config from disk. Caller must hold _CONFIG_LOCK."""
@@ -147,6 +188,7 @@ def _save_config_raw(cfg: dict) -> None:
     seeing a truncated/empty config — which would otherwise surface as the
     "boots with defaults" bug (welcome reappears, accent lost, DLL forgotten).
     """
+    os.makedirs(_CONFIG_DIR, exist_ok=True)
     tmp = _CONFIG_FILE + ".tmp"
     with open(tmp, "w") as f:
         json.dump(cfg, f, indent=2)
@@ -800,6 +842,99 @@ class JsApi:
             return {"ok": True, "path": path}
         except Exception as e:
             return {"ok": False, "path": path, "error": str(e)}
+
+    def open_config_folder(self) -> dict:
+        """Open the folder holding neonwhite_config.json (%APPDATA%\\NeonWhiteLeaderboardTool)."""
+        path = _CONFIG_DIR
+        try:
+            os.makedirs(path, exist_ok=True)
+            if sys.platform == "win32":
+                os.startfile(path)  # type: ignore[attr-defined]
+            elif sys.platform == "darwin":
+                import subprocess
+                subprocess.Popen(["open", path])
+            else:
+                import subprocess
+                subprocess.Popen(["xdg-open", path])
+            return {"ok": True, "path": path}
+        except Exception as e:
+            return {"ok": False, "path": path, "error": str(e)}
+
+    def export_config(self) -> dict:
+        """Write the full config to a user-chosen .json via a Save dialog.
+
+        Full backup: saved profiles, rosters, seeds, accent, watchlists, paths —
+        everything in neonwhite_config.json. Used to carry data between app
+        versions or back it up.
+        """
+        try:
+            import time
+            import webview
+            if not webview.windows:
+                return {"ok": False, "error": "No window available."}
+            cfg = _load_config()
+            default_name = f"neonwhite_backup_{time.strftime('%Y%m%d')}.json"
+            result = webview.windows[0].create_file_dialog(
+                webview.SAVE_DIALOG,
+                save_filename=default_name,
+                file_types=("JSON Files (*.json)", "All Files (*.*)"),
+            )
+            if not result:
+                return {"ok": False, "cancelled": True}
+            path = result if isinstance(result, str) else result[0]
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(cfg, f, indent=2)
+            return {"ok": True, "path": path}
+        except Exception as e:
+            try:
+                from logger import get_logger
+                get_logger("bridge").exception("export_config failed")
+            except Exception:
+                pass
+            return {"ok": False, "error": str(e)}
+
+    def import_config(self) -> dict:
+        """Restore config from a user-chosen .json via an Open dialog.
+
+        Full restore: recognised keys overwrite the current config; unknown keys
+        are dropped (light validation) and any missing keys fall back to defaults.
+        Overwrites machine-specific paths too (dll_path/output_folder) — the
+        primary use case is migrating saved data to a freshly downloaded version
+        on the same machine.
+        """
+        try:
+            import webview
+            if not webview.windows:
+                return {"ok": False, "error": "No window available."}
+            result = webview.windows[0].create_file_dialog(
+                webview.OPEN_DIALOG,
+                file_types=("JSON Files (*.json)", "All Files (*.*)"),
+            )
+            if not result:
+                return {"ok": False, "cancelled": True}
+            path = result if isinstance(result, str) else result[0]
+            with open(path, encoding="utf-8") as f:
+                incoming = json.load(f)
+            if not isinstance(incoming, dict):
+                return {"ok": False, "error": "That file isn't a Neon White config backup."}
+            imported = [k for k in _DEFAULT_CONFIG if k in incoming]
+            with _CONFIG_LOCK:
+                merged = dict(_DEFAULT_CONFIG)
+                for k in _DEFAULT_CONFIG:
+                    if k in incoming:
+                        merged[k] = incoming[k]
+                _save_config_raw(merged)
+            return {"ok": True, "path": path, "imported_keys": imported,
+                    "count": len(imported)}
+        except json.JSONDecodeError:
+            return {"ok": False, "error": "That file isn't valid JSON."}
+        except Exception as e:
+            try:
+                from logger import get_logger
+                get_logger("bridge").exception("import_config failed")
+            except Exception:
+                pass
+            return {"ok": False, "error": str(e)}
 
     def get_app_version(self) -> str:
         return APP_VERSION

@@ -10,9 +10,13 @@ import logging.handlers
 import os
 import sys
 
-# When frozen (PyInstaller bundle), log next to the EXE so testers can find
-# the file without poking into the internal bundle subfolder.
-if getattr(sys, "frozen", False):
+# Logs live in %APPDATA%\NeonWhiteLeaderboardTool\logs — same root as the config
+# (see bridge.py). This keeps user data out of the EXE folder so an update/reinstall
+# (or a future self-updater's folder swap) never wipes or locks the log files.
+_appdata = os.environ.get("APPDATA")
+if _appdata:
+    _HERE = os.path.join(_appdata, "NeonWhiteLeaderboardTool")
+elif getattr(sys, "frozen", False):
     _HERE = os.path.dirname(sys.executable)
 else:
     _HERE = os.path.dirname(os.path.abspath(__file__))

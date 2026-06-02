@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { PageHead, Field, Btn, ErrorBanner, Seg } from "../shared.jsx";
-import { getConfig, saveConfigField, initSteam, pickDllFile, pickFolder, applyAccent, openLogFolder, getAppVersion, findSteamDll, checkForUpdate, openExternalUrl } from "../api.js";
+import { getConfig, saveConfigField, initSteam, pickDllFile, pickFolder, applyAccent, openLogFolder, getAppVersion, findSteamDll, checkForUpdate, openExternalUrl, openConfigFolder, exportConfig, importConfig } from "../api.js";
 import { loadProfiles, saveProfiles, addProfile, updateProfile, removeProfile, moveProfile, validateProfile, MAX as MAX_PROFILES } from "../lib/savedProfiles.js";
 import { loadSeeds, saveSeeds, removeSeed, moveSeed, updateNickname as updateSeedNickname, MAX as MAX_SEEDS } from "../lib/savedSeeds.js";
 import { loadRosters, saveRosters, removeRoster, moveRoster, updateNickname as updateRosterNickname, MAX as MAX_ROSTERS } from "../lib/savedRosters.js";
@@ -38,6 +38,8 @@ export default function Settings({ onSteamConnected, onFolderChange, visible = f
   const [seedErrors, setSeedErrors]     = useState({});
   const [savedRosters, setSavedRosters] = useState([]);
   const [rosterErrors, setRosterErrors] = useState({});
+  const [dataStatus, setDataStatus]     = useState("");
+  const [dataError, setDataError]       = useState("");
 
   useEffect(() => {
     getConfig().then(cfg => {
@@ -68,6 +70,39 @@ export default function Settings({ onSteamConnected, onFolderChange, visible = f
     setLogStatus("");
     const r = await openLogFolder();
     if (!r.ok) setLogStatus(r.error || "Could not open log folder.");
+  }
+
+  async function handleOpenConfig() {
+    setDataStatus(""); setDataError("");
+    const r = await openConfigFolder();
+    if (!r.ok) setDataError(r.error || "Could not open config folder.");
+  }
+
+  async function handleExport() {
+    setDataStatus(""); setDataError("");
+    const r = await exportConfig();
+    if (r.cancelled) return;
+    if (r.ok) setDataStatus(`Saved backup to ${r.path}`);
+    else setDataError(r.error || "Export failed.");
+  }
+
+  async function handleImport() {
+    setDataStatus(""); setDataError("");
+    if (!window.confirm("Import will overwrite your current settings, saved profiles, rosters, and seeds with the contents of the backup file. Continue?")) return;
+    const r = await importConfig();
+    if (r.cancelled) return;
+    if (!r.ok) { setDataError(r.error || "Import failed."); return; }
+    // Reload everything the import may have changed.
+    const cfg = await getConfig();
+    setDllPath(cfg.dll_path || "");
+    setOutputFolder(cfg.output_folder || "");
+    const accent = cfg.accent_color || "#00e09a";
+    setAccentColor(accent);
+    applyAccent(accent);
+    loadProfiles().then(setSavedProfiles);
+    loadSeeds().then(setSavedSeeds);
+    loadRosters().then(setSavedRosters);
+    setDataStatus(`Imported ${r.count} setting${r.count === 1 ? "" : "s"} group. Reconnect to Steam if your DLL path changed.`);
   }
 
   async function handleAccentPick(hex) {
@@ -487,6 +522,24 @@ export default function Settings({ onSteamConnected, onFolderChange, visible = f
                   {savedRosters.length} / {MAX_ROSTERS} saved.
                 </div>
               </>
+            )}
+            <div style={{ borderTop: "1px solid var(--border)", margin: "4px 0" }} />
+            <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 6 }}>Backup &amp; data</div>
+            <div className="muted" style={{ fontSize: 11, marginBottom: 8, lineHeight: 1.5 }}>
+              Your saved data lives in <code>%APPDATA%\NeonWhiteLeaderboardTool</code> and now survives app
+              updates automatically. Export a backup file to move it to another PC or keep a copy; Import
+              restores everything (profiles, rosters, seeds, settings) from a backup.
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <Btn kind="ghost" onClick={handleExport}>Export data</Btn>
+              <Btn kind="ghost" onClick={handleImport}>Import data</Btn>
+              <Btn kind="ghost" onClick={handleOpenConfig}>Open config folder</Btn>
+            </div>
+            {dataStatus && (
+              <div style={{ fontSize: 11, color: "var(--good, #3ddc84)", marginTop: 4, wordBreak: "break-all" }}>{dataStatus}</div>
+            )}
+            {dataError && (
+              <div style={{ fontSize: 11, color: "var(--bad, #f87171)", marginTop: 4 }}>{dataError}</div>
             )}
             <div style={{ borderTop: "1px solid var(--border)", margin: "4px 0" }} />
             <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 6 }}>Diagnostics</div>

@@ -142,6 +142,21 @@ export async function openLogFolder() {
   return api.open_log_folder();
 }
 
+export async function openConfigFolder() {
+  const api = await waitForApi();
+  return api.open_config_folder();
+}
+
+export async function exportConfig() {
+  const api = await waitForApi();
+  return api.export_config();
+}
+
+export async function importConfig() {
+  const api = await waitForApi();
+  return api.import_config();
+}
+
 export async function findSteamDll() {
   const api = await waitForApi();
   return api.find_steam_dll();
