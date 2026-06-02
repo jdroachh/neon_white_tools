@@ -1154,8 +1154,8 @@ class JsApi:
 
     def get_rush_boards(self) -> list:
         """Return the Rush Rankings board list with per-difficulty availability
-        flags. White ships disabled (heaven/hell = None) until its divergent
-        board name surfaces — see [[project-rush-leaderboards]]."""
+        flags. All 5 rushes are resolved (White = HeavenRush_*); the None-guard
+        remains so any future unknown board degrades instead of erroring."""
         return [
             {"key": b["key"], "label": b["label"],
              "heaven_available": b["heaven"] is not None,

@@ -191,12 +191,14 @@ RUSH_ALIASES = {
 }
 
 # ── Level Rush Steam leaderboards — for the Rush Rankings tool ────────────
-# Naming convention cracked via tools/audit_rush_leaderboards.py (2026-06-01):
-# {CHARACTER}RUSH_{DIFFICULTY}, case-insensitive. White's main-game rush uses a
-# divergent (older) scheme that probing hasn't surfaced yet — it ships disabled
-# (heaven/hell = None) and lights up the instant its board name is filled in.
+# Board name = LeaderboardIntegrationSteam.levelRushLeaderboardNames[idx] + ("_heaven"|"_hell"),
+# confirmed by decompiling SetupLeaderboardForLevelRush (2026-06-02). The array is:
+#   ["HeavenRush", "RedRush", "VioletRush", "YellowRush", "MikeyRush"]
+# White is the main game, so its base token is "HeavenRush" (the campaign), NOT
+# "WhiteRush" — that's the "divergent scheme" ~1080 brute-probes never surfaced.
+# Steam FindLeaderboard is case-insensitive, so the ALL-CAPS forms below resolve too.
 RUSH_BOARDS = [
-    {"key": "white",  "label": "White",  "heaven": None,               "hell": None},
+    {"key": "white",  "label": "White",  "heaven": "HeavenRush_heaven", "hell": "HeavenRush_hell"},
     {"key": "red",    "label": "Red",    "heaven": "REDRUSH_HEAVEN",    "hell": "REDRUSH_HELL"},
     {"key": "violet", "label": "Violet", "heaven": "VIOLETRUSH_HEAVEN", "hell": "VIOLETRUSH_HELL"},
     {"key": "yellow", "label": "Yellow", "heaven": "YELLOWRUSH_HEAVEN", "hell": "YELLOWRUSH_HELL"},

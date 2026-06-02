@@ -86,7 +86,7 @@ export default function RushRankings({ outputFolder: defaultFolder = "" }) {
   useEffect(() => {
     getRushBoards().then(bs => {
       setBoards(bs || []);
-      // default to the first board with any available difficulty (skips White)
+      // default to the first board with any available difficulty (now White, index 0)
       const first = (bs || []).find(b => b.heaven_available || b.hell_available);
       if (first) setRushKey(first.key);
     });
