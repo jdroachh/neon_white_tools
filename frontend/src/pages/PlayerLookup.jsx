@@ -177,7 +177,7 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "", visible
 
   function handleCopy() {
     const header = playerName ? `${playerName}\n` : "";
-    const text = header + rows.map(r => `${r.level}\t#${r.rank}\t${r.time}`).join("\n");
+    const text = header + rows.map(r => `${r.level}\t${r.rank}\t${r.time}`).join("\n");
     navigator.clipboard.writeText(text).catch(() => {});
   }
 
