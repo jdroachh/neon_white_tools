@@ -3,6 +3,7 @@ import { PageHead, Field, Seg, Btn, ErrorBanner } from "../shared.jsx";
 import { getRushBoards, runRushSearch, findRushPlayer, stopLeaderboard,
          pickFolder, getCheaterCount, getSteamStatus } from "../api.js";
 import { loadProfiles, saveProfiles, addProfile, isValidNewId } from "../lib/savedProfiles.js";
+import { loadWithRetry } from "../lib/retryLevels.js";
 import SavedProfilesDropdown from "../components/SavedProfilesDropdown.jsx";
 
 const TH = { padding: "4px 8px", fontWeight: 600, fontSize: "0.91em", borderBottom: "1px solid var(--border)", textAlign: "left" };
@@ -84,11 +85,12 @@ export default function RushRankings({ outputFolder: defaultFolder = "" }) {
   useEffect(() => { getCheaterCount().then(n => { if (n > 0) setCheaterCount(n); }); }, []);
 
   useEffect(() => {
-    getRushBoards().then(bs => {
-      setBoards(bs || []);
-      // default to the first board with any available difficulty (now White, index 0)
-      const first = (bs || []).find(b => b.heaven_available || b.hell_available);
-      if (first) setRushKey(first.key);
+    loadWithRetry(getRushBoards, {
+      onData: bs => {
+        setBoards(bs);
+        const first = bs.find(b => b.heaven_available || b.hell_available);
+        if (first) setRushKey(first.key);
+      },
     });
     loadProfiles().then(setSavedProfiles);
     getSteamStatus().then(s => {

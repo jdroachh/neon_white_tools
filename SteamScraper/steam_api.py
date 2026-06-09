@@ -217,12 +217,12 @@ def init_steam(dll_path):
     return True, "Connected"
 
 
-def wait_for_call(call_handle, result_struct, callback_id, timeout=10.0):
+def wait_for_call(call_handle, result_struct, callback_id, timeout=10.0, poll_interval=0.1):
     failed = ctypes.c_bool(False)
     deadline = time.time() + timeout
     while time.time() < deadline:
         steam.SteamAPI_RunCallbacks()
-        time.sleep(0.1)
+        time.sleep(poll_interval)
         if steam.SteamAPI_ISteamUtils_IsAPICallCompleted(
                 utils_iface, call_handle, ctypes.byref(failed)):
             break
@@ -244,12 +244,17 @@ def find_leaderboard(name):
     return None
 
 
-def fetch_batch(lb_handle, start, end):
+def get_entry_count(lb_handle) -> int:
+    """Return the total number of entries on the leaderboard (includes cheaters)."""
+    return steam.SteamAPI_ISteamUserStats_GetLeaderboardEntryCount(user_stats, lb_handle)
+
+
+def fetch_batch(lb_handle, start, end, _poll_interval=0.1):
     call = steam.SteamAPI_ISteamUserStats_DownloadLeaderboardEntries(
         user_stats, lb_handle, 0, start, end
     )
     result = LeaderboardScoresDownloaded()
-    if not wait_for_call(call, result, LEADERBOARD_SCORES_CALLBACK):
+    if not wait_for_call(call, result, LEADERBOARD_SCORES_CALLBACK, poll_interval=_poll_interval):
         return []
     entries = []
     for i in range(result.entry_count):

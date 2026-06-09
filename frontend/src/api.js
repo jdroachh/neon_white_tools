@@ -241,6 +241,11 @@ export async function stopMultiCompare() {
   return api.stop_multi_compare();
 }
 
+export async function findRank(boardKind, boardKey, timeStr) {
+  const api = await waitForApi();
+  return api.find_rank(boardKind, boardKey, timeStr);
+}
+
 export async function clearMultiCompareCache(steamIds) {
   const api = await waitForApi();
   return api.clear_multi_compare_cache(steamIds.map(String));

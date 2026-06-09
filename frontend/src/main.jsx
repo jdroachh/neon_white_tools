@@ -19,6 +19,7 @@ import RushRankings  from "./pages/RushRankings.jsx";
 import PlayerLookup   from "./pages/PlayerLookup.jsx";
 import ComparePlayers from "./pages/ComparePlayers.jsx";
 import MultiCompare   from "./pages/MultiCompare.jsx";
+import ProjectedRank  from "./pages/ProjectedRank.jsx";
 import Ghosts           from "./pages/Ghosts.jsx";
 import RouteVideos      from "./pages/RouteVideos.jsx";
 import WorldRecordVods  from "./pages/WorldRecordVods.jsx";
@@ -34,10 +35,11 @@ const PAGE_TITLES = {
   find:        "Seed Finder",
   timer:       "Run Timer",
   global:      "Global Export",
-  neonrankings: "Global Neon Rankings",
-  levelsearch: "Level Search",
-  rushrankings: "Rush Rankings",
-  lookup:      "Player Lookup",
+  neonrankings:   "Global Neon Rankings",
+  levelsearch:    "Level Search",
+  rushrankings:   "Rush Rankings",
+  projectedrank:  "Projected Rank",
+  lookup:         "Player Lookup",
   compare:     "Compare Players",
   multicompare: "Multi Compare",
   ghosts:      "Ghosts",
@@ -61,8 +63,9 @@ const LB_PAGES = [
   { key: "global",      Component: GlobalExport   },
   { key: "neonrankings", Component: GlobalNeonRankings },
   { key: "levelsearch", Component: LevelSearch    },
-  { key: "rushrankings", Component: RushRankings  },
-  { key: "lookup",      Component: PlayerLookup   },
+  { key: "rushrankings",  Component: RushRankings   },
+  { key: "projectedrank", Component: ProjectedRank  },
+  { key: "lookup",        Component: PlayerLookup   },
   { key: "compare",     Component: ComparePlayers },
   { key: "multicompare", Component: MultiCompare   },
 ];
@@ -126,7 +129,7 @@ function Placeholder({ pageName }) {
 
 const VALID_LAST_TABS = new Set([
   "parse", "splits", "std", "find", "timer",
-  "global", "neonrankings", "levelsearch", "rushrankings", "lookup", "compare", "multicompare",
+  "global", "neonrankings", "levelsearch", "rushrankings", "projectedrank", "lookup", "compare", "multicompare",
   "ghosts", "videos", "wrs", "guides", "links",
 ]);
 

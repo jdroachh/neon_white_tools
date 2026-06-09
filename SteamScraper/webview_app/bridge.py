@@ -254,6 +254,36 @@ def _get_medal(level_name: str, secs: float) -> str:
     return ""
 
 
+def _next_medal(level_name: str, secs: float) -> dict | None:
+    """Best medal just out of reach for `secs` on this level.
+    Returns {"name", "gap_secs"} for the closest faster threshold, or None
+    if no data or already at the top tier.
+    """
+    code = _resolve_level_code(level_name)
+    if not code:
+        return None
+    us = int(secs * 1_000_000)
+    tiers: list[tuple[str, int]] = []  # (name, threshold_us)
+    bd = _BD_MEDAL_DATA.get(code)
+    if bd: tiers.append(("BLOOD DIAMOND", bd[0]))
+    topaz = _TOPAZ_MEDAL_DATA.get(code)
+    if topaz: tiers.append(("TOPAZ", topaz[0]))
+    comm = _COMMUNITY_MEDAL_DATA.get(code)
+    if comm and len(comm) >= 3:
+        tiers += [("SAPPHIRE", comm[2]), ("AMETHYST", comm[1]), ("EMERALD", comm[0])]
+    std = STANDARD_MEDAL_DATA.get(code)
+    if std:
+        tiers += [("DEV", std[4]), ("ACE", std[3]), ("GOLD", std[2]),
+                  ("SILVER", std[1]), ("BRONZE", std[0])]
+    # Next target = the slowest threshold still faster than your time
+    # (the closest tier you'd reach by improving). Robust to tier overlap.
+    candidates = [(name, th) for name, th in tiers if th < us]
+    if not candidates:
+        return None
+    name, th = max(candidates, key=lambda t: t[1])
+    return {"name": name, "gap_secs": (us - th) / 1_000_000}
+
+
 def _parse_time_to_secs(raw: str) -> float | None:
     s = (raw or "").strip()
     m = re.match(r'^(\d+):(\d{1,2})(?:\.(\d+))?$', s)
@@ -1430,6 +1460,99 @@ class JsApi:
             "score_ms": entry.score,
             "time": _fmt_ms_clock(entry.score),
         }
+
+    def find_rank(self, board_kind: str, board_key: str, time_str: str) -> dict:
+        """Binary-search for where time_str would rank on a Level or Rush board.
+        board_kind: "level" | "rush"
+        board_key:  level display name, or "rush_key:difficulty" (e.g. "white:heaven")
+        time_str:   "MM:SS.mmm" or bare seconds
+        Returns {rank, total, medal|null, board_kind} or {error}.
+        """
+        import steam_api
+        if not steam_api.steam_ready:
+            return {"error": "Steam not connected. Connect in Settings first."}
+
+        secs = _parse_time_to_secs(str(time_str))
+        if secs is None:
+            return {"error": "Invalid time. Use MM:SS.mmm, e.g. 0:45.123."}
+        target_ms = int(round(secs * 1000))
+
+        kind = str(board_kind).strip().lower()
+        display = None
+        if kind == "level":
+            match = LEVEL_LOOKUP.get(str(board_key).strip().lower())
+            if not match:
+                return {"error": f"Level '{board_key}' not found."}
+            display, board_name = match
+        elif kind == "rush":
+            parts = str(board_key).split(":", 1)
+            if len(parts) != 2:
+                return {"error": "Rush board key must be 'rush_key:difficulty' (e.g. 'white:heaven')."}
+            rk, diff = parts[0].strip().lower(), parts[1].strip().lower()
+            board = RUSH_BOARD_LOOKUP.get(rk)
+            if not board:
+                return {"error": f"Unknown rush '{rk}'."}
+            if diff not in ("heaven", "hell"):
+                return {"error": "Difficulty must be 'heaven' or 'hell'."}
+            board_name = board[diff]
+            if not board_name:
+                return {"error": f"{board['label']} {diff.title()} Rush board name is not known."}
+        else:
+            return {"error": f"Unknown board_kind '{board_kind}'."}
+
+        handle = steam_api.find_leaderboard(board_name)
+        if not handle:
+            return {"error": "Leaderboard not found on Steam."}
+
+        N = steam_api.get_entry_count(handle)
+        if N == 0:
+            return {"rank": 1, "total": 0, "medal": None, "board_kind": kind}
+
+        # Bisect-right: find first rank r where score_ms > target_ms.
+        # Fetch 5 entries per step (mid±2) — single Steam call, more narrowing per round-trip.
+        # Invariant: all ranks < lo have score_ms <= target_ms;
+        #            all ranks >= hi have score_ms > target_ms.
+        _PAD = 2
+        lo, hi = 1, N + 1
+        while lo < hi:
+            mid = (lo + hi) // 2
+            w_lo = max(1, mid - _PAD)
+            w_hi = min(N, w_lo + _PAD * 2)
+            batch = steam_api.fetch_batch(handle, w_lo, w_hi, _poll_interval=0.02)
+            new_lo, new_hi = lo, hi
+            for e in batch:                          # batch is rank-ascending
+                if e["score_ms"] <= target_ms:
+                    new_lo = max(new_lo, e["rank"] + 1)
+                else:
+                    new_hi = min(new_hi, e["rank"])
+                    break
+            else:
+                new_lo = max(new_lo, w_hi + 1)      # all batch entries at/below target
+            lo, hi = new_lo, new_hi
+
+        medal = None
+        next_medal = None
+        if kind == "level" and display:
+            medal = _get_medal(display, secs) or None
+            next_medal = _next_medal(display, secs)
+
+        # Neighbors: the entry just above (rank lo-1, faster) and the one your
+        # time would displace (currently rank lo). Single Steam call over the
+        # two adjacent ranks; either side may be absent at the board edges.
+        above = below = None
+        a, b = max(1, lo - 1), min(N, lo)
+        nb = steam_api.fetch_batch(handle, a, b, _poll_interval=0.02)
+        by_rank = {e["rank"]: e for e in nb}
+        if lo - 1 >= 1 and (lo - 1) in by_rank:
+            e = by_rank[lo - 1]
+            above = {"rank": e["rank"], "score_ms": e["score_ms"]}
+        if lo <= N and lo in by_rank:
+            e = by_rank[lo]
+            below = {"rank": e["rank"], "score_ms": e["score_ms"]}
+
+        return {"rank": lo, "total": N, "medal": medal, "board_kind": kind,
+                "target_ms": target_ms, "above": above, "below": below,
+                "next_medal": next_medal}
 
     def run_player_lookup(self, steam_id: str, mode: str, target: str,
                           out_mode: str = "display", folder: str = "") -> dict:
