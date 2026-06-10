@@ -17,6 +17,7 @@ Future home (see 00_Inbox/todo.md) for:
 import ctypes
 import json
 import os
+import threading
 import time
 from urllib.request import urlopen
 
@@ -42,6 +43,17 @@ steam_ready  = False
 player_name  = "Not connected"
 logged_in_steam_id = 0
 cheater_ids  = set()
+
+# Serialises every SteamAPI_RunCallbacks pump. Valve documents RunCallbacks as
+# not thread-safe, yet it's called from the bridge's 100ms poll thread and from
+# every wait_for_call on worker threads — this lock prevents concurrent pumps.
+_callbacks_lock = threading.Lock()
+
+
+def run_callbacks():
+    """Pump the Steamworks callback queue once, under _callbacks_lock."""
+    with _callbacks_lock:
+        steam.SteamAPI_RunCallbacks()
 
 
 # ── ctypes Structures ─────────────────────────────────────────────────────
@@ -221,8 +233,8 @@ def wait_for_call(call_handle, result_struct, callback_id, timeout=10.0, poll_in
     failed = ctypes.c_bool(False)
     deadline = time.time() + timeout
     while time.time() < deadline:
-        steam.SteamAPI_RunCallbacks()
-        time.sleep(poll_interval)
+        run_callbacks()
+        time.sleep(poll_interval)  # outside the lock — never hold it while sleeping
         if steam.SteamAPI_ISteamUtils_IsAPICallCompleted(
                 utils_iface, call_handle, ctypes.byref(failed)):
             break

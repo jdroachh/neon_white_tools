@@ -789,7 +789,7 @@ class JsApi:
                 def _poll():
                     while steam_api.steam_ready:
                         try:
-                            steam_api.steam.SteamAPI_RunCallbacks()
+                            steam_api.run_callbacks()
                         except Exception:
                             pass
                         _time.sleep(0.1)
