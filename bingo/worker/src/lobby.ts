@@ -22,6 +22,23 @@ function coord(squareIndex: number, boardSize: number): string {
   return `${String.fromCharCode(65 + c)}${r + 1}`;
 }
 
+// Stable, non-reversible-in-practice public id derived from an auth token.
+// Tokens (the bingo_token cookie) are the ONLY identity credential, so they must
+// never leave the worker — every wire frame replaces other players' tokens with
+// this id. 64-bit FNV-1a truncated to 48 bits (12 hex): synchronous (so the
+// broadcast paths stay sync), stable across broadcasts (no color/label flicker),
+// and collision-safe for the handful of members in a room.
+function publicIdFor(token: string): string {
+  let h = 0xcbf29ce484222325n;
+  const prime = 0x100000001b3n;
+  const mask = 0xffffffffffffffffn;
+  for (let i = 0; i < token.length; i++) {
+    h ^= BigInt(token.charCodeAt(i));
+    h = (h * prime) & mask;
+  }
+  return (h & 0xffffffffffffn).toString(16).padStart(12, "0");
+}
+
 export class LobbyDO extends DurableObject {
   private room: RoomState = makeInitialState();
   // Standard (non-hibernating) accept: DO instance stays alive while any socket
@@ -31,6 +48,9 @@ export class LobbyDO extends DurableObject {
   private sockets = new Set<WebSocket>();
   private wsTokens = new Map<WebSocket, string>();
   private chatHistory: Chat[] = [];
+  // token → stable public id, computed once per token and reused so the same
+  // member keeps the same id across every broadcast (see publicIdFor).
+  private publicIds = new Map<string, string>();
 
   async fetch(request: Request): Promise<Response> {
     const upgradeHeader = request.headers.get("Upgrade");
@@ -479,19 +499,22 @@ export class LobbyDO extends DurableObject {
         system: opts.system ?? false,
       },
     };
+    // Store the real token internally (history is server-side only); redact
+    // per recipient on the way out.
     this.chatHistory.push(envelope);
     if (this.chatHistory.length > CHAT_HISTORY_CAP) {
       this.chatHistory.splice(0, this.chatHistory.length - CHAT_HISTORY_CAP);
     }
-    const raw = JSON.stringify(envelope);
     for (const ws of this.sockets) {
-      ws.send(raw);
+      const recipient = this.wsTokens.get(ws) ?? "";
+      ws.send(JSON.stringify(this.redactChatFor(envelope, recipient)));
     }
   }
 
   private replayChatTo(ws: WebSocket): void {
+    const recipient = this.wsTokens.get(ws) ?? "";
     for (const envelope of this.chatHistory) {
-      ws.send(JSON.stringify(envelope));
+      ws.send(JSON.stringify(this.redactChatFor(envelope, recipient)));
     }
   }
 
@@ -541,12 +564,54 @@ export class LobbyDO extends DurableObject {
     return sorted[0]?.[0] ?? null;
   }
 
-  private broadcastState(): void {
-    const envelope: State = { t: "state", ts: Date.now(), data: this.room };
-    const raw = JSON.stringify(envelope);
-    for (const ws of this.sockets) {
-      ws.send(raw);
+  private publicId(token: string): string {
+    let id = this.publicIds.get(token);
+    if (!id) {
+      id = publicIdFor(token);
+      this.publicIds.set(token, id);
     }
+    return id;
+  }
+
+  // Build the outgoing RoomState for one recipient: every token string is
+  // replaced by its stable public id EXCEPT the recipient's own token, which
+  // stays raw so their client can still find itself (members[myToken],
+  // hostToken === myToken, leader/memberTokens checks). Internal this.room is
+  // never mutated — always keyed by real tokens.
+  private redactStateFor(recipientToken: string): RoomState {
+    const redact = (tok: string): string => (tok === recipientToken ? tok : this.publicId(tok));
+    const members: Record<string, MemberInfo> = {};
+    for (const [tok, m] of Object.entries(this.room.members)) {
+      members[redact(tok)] = m;
+    }
+    const teams = this.room.teams.map((t) => ({
+      ...t,
+      leaderToken: t.leaderToken === null ? null : redact(t.leaderToken),
+      memberTokens: t.memberTokens.map(redact),
+    }));
+    return {
+      ...this.room,
+      hostToken: this.room.hostToken === null ? null : redact(this.room.hostToken),
+      members,
+      teams,
+    };
+  }
+
+  private broadcastState(): void {
+    for (const ws of this.sockets) {
+      const recipient = this.wsTokens.get(ws) ?? "";
+      const envelope: State = { t: "state", ts: Date.now(), data: this.redactStateFor(recipient) };
+      ws.send(JSON.stringify(envelope));
+    }
+  }
+
+  // Redact a chat envelope's `from` for one recipient: their own messages keep
+  // their raw token, everyone else's is replaced by the public id. (`from` is
+  // absent on system messages and carries no token.)
+  private redactChatFor(envelope: Chat, recipientToken: string): Chat {
+    if (envelope.from === undefined) return envelope;
+    const from = envelope.from === recipientToken ? envelope.from : this.publicId(envelope.from);
+    return { ...envelope, from };
   }
 
   private broadcastEnd(teamId: number, condition: import("./protocol").WinConditionKey, shape?: number[]): void {
