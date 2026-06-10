@@ -397,6 +397,12 @@ def _guard_output_folder(folder: str, out_mode: str) -> dict | None:
 class JsApi:
     """pywebview js_api bridge. Instantiated once in main.py."""
 
+    def __init__(self):
+        # Serialises the check-and-set on _lb_running / _finder_running so two
+        # rapid JS calls can't both pass the "already running?" gate and start
+        # overlapping workers.
+        self._run_gate = threading.Lock()
+
     # ── Smoke test ────────────────────────────────────────────────────────────
 
     def ping(self) -> dict:
@@ -555,9 +561,12 @@ class JsApi:
 
         expected = _expected_match_count(count, len(target_indices), depth_int, MAX_SEED)
 
-        self._finder_stop_event = threading.Event()
+        with self._run_gate:
+            if getattr(self, "_finder_running", False):
+                return {"ok": False, "error": "Search already running."}
+            self._finder_running = True
+        stop_event = self._finder_stop_event = threading.Event()
         self._finder_user_stopped = False
-        self._finder_running = True
 
         num_cores = max(1, (__import__("os").cpu_count() or 1) - 1)
         chunk_size = MAX_SEED // num_cores
@@ -571,7 +580,7 @@ class JsApi:
                 t = threading.Thread(
                     target=_seed_search_worker,
                     args=((start, end, count, set(target_indices), depth_int,
-                           result_queue, self._finder_stop_event),),
+                           result_queue, stop_event),),
                     daemon=True,
                 )
                 t.start()
@@ -585,7 +594,7 @@ class JsApi:
                 try:
                     item = result_queue.get(timeout=0.2)
                 except Exception:
-                    if self._finder_stop_event.is_set():
+                    if stop_event.is_set():
                         break
                     continue
 
@@ -601,7 +610,7 @@ class JsApi:
                     continue
 
                 seed = item
-                if self._finder_stop_event.is_set():
+                if stop_event.is_set():
                     break
                 order = full_shuffle(count, seed)
                 if forced_idx is not None and order[0] != forced_idx:
@@ -638,11 +647,11 @@ class JsApi:
                        "score": score, "level_order": level_order})
 
                 if len(found) >= max_seeds_int:
-                    self._finder_stop_event.set()
+                    stop_event.set()
                     break
 
             user_stopped = getattr(self, "_finder_user_stopped", False)
-            self._finder_stop_event.set()
+            stop_event.set()
             for w in workers:
                 w.join(timeout=2)
 
@@ -656,8 +665,11 @@ class JsApi:
         return {"ok": True, "expected": round(expected, 2)}
 
     def stop_finder(self) -> dict:
+        # Signal the search to stop, but leave _finder_running set — the manager
+        # clears it when it exits (after joining its workers, line ~653). Clearing
+        # it here would let a new search start while the old workers are still
+        # winding down.
         self._finder_user_stopped = True
-        self._finder_running = False  # reset immediately so start_finder can be called again
         if hasattr(self, "_finder_stop_event"):
             self._finder_stop_event.set()
         return {"ok": True}
@@ -1044,8 +1056,13 @@ class JsApi:
         if err:
             return err
 
-        self._lb_stop_event = threading.Event()
-        self._lb_running = True
+        with self._run_gate:
+            if getattr(self, "_lb_running", False):
+                return {"ok": False, "error": "An operation is already running."}
+            self._lb_running = True
+        # Capture the event in a local so a later run that reassigns
+        # self._lb_stop_event can't make this worker poll the wrong event.
+        stop_event = self._lb_stop_event = threading.Event()
 
         def worker():
             csv_path = None
@@ -1061,7 +1078,7 @@ class JsApi:
             total_levels = len(LEVELS)
             all_rows = 0
             for idx, (display, internal) in enumerate(LEVELS, 1):
-                if self._lb_stop_event.is_set():
+                if stop_event.is_set():
                     break
                 _emit_to("_nwGlobalEvent", {
                     "type": "progress", "level_idx": idx,
@@ -1074,7 +1091,7 @@ class JsApi:
                     steam_api.user_stats, lb)
                 fetch = min(total_lb, count_int)
                 start = 1
-                while start <= fetch and not self._lb_stop_event.is_set():
+                while start <= fetch and not stop_event.is_set():
                     end = min(start + steam_api.BATCH_SIZE - 1, fetch)
                     batch = steam_api.fetch_batch(lb, start, end)
                     if not batch:
@@ -1098,7 +1115,7 @@ class JsApi:
 
             if csv_file:
                 csv_file.close()
-            stopped = self._lb_stop_event.is_set()
+            stopped = stop_event.is_set()
             _emit_to("_nwGlobalEvent", {
                 "type": "done", "total_rows": all_rows, "stopped": stopped,
                 "csv_path": csv_path or "",
@@ -1133,8 +1150,13 @@ class JsApi:
         if err:
             return err
 
-        self._lb_stop_event = threading.Event()
-        self._lb_running = True
+        with self._run_gate:
+            if getattr(self, "_lb_running", False):
+                return {"ok": False, "error": "An operation is already running."}
+            self._lb_running = True
+        # Capture the event in a local so a later run that reassigns
+        # self._lb_stop_event can't make this worker poll the wrong event.
+        stop_event = self._lb_stop_event = threading.Event()
 
         def worker():
             csv_path = None
@@ -1161,7 +1183,7 @@ class JsApi:
             fetch = min(total_lb, count_int)
             all_rows = 0
             start = 1
-            while start <= fetch and not self._lb_stop_event.is_set():
+            while start <= fetch and not stop_event.is_set():
                 end = min(start + steam_api.BATCH_SIZE - 1, fetch)
                 _emit_to("_nwNeonRankingsEvent", {"type": "progress",
                                                   "current": end, "total": fetch})
@@ -1185,7 +1207,7 @@ class JsApi:
 
             if csv_file:
                 csv_file.close()
-            stopped = self._lb_stop_event.is_set()
+            stopped = stop_event.is_set()
             _emit_to("_nwNeonRankingsEvent", {
                 "type": "done", "total_rows": all_rows, "stopped": stopped,
                 "csv_path": csv_path or "",
@@ -1253,8 +1275,13 @@ class JsApi:
         if err:
             return err
 
-        self._lb_stop_event = threading.Event()
-        self._lb_running = True
+        with self._run_gate:
+            if getattr(self, "_lb_running", False):
+                return {"ok": False, "error": "An operation is already running."}
+            self._lb_running = True
+        # Capture the event in a local so a later run that reassigns
+        # self._lb_stop_event can't make this worker poll the wrong event.
+        stop_event = self._lb_stop_event = threading.Event()
 
         def worker():
             _emit_to("_nwLevelEvent", {"type": "status", "message": f"Finding {display}..."})
@@ -1272,7 +1299,7 @@ class JsApi:
             })
             all_entries = []
             start = 1
-            while start <= fetch and not self._lb_stop_event.is_set():
+            while start <= fetch and not stop_event.is_set():
                 end = min(start + steam_api.BATCH_SIZE - 1, fetch)
                 batch = steam_api.fetch_batch(lb, start, end)
                 if not batch:
@@ -1300,7 +1327,7 @@ class JsApi:
                         writer.writerow({"rank": e["rank"], "name": e["name"],
                                          "score_ms": e["score_ms"], "time": e["time"]})
 
-            stopped = self._lb_stop_event.is_set()
+            stopped = stop_event.is_set()
             total = len(all_entries) if out_mode in ("csv", "both") else (start - 1)
             _emit_to("_nwLevelEvent", {
                 "type": "done", "total": total, "stopped": stopped,
@@ -1358,8 +1385,13 @@ class JsApi:
             return err
 
         label = f"{board['label']} {diff.title()}"
-        self._lb_stop_event = threading.Event()
-        self._lb_running = True
+        with self._run_gate:
+            if getattr(self, "_lb_running", False):
+                return {"ok": False, "error": "An operation is already running."}
+            self._lb_running = True
+        # Capture the event in a local so a later run that reassigns
+        # self._lb_stop_event can't make this worker poll the wrong event.
+        stop_event = self._lb_stop_event = threading.Event()
 
         def worker():
             _emit_to("_nwRushEvent", {"type": "status", "message": f"Finding {label} Rush..."})
@@ -1377,7 +1409,7 @@ class JsApi:
             })
             all_entries = []
             start = 1
-            while start <= fetch and not self._lb_stop_event.is_set():
+            while start <= fetch and not stop_event.is_set():
                 end = min(start + steam_api.BATCH_SIZE - 1, fetch)
                 batch = steam_api.fetch_batch(lb, start, end)
                 if not batch:
@@ -1405,7 +1437,7 @@ class JsApi:
                         writer.writerow({"rank": e["rank"], "name": e["name"],
                                          "score_ms": e["score_ms"], "time": e["time"]})
 
-            stopped = self._lb_stop_event.is_set()
+            stopped = stop_event.is_set()
             total = len(all_entries) if out_mode in ("csv", "both") else (start - 1)
             _emit_to("_nwRushEvent", {
                 "type": "done", "total": total, "stopped": stopped,
@@ -1610,8 +1642,13 @@ class JsApi:
         if err:
             return err
 
-        self._lb_stop_event = threading.Event()
-        self._lb_running = True
+        with self._run_gate:
+            if getattr(self, "_lb_running", False):
+                return {"ok": False, "error": "An operation is already running."}
+            self._lb_running = True
+        # Capture the event in a local so a later run that reassigns
+        # self._lb_stop_event can't make this worker poll the wrong event.
+        stop_event = self._lb_stop_event = threading.Event()
 
         def worker():
             nb = steam_api.steam.SteamAPI_ISteamFriends_GetFriendPersonaName(
@@ -1625,7 +1662,7 @@ class JsApi:
             found = 0
             all_rows = []
             for display, internal in levels_to_search:
-                if self._lb_stop_event.is_set():
+                if stop_event.is_set():
                     break
                 lb = steam_api.find_leaderboard(internal)
                 if not lb:
@@ -1660,7 +1697,7 @@ class JsApi:
                     writer.writeheader()
                     writer.writerows(all_rows)
 
-            stopped = self._lb_stop_event.is_set()
+            stopped = stop_event.is_set()
             _emit_to("_nwPlayerEvent", {
                 "type": "done", "found": found,
                 "total_levels": len(levels_to_search), "stopped": stopped,
@@ -1736,8 +1773,13 @@ class JsApi:
         else:
             return {"ok": False, "error": f"Unknown mode '{mode}'."}
 
-        self._lb_stop_event = threading.Event()
-        self._lb_running = True
+        with self._run_gate:
+            if getattr(self, "_lb_running", False):
+                return {"ok": False, "error": "An operation is already running."}
+            self._lb_running = True
+        # Capture the event in a local so a later run that reassigns
+        # self._lb_stop_event can't make this worker poll the wrong event.
+        stop_event = self._lb_stop_event = threading.Event()
 
         def worker():
             nb1 = steam_api.steam.SteamAPI_ISteamFriends_GetFriendPersonaName(
@@ -1760,7 +1802,7 @@ class JsApi:
             found_p2 = 0
             all_rows = []
             for display, internal in levels_to_search:
-                if self._lb_stop_event.is_set():
+                if stop_event.is_set():
                     break
                 lb = steam_api.find_leaderboard(internal)
                 if not lb:
@@ -1832,7 +1874,7 @@ class JsApi:
                     writer.writeheader()
                     writer.writerows(all_rows)
 
-            stopped = self._lb_stop_event.is_set()
+            stopped = stop_event.is_set()
             base_msg = (f"Stopped. {found_p1} P1 / {found_p2} P2 entries so far."
                         if stopped
                         else f"Done. {found_p1} P1 / {found_p2} P2 entries found.")
@@ -1906,14 +1948,19 @@ class JsApi:
         sid_ints = [int(s) for s in req.steam_ids]
         sid_pairs = list(zip(req.steam_ids, sid_ints))  # (display_str, int) for emit + lookup
 
-        self._lb_stop_event = threading.Event()
-        self._lb_running = True
+        with self._run_gate:
+            if getattr(self, "_lb_running", False):
+                return {"ok": False, "error": "An operation is already running."}
+            self._lb_running = True
+        # Capture the event in a local so a later run that reassigns
+        # self._lb_stop_event can't make this worker poll the wrong event.
+        stop_event = self._lb_stop_event = threading.Event()
 
         def worker():
             total = len(sid_ints) * len(levels_to_search)
             done = 0
             for display, internal in levels_to_search:
-                if self._lb_stop_event.is_set():
+                if stop_event.is_set():
                     _emit_to("_nwMultiCompareEvent", {"type": "done", "message": "stopped"})
                     self._lb_running = False
                     return
@@ -2004,9 +2051,12 @@ class JsApi:
         return {"ok": True, "removed": removed}
 
     def stop_leaderboard(self) -> dict:
+        # Signal the worker to stop, but leave _lb_running set — the worker
+        # clears it when it actually exits (_run_worker_safe's finally / its own
+        # tail). Clearing it here would let a new run start while the old worker
+        # is still mid-batch, interleaving rows into the same event channel.
         if hasattr(self, "_lb_stop_event"):
             self._lb_stop_event.set()
-        self._lb_running = False
         return {"ok": True}
 
     # ── Standardize Splits ────────────────────────────────────────────────────
