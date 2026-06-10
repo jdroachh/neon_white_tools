@@ -131,43 +131,28 @@ export default function RouteVideos() {
                 {formatSeconds(displayTarget)}
               </div>
             </Field>
-            {rows.length > 0 && (
-              <Field label="Routes">
-                <div style={{
-                  maxHeight: 240,
-                  overflowY: "auto",
-                  border: "1px solid var(--border)",
-                  borderRadius: 4,
-                }}>
-                  {rows.map((r, i) => {
-                    const isActive = i === selectedIdx;
-                    return (
-                      <div
-                        key={i}
-                        onClick={() => setSelectedIdx(i)}
-                        style={{
-                          padding: "4px 8px",
-                          fontSize: 11,
-                          borderBottom: i < rows.length - 1 ? "1px solid var(--border)" : "none",
-                          cursor: "pointer",
-                          background: isActive ? "var(--bg-2)" : "transparent",
-                          color: isActive ? "var(--accent)" : undefined,
-                          fontWeight: isActive ? 600 : undefined,
-                        }}
-                      >
-                        {isActive ? "▶ " : ""}{r.title || "(untitled)"}
-                      </div>
-                    );
-                  })}
+            {rows.length > 1 && (
+              <Field label="Route">
+                <div className="seg" style={{ flexWrap: "wrap" }}>
+                  {rows.map((r, i) => (
+                    <span
+                      key={i}
+                      className={"seg-btn " + (i === selectedIdx ? "on" : "")}
+                      onClick={() => setSelectedIdx(i)}
+                      title={r.title || "(untitled)"}
+                    >
+                      {r.title || "(untitled)"}
+                    </span>
+                  ))}
                 </div>
-                {selected && (
-                  <div style={{ marginTop: 6 }}>
-                    <Btn kind="ghost" size="sm" onClick={() => handleOpen(selected.youtube_url)}>
-                      Open in YouTube
-                    </Btn>
-                  </div>
-                )}
               </Field>
+            )}
+            {selected && (
+              <div className="field">
+                <Btn kind="ghost" size="sm" onClick={() => handleOpen(selected.youtube_url)}>
+                  Open in YouTube
+                </Btn>
+              </div>
             )}
             {headerNote && <div className="muted" style={{ fontSize: 11 }}>{headerNote}</div>}
           </div>
