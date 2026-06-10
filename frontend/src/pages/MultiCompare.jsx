@@ -5,6 +5,7 @@ import { loadProfiles } from "../lib/savedProfiles.js";
 import SavedProfilesDropdown from "../components/SavedProfilesDropdown.jsx";
 import LevelPickerModal from "../components/LevelPickerModal.jsx";
 import { loadLastSelection, saveLastSelection } from "../lib/customLevels.js";
+import { loadWithRetry } from "../lib/retryLevels.js";
 import {
   loadRosters, saveRosters, addRoster, removeRoster, MAX as MAX_ROSTERS,
 } from "../lib/savedRosters.js";
@@ -109,21 +110,30 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
 
   // ── Initial bridge load ─────────────────────────────────────────────────
   useEffect(() => {
-    function load() {
-      Promise.all([getLevels(), getChapters(), loadProfiles(), loadRosters()]).then(([lv, ch, pr, ro]) => {
+    // Levels + chapters can lose the first-boot bridge race (empty/rejected on
+    // the very first call past waitForApi), same as Compare Players / Player
+    // Lookup — so retry them. getChapters returns [{name, levels}]; rebuild the
+    // {name: levels} dict and seed the default targets only if still unset.
+    const cancelLevels = loadWithRetry(getLevels, {
+      onData: lv => {
         setLevels(lv);
+        setLevelTarget(prev => prev || lv[0].display);
+      },
+    });
+    const cancelChapters = loadWithRetry(getChapters, {
+      onData: ch => {
         const chDict = {};
-        for (const c of (ch || [])) chDict[c.name] = c.levels;
+        for (const c of ch) chDict[c.name] = c.levels;
         setChapters(chDict);
-        setSavedProfiles(pr);
-        setSavedRosters(ro);
-        if (!levelTarget && lv.length) setLevelTarget(lv[0].display);
         const chKeys = Object.keys(chDict);
-        if (!chapterTarget && chKeys.length) setChapterTarget(chKeys[0]);
-      });
-    }
-    if (window.pywebview) load();
-    else window.addEventListener("pywebviewready", load, { once: true });
+        setChapterTarget(prev => prev || (chKeys.length ? chKeys[0] : prev));
+      },
+    });
+    // Saved profiles/rosters are local config reads (no bridge race); plain load,
+    // and the `visible` effect below reloads them on tab focus anyway.
+    loadProfiles().then(setSavedProfiles).catch(() => {});
+    loadRosters().then(setSavedRosters).catch(() => {});
+    return () => { cancelLevels(); cancelChapters(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
