@@ -1,6 +1,8 @@
 import {
   parseEnvelope,
   COUNTDOWN_MS,
+  MAX_CHAT_BODY_LEN,
+  MAX_NICKNAME_LEN,
   type Envelope,
   type RoomState,
   type Settings,
@@ -138,7 +140,9 @@ chatInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") { e.preventDefault(); sendChat(); }
 });
 function sendChat(): void {
-  const body = chatInput.value.trim();
+  // Truncate to the server's cap so a long paste is delivered (not silently
+  // rejected as parse_error). isChat enforces MAX_CHAT_BODY_LEN server-side.
+  const body = chatInput.value.trim().slice(0, MAX_CHAT_BODY_LEN);
   if (!body) return;
   send({ t: "chat", data: { body } });
   chatInput.value = "";
@@ -254,7 +258,9 @@ function connect(): void {
 }
 
 hostCreateBtn.addEventListener("click", async () => {
-  const nick = hostNicknameInput.value.trim();
+  // Truncate to the server's cap (isHello enforces MAX_NICKNAME_LEN); a too-long
+  // nickname would otherwise be silently rejected.
+  const nick = hostNicknameInput.value.trim().slice(0, MAX_NICKNAME_LEN);
   if (!nick) { hostErrorEl.textContent = "Please enter a nickname."; return; }
   hostCreateBtn.disabled = true;
   hostErrorEl.textContent = "";
@@ -274,7 +280,7 @@ hostCreateBtn.addEventListener("click", async () => {
 });
 
 joinGoBtn.addEventListener("click", () => {
-  const nick = joinNicknameInput.value.trim();
+  const nick = joinNicknameInput.value.trim().slice(0, MAX_NICKNAME_LEN);
   const room = joinRoomCodeInput.value.trim().toUpperCase();
   if (!nick || !room) { joinErrorEl.textContent = "Please enter a nickname and room code."; return; }
   joinErrorEl.textContent = "";
@@ -1242,5 +1248,11 @@ function makeCheckbox(label: string, checked: boolean, onChange: (v: boolean) =>
 }
 
 // ─── Init ────────────────────────────────────────────────────────────────────
+
+// Cap inputs client-side to match the server's validators (defence in depth on
+// top of the slice-on-send truncation above).
+chatInput.maxLength = MAX_CHAT_BODY_LEN;
+hostNicknameInput.maxLength = MAX_NICKNAME_LEN;
+joinNicknameInput.maxLength = MAX_NICKNAME_LEN;
 
 showSection("join");

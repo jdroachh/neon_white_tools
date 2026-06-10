@@ -109,16 +109,24 @@ export class LobbyDO extends DurableObject {
       return;
     }
 
-    switch (envelope.t) {
-      case "hello":    this.handleHello(ws, envelope.data.token, envelope.data.nickname); break;
-      case "team_join": this.handleTeamJoin(ws, senderToken!, envelope.data.teamId); break;
-      case "team_rename": this.handleTeamRename(ws, senderToken!, envelope.data.teamId, envelope.data.name); break;
-      case "settings": this.handleSettings(ws, senderToken!, envelope.data); break;
-      case "start":    this.handleStart(ws, senderToken!, envelope.data.seed); break;
-      case "claim":    this.handleClaim(ws, senderToken!, envelope.data.squareIndex, envelope.data.timeMs); break;
-      case "unclaim":  this.handleUnclaim(ws, senderToken!, envelope.data.squareIndex); break;
-      case "restart":  this.handleRestart(ws, senderToken!, envelope.data.mode); break;
-      case "chat":     this.handleChat(senderToken!, envelope.data.body); break;
+    // Defensive: an unexpected throw in any handler must not crash the DO — its
+    // room state is in-memory only, so an exception-triggered restart would wipe
+    // a live game. Report a generic error and keep the room alive.
+    try {
+      switch (envelope.t) {
+        case "hello":    this.handleHello(ws, envelope.data.token, envelope.data.nickname); break;
+        case "team_join": this.handleTeamJoin(ws, senderToken!, envelope.data.teamId); break;
+        case "team_rename": this.handleTeamRename(ws, senderToken!, envelope.data.teamId, envelope.data.name); break;
+        case "settings": this.handleSettings(ws, senderToken!, envelope.data); break;
+        case "start":    this.handleStart(ws, senderToken!, envelope.data.seed); break;
+        case "claim":    this.handleClaim(ws, senderToken!, envelope.data.squareIndex, envelope.data.timeMs); break;
+        case "unclaim":  this.handleUnclaim(ws, senderToken!, envelope.data.squareIndex); break;
+        case "restart":  this.handleRestart(ws, senderToken!, envelope.data.mode); break;
+        case "chat":     this.handleChat(senderToken!, envelope.data.body); break;
+      }
+    } catch (err) {
+      console.log(`[${new Date().toISOString()}] [worker] handleMessage error on "${envelope.t}": ${String(err)}`);
+      this.sendError(ws, "Internal error", "internal");
     }
   }
 
@@ -268,6 +276,7 @@ export class LobbyDO extends DurableObject {
 
     if (teamId !== null) {
       const team = this.room.teams[teamId];
+      if (!team) return; // belt-and-braces: isTeamJoin already bounds teamId to 0..TEAM_COUNT-1
       if (!team.memberTokens.includes(token)) {
         team.memberTokens.push(token);
       }

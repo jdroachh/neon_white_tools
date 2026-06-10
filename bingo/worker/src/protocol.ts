@@ -22,6 +22,10 @@ export type ErrorMsg    = EnvelopeBase & { t: "error";    data: { message: strin
 export type Envelope = Hello | TeamJoin | TeamRename | SettingsMsg | Start | Claim | Unclaim | Restart | Chat | State | EndMsg | ErrorMsg;
 
 export const MAX_TEAM_NAME_LEN = 24;
+export const MAX_NICKNAME_LEN = 32;
+export const MAX_CHAT_BODY_LEN = 500;
+// Number of team slots (TEAM_PALETTE length); valid team ids are 0..TEAM_COUNT-1.
+export const TEAM_COUNT = 6;
 
 export type Settings = {
   boardSize: 5 | 7 | 9;
@@ -99,12 +103,23 @@ function isObject(v: unknown): v is Record<string, unknown> {
 
 function isHello(e: Record<string, unknown>): e is Hello {
   const d = e["data"];
-  return isObject(d) && typeof d["token"] === "string" && typeof d["nickname"] === "string";
+  return (
+    isObject(d) &&
+    typeof d["token"] === "string" &&
+    typeof d["nickname"] === "string" &&
+    (d["nickname"] as string).trim().length > 0 &&
+    (d["nickname"] as string).length <= MAX_NICKNAME_LEN
+  );
 }
 
 function isTeamJoin(e: Record<string, unknown>): e is TeamJoin {
   const d = e["data"];
-  return isObject(d) && (d["teamId"] === null || typeof d["teamId"] === "number");
+  if (!isObject(d)) return false;
+  const teamId = d["teamId"];
+  return (
+    teamId === null ||
+    (Number.isInteger(teamId) && (teamId as number) >= 0 && (teamId as number) < TEAM_COUNT)
+  );
 }
 
 function isTeamRename(e: Record<string, unknown>): e is TeamRename {
@@ -132,7 +147,11 @@ function isSettingsMsg(e: Record<string, unknown>): e is SettingsMsg {
     typeof d["anyoneCanClaim"] === "boolean" &&
     typeof d["lockSpectatorJoinInGame"] === "boolean" &&
     typeof d["allowNewTeamsInGame"] === "boolean" &&
-    typeof d["timeLimitMin"] === "number" &&
+    Number.isFinite(d["timeLimitMin"]) &&
+    (d["timeLimitMin"] as number) >= 1 &&
+    (d["timeLimitMin"] as number) <= 720 &&
+    (d["firstToN"] === undefined ||
+      (Number.isInteger(d["firstToN"]) && (d["firstToN"] as number) >= 1)) &&
     Array.isArray(d["winConditions"]) &&
     (d["winConditions"] as unknown[]).every((w) => VALID_WIN_CONDITIONS.has(w as string)) &&
     Array.isArray(d["excludedSquareIds"]) &&
@@ -172,6 +191,7 @@ function isRestart(e: Record<string, unknown>): e is Restart {
 function isChat(e: Record<string, unknown>): e is Chat {
   const d = e["data"];
   if (!isObject(d) || typeof d["body"] !== "string") return false;
+  if ((d["body"] as string).length > MAX_CHAT_BODY_LEN) return false;
   // Optional fields — accept undefined or correct type.
   if (d["teamId"] !== undefined && d["teamId"] !== null && typeof d["teamId"] !== "number") return false;
   if (d["nickname"] !== undefined && d["nickname"] !== null && typeof d["nickname"] !== "string") return false;
