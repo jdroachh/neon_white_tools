@@ -1586,6 +1586,61 @@ class JsApi:
                 "target_ms": target_ms, "above": above, "below": below,
                 "next_medal": next_medal}
 
+    def _resolve_levels_for_mode(self, mode, target):
+        """Resolve a (mode, target) selection into the levels to search.
+
+        Shared by Player Lookup / Compare Players / Multi Compare. Returns
+        ``(levels_to_search, context, error)``:
+          - ``levels_to_search`` — list of ``(display, internal)`` tuples
+          - ``context`` — short human label (level name / chapter / "Whole Game"
+            / "Custom_N_levels"); callers that don't need it ignore it
+          - ``error`` — an ``{"ok": False, "error": ...}`` dict when the selection
+            is invalid (caller returns it as-is), else ``None``
+
+        ``target`` may be a JSON-encoded list of display names (custom mode) or an
+        already-decoded list.
+        """
+        levels_to_search = []
+        context = ""
+        if mode == "level":
+            match = LEVEL_LOOKUP.get(str(target).strip().lower())
+            if not match:
+                return [], "", {"ok": False, "error": f"Level '{target}' not found."}
+            levels_to_search = [match]
+            context = match[0]
+        elif mode == "chapter":
+            chap = str(target).strip()
+            if chap not in CHAPTERS:
+                return [], "", {"ok": False, "error": f"Chapter '{chap}' not found."}
+            for dn in CHAPTERS[chap]:
+                m = LEVEL_LOOKUP.get(dn.lower())
+                if m:
+                    levels_to_search.append(m)
+            context = chap
+        elif mode == "game":
+            levels_to_search = list(WHOLE_GAME_LEVELS)
+            context = "Whole Game"
+        elif mode == "custom":
+            # target arrives as a JSON-encoded list of display names (the frontend
+            # JSON.stringifies it so it survives api.js's String() wrapper), or an
+            # already-decoded list.
+            try:
+                requested = target if isinstance(target, list) else json.loads(target or "[]")
+            except (ValueError, TypeError):
+                requested = []
+            seen = set()
+            for name in requested:
+                m = LEVEL_LOOKUP.get(str(name).strip().lower())
+                if m and m[0] not in seen:  # dedupe + drop unknown (stale presets)
+                    levels_to_search.append(m)
+                    seen.add(m[0])
+            if not levels_to_search:
+                return [], "", {"ok": False, "error": "Pick at least one level for custom search."}
+            context = f"Custom_{len(levels_to_search)}_levels"
+        else:
+            return [], "", {"ok": False, "error": f"Unknown mode '{mode}'."}
+        return levels_to_search, context, None
+
     def run_player_lookup(self, steam_id: str, mode: str, target: str,
                           out_mode: str = "display", folder: str = "") -> dict:
         import steam_api, csv as _csv
@@ -1599,44 +1654,9 @@ class JsApi:
             return {"ok": False, "error": "Steam ID must be a 17-digit number."}
         sid = int(sid_str)
 
-        levels_to_search = []
-        context = ""
-        if mode == "level":
-            match = LEVEL_LOOKUP.get(str(target).strip().lower())
-            if not match:
-                return {"ok": False, "error": f"Level '{target}' not found."}
-            levels_to_search = [match]
-            context = match[0]
-        elif mode == "chapter":
-            chap = str(target).strip()
-            if chap not in CHAPTERS:
-                return {"ok": False, "error": f"Chapter '{chap}' not found."}
-            for dn in CHAPTERS[chap]:
-                m = LEVEL_LOOKUP.get(dn.lower())
-                if m:
-                    levels_to_search.append(m)
-            context = chap
-        elif mode == "game":
-            levels_to_search = list(WHOLE_GAME_LEVELS)
-            context = "Whole Game"
-        elif mode == "custom":
-            # target arrives as a JSON-encoded list of display names (the frontend
-            # JSON.stringifies it so it survives api.js's String() wrapper).
-            try:
-                requested = target if isinstance(target, list) else json.loads(target or "[]")
-            except (ValueError, TypeError):
-                requested = []
-            seen = set()
-            for name in requested:
-                m = LEVEL_LOOKUP.get(str(name).strip().lower())
-                if m and m[0] not in seen:  # dedupe + drop unknown (stale presets)
-                    levels_to_search.append(m)
-                    seen.add(m[0])
-            if not levels_to_search:
-                return {"ok": False, "error": "Pick at least one level for custom search."}
-            context = f"Custom_{len(levels_to_search)}_levels"
-        else:
-            return {"ok": False, "error": f"Unknown mode '{mode}'."}
+        levels_to_search, context, err = self._resolve_levels_for_mode(mode, target)
+        if err:
+            return err
 
         err = _guard_output_folder(folder, out_mode)
         if err:
@@ -1735,43 +1755,9 @@ class JsApi:
         sid1 = int(sid1_str)
         sid2 = int(sid2_str)
 
-        levels_to_search = []
-        context = ""
-        if mode == "level":
-            match = LEVEL_LOOKUP.get(str(target).strip().lower())
-            if not match:
-                return {"ok": False, "error": f"Level '{target}' not found."}
-            levels_to_search = [match]
-            context = match[0]
-        elif mode == "chapter":
-            chap = str(target).strip()
-            if chap not in CHAPTERS:
-                return {"ok": False, "error": f"Chapter '{chap}' not found."}
-            for dn in CHAPTERS[chap]:
-                m = LEVEL_LOOKUP.get(dn.lower())
-                if m:
-                    levels_to_search.append(m)
-            context = chap
-        elif mode == "game":
-            levels_to_search = list(WHOLE_GAME_LEVELS)
-            context = "Whole Game"
-        elif mode == "custom":
-            # target arrives as a JSON-encoded list of display names.
-            try:
-                requested = target if isinstance(target, list) else json.loads(target or "[]")
-            except (ValueError, TypeError):
-                requested = []
-            seen = set()
-            for name in requested:
-                m = LEVEL_LOOKUP.get(str(name).strip().lower())
-                if m and m[0] not in seen:  # dedupe + drop unknown (stale presets)
-                    levels_to_search.append(m)
-                    seen.add(m[0])
-            if not levels_to_search:
-                return {"ok": False, "error": "Pick at least one level for custom search."}
-            context = f"Custom_{len(levels_to_search)}_levels"
-        else:
-            return {"ok": False, "error": f"Unknown mode '{mode}'."}
+        levels_to_search, context, err = self._resolve_levels_for_mode(mode, target)
+        if err:
+            return err
 
         with self._run_gate:
             if getattr(self, "_lb_running", False):
@@ -1912,38 +1898,9 @@ class JsApi:
         if getattr(self, "_lb_running", False):
             return {"ok": False, "error": "An operation is already running."}
 
-        levels_to_search = []
-        if req.mode == "level":
-            match = LEVEL_LOOKUP.get(req.target.strip().lower())
-            if not match:
-                return {"ok": False, "error": f"Level '{req.target}' not found."}
-            levels_to_search = [match]
-        elif req.mode == "chapter":
-            chap = req.target.strip()
-            if chap not in CHAPTERS:
-                return {"ok": False, "error": f"Chapter '{chap}' not found."}
-            for dn in CHAPTERS[chap]:
-                m = LEVEL_LOOKUP.get(dn.lower())
-                if m:
-                    levels_to_search.append(m)
-        elif req.mode == "game":
-            levels_to_search = list(WHOLE_GAME_LEVELS)
-        elif req.mode == "custom":
-            # req.target is a JSON-encoded list of display names.
-            try:
-                requested = json.loads(req.target or "[]")
-            except (ValueError, TypeError):
-                requested = []
-            seen = set()
-            for name in requested:
-                m = LEVEL_LOOKUP.get(str(name).strip().lower())
-                if m and m[0] not in seen:  # dedupe + drop unknown (stale presets)
-                    levels_to_search.append(m)
-                    seen.add(m[0])
-            if not levels_to_search:
-                return {"ok": False, "error": "Pick at least one level for custom search."}
-        else:
-            return {"ok": False, "error": f"Unknown mode '{req.mode}'."}
+        levels_to_search, _context, err = self._resolve_levels_for_mode(req.mode, req.target)
+        if err:
+            return err
 
         sid_ints = [int(s) for s in req.steam_ids]
         sid_pairs = list(zip(req.steam_ids, sid_ints))  # (display_str, int) for emit + lookup
