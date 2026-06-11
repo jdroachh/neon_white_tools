@@ -38,7 +38,7 @@ The app locates `steam_api64.dll` automatically via the Steam registry → `libr
 3. Run `NeonWhiteLeaderboardTool.exe`
 4. On first launch the Welcome page will guide you through finding `steam_api64.dll`
 
-No installer. No admin rights required. Settings are stored in `neonwhite_config.json` next to the EXE.
+No installer. No admin rights required. Settings are stored in `neonwhite_config.json` in `%APPDATA%\NeonWhiteLeaderboardTool\`.
 
 ---
 

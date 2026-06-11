@@ -160,5 +160,5 @@ back to "Open in YouTube" if YouTube blocks the embed.
   accent variable. Status indicators (Steam connect light) stay green/red
   regardless.
 - **Theme.** Light / dark.
-- **Open log folder.** Opens `logs/` next to the EXE — useful if something
-  goes wrong and you want to attach `app.log` to a bug report.
+- **Open log folder.** Opens the `logs/` folder in `%APPDATA%\NeonWhiteLeaderboardTool\` —
+  useful if something goes wrong and you want to attach `app.log` to a bug report.
