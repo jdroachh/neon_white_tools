@@ -303,7 +303,7 @@ def _format_secs(secs: float) -> str:
     return f"{mins}:{s:06.3f}"
 
 
-def _compute_medals(level_names: list[str], time_strs: list[str], rush_key: str) -> list[str]:
+def _compute_medals(level_names: list[str], time_strs: list[str]) -> list[str]:
     medals = []
     for name, s in zip(level_names, time_strs):
         t = _parse_time_to_secs(s)
@@ -473,9 +473,9 @@ class JsApi:
             "ok":              True,
             "level_order":     level_order,
             "gold":            gold_out,
-            "gold_medals":     _compute_medals(level_order, gold_out, key) if gold_out else [],
+            "gold_medals":     _compute_medals(level_order, gold_out) if gold_out else [],
             "segments":        seg_out,
-            "segment_medals":  _compute_medals(level_order, seg_out, key) if seg_out else [],
+            "segment_medals":  _compute_medals(level_order, seg_out) if seg_out else [],
         }
 
     # ── Rush metadata ── (extended) ──────────────────────────────────────────
@@ -2055,9 +2055,9 @@ class JsApi:
         return {
             "ok":             True,
             "gold":           gold_out,
-            "gold_medals":    _compute_medals(std_names, gold_out, key) if gold_out else [],
+            "gold_medals":    _compute_medals(std_names, gold_out) if gold_out else [],
             "segments":       seg_out,
-            "segment_medals": _compute_medals(std_names, seg_out, key) if seg_out else [],
+            "segment_medals": _compute_medals(std_names, seg_out) if seg_out else [],
         }
 
     # ── Medal targets ─────────────────────────────────────────────────────────
