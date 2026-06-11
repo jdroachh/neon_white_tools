@@ -32,22 +32,6 @@ export async function getCheaterCount() {
   return api.get_cheater_count();
 }
 
-export async function minimizeWindow() {
-  const api = await waitForApi();
-  return api.minimize_window();
-}
-
-
-export async function toggleMaximize() {
-  const api = await waitForApi();
-  return api.toggle_maximize();
-}
-
-export async function closeWindow() {
-  const api = await waitForApi();
-  return api.close_window();
-}
-
 export async function parseSeed(rushName, seed) {
   const api = await waitForApi();
   return api.parse_seed(rushName, String(seed));

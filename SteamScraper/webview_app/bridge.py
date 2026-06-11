@@ -808,26 +808,6 @@ class JsApi:
         import steam_api
         return len(steam_api.cheater_ids)
 
-    # ── Window controls (used when frameless=True) ─────────────────────────────
-
-    def minimize_window(self) -> None:
-        import webview
-        if webview.windows:
-            webview.windows[0].minimize()
-
-    def toggle_maximize(self) -> None:
-        import ctypes
-        hwnd = ctypes.windll.user32.GetForegroundWindow()
-        if ctypes.windll.user32.IsZoomed(hwnd):
-            ctypes.windll.user32.ShowWindow(hwnd, 9)  # SW_RESTORE
-        else:
-            ctypes.windll.user32.ShowWindow(hwnd, 3)  # SW_MAXIMIZE
-
-    def close_window(self) -> None:
-        import webview
-        if webview.windows:
-            webview.windows[0].destroy()
-
     def get_steam_status(self) -> dict:
         import steam_api
         return {

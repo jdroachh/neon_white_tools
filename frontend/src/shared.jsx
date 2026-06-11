@@ -4,7 +4,7 @@
  * seededOrder() removed — replaced by api.parseSeed() at call sites.
  */
 import React, { useState, useEffect } from "react";
-import { minimizeWindow, toggleMaximize, closeWindow, getConfig, saveConfigField, getAppVersion } from "./api.js";
+import { getConfig, saveConfigField, getAppVersion } from "./api.js";
 
 export const RUSHES = [
   { name: "White / Mikey", count: 96 },
@@ -33,9 +33,6 @@ export const Icon = ({ name, size = 14 }) => {
     case "play":     return <svg viewBox="0 0 16 16" style={s}><path d="M4 3l9 5-9 5z" fill="currentColor"/></svg>;
     case "caret":    return <svg viewBox="0 0 16 16" style={s}><path d="M5 6l3 3 3-3" {...sp}/></svg>;
     case "chev":     return <svg viewBox="0 0 16 16" style={s}><path d="M6 4l4 4-4 4" {...sp}/></svg>;
-    case "min":      return <svg viewBox="0 0 12 12" style={s}><path d="M2 6h8" stroke="currentColor" strokeWidth="1"/></svg>;
-    case "max":      return <svg viewBox="0 0 12 12" style={s}><rect x="2" y="2" width="8" height="8" fill="none" stroke="currentColor" strokeWidth="1"/></svg>;
-    case "close":    return <svg viewBox="0 0 12 12" style={s}><path d="M2 2l8 8M10 2l-8 8" stroke="currentColor" strokeWidth="1"/></svg>;
     case "sw":       return <svg viewBox="0 0 16 16" style={s}><g {...sp}><path d="M2 8l3-3M2 8l3 3M14 8l-3-3M14 8l-3 3"/></g></svg>;
     case "check":    return <svg viewBox="0 0 16 16" style={s}><path d="M3 8l3 3 7-7" {...sp}/></svg>;
     case "warn":     return <svg viewBox="0 0 16 16" style={s}><g {...sp}><path d="M8 2L1.5 14h13L8 2z"/><path d="M8 6v4M8 12v0"/></g></svg>;
@@ -50,18 +47,6 @@ export const Icon = ({ name, size = 14 }) => {
     default: return null;
   }
 };
-
-/* === Title bar === */
-export const Titlebar = ({ pageTitle = "Tools" }) => (
-  <div className="titlebar">
-    <span className="nw-mark"><span>NEON</span><span className="accent">WHITE</span></span>
-    <span className="titlebar-title">— Tools · {pageTitle}</span>
-    <span className="titlebar-spacer"></span>
-    <span className="win-btn" onClick={minimizeWindow}><Icon name="min" /></span>
-    <span className="win-btn" onClick={toggleMaximize}><Icon name="max" /></span>
-    <span className="win-btn close" onClick={closeWindow}><Icon name="close" /></span>
-  </div>
-);
 
 const NAV_ITEMS = {
   leaderboard: [
