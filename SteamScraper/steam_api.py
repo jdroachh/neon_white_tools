@@ -49,6 +49,16 @@ cheater_ids  = set()
 # every wait_for_call on worker threads — this lock prevents concurrent pumps.
 _callbacks_lock = threading.Lock()
 
+# Per-session cache of leaderboard name -> handle. A name maps to a stable handle
+# for the life of a Steam session, so this removes the ~96 redundant
+# FindLeaderboard round-trips a repeat whole-game run would otherwise make.
+# Populated on successful finds only (never a miss, so a transient failure stays
+# retryable). No stale-handle self-heal is needed: the app hard-crashes if the
+# Steam client exits mid-session (uncatchable native fault — see the steam-exit
+# crash note), so it never reaches a live-but-stale state. Cleared on (re)connect
+# in init_steam, the only time handles legitimately change.
+_lb_handle_cache: dict = {}
+
 
 def run_callbacks():
     """Pump the Steamworks callback queue once, under _callbacks_lock."""
@@ -101,6 +111,11 @@ def fetch_cheater_list():
 # ── Steam API init + low-level call helpers ───────────────────────────────
 def init_steam(dll_path):
     global steam, user_stats, utils_iface, friends, steam_ready, player_name, logged_in_steam_id
+
+    # Handles may not survive a reconnect — drop any cached ones from a prior
+    # session so we re-find against the fresh interfaces.
+    logger.info("init_steam: clearing %d cached leaderboard handle(s)", len(_lb_handle_cache))
+    _lb_handle_cache.clear()
 
     steam_dir = r"C:\Program Files (x86)\Steam"
     try:
@@ -229,15 +244,18 @@ def init_steam(dll_path):
     return True, "Connected"
 
 
-def wait_for_call(call_handle, result_struct, callback_id, timeout=10.0, poll_interval=0.1):
+def wait_for_call(call_handle, result_struct, callback_id, timeout=10.0, poll_interval=0.02):
     failed = ctypes.c_bool(False)
     deadline = time.time() + timeout
     while time.time() < deadline:
+        # Pump callbacks, then check completion immediately — only sleep if the
+        # call hasn't landed yet. Sleeping first (the old order) cost every call
+        # at least one poll_interval even when Steam answered in microseconds.
         run_callbacks()
-        time.sleep(poll_interval)  # outside the lock — never hold it while sleeping
         if steam.SteamAPI_ISteamUtils_IsAPICallCompleted(
                 utils_iface, call_handle, ctypes.byref(failed)):
             break
+        time.sleep(poll_interval)  # outside the lock — never hold it while sleeping
     if failed.value:
         return False
     io_failed = ctypes.c_bool(False)
@@ -248,10 +266,16 @@ def wait_for_call(call_handle, result_struct, callback_id, timeout=10.0, poll_in
 
 
 def find_leaderboard(name):
+    cached = _lb_handle_cache.get(name)
+    if cached is not None:
+        return cached
     call = steam.SteamAPI_ISteamUserStats_FindLeaderboard(user_stats, name.encode())
     result = LeaderboardFindResult()
     if wait_for_call(call, result, LEADERBOARD_FIND_CALLBACK):
         if result.leaderboard_found:
+            # Cache only successful finds — never cache a miss, so a transient
+            # failure stays retryable on the next call.
+            _lb_handle_cache[name] = result.leaderboard_handle
             return result.leaderboard_handle
     return None
 
@@ -261,7 +285,7 @@ def get_entry_count(lb_handle) -> int:
     return steam.SteamAPI_ISteamUserStats_GetLeaderboardEntryCount(user_stats, lb_handle)
 
 
-def fetch_batch(lb_handle, start, end, _poll_interval=0.1):
+def fetch_batch(lb_handle, start, end, _poll_interval=0.02):
     call = steam.SteamAPI_ISteamUserStats_DownloadLeaderboardEntries(
         user_stats, lb_handle, 0, start, end
     )
