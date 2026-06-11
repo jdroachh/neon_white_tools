@@ -1,7 +1,7 @@
 """
 rush_data — static level metadata and Rush-mode mappings.
 
-Pure data, no functions. Imported by neonwhite_app.py for input parsing,
+Pure data, no functions. Imported by the webview bridge for input parsing,
 result rendering, and chapter grouping. Workers do NOT import this — they
 only need num_levels (an int), so keeping this out of the slim seed_search
 module preserves the worker-spawn cost win from modularization step 1.

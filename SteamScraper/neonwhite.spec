@@ -67,8 +67,8 @@ a = Analysis(
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 # onedir mode: EXE() holds only the launcher; COLLECT() assembles the full
-# folder bundle in dist/NeonWhiteLeaderboardTool/. Logs and neonwhite_config.json
-# live next to the EXE and persist across launches — required for diagnostics.
+# folder bundle in dist/NeonWhiteLeaderboardTool/. Logs and config live in
+# %APPDATA%\NeonWhiteLeaderboardTool\ (since 1.6.0), not next to the EXE.
 exe = EXE(
     pyz,
     a.scripts,

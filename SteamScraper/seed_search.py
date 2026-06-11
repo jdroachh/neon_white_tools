@@ -3,7 +3,7 @@ seed_search — multiprocessing worker + helpers for the Rush Seed Finder.
 
 Deliberately tiny: only depends on shuffle_lib (and stdlib). Workers spawned
 against this module's _seed_search_worker re-import only this file plus
-shuffle_lib + ctypes, instead of all 2991 lines of neonwhite_app.py.
+shuffle_lib + ctypes, instead of pulling in the full application module.
 """
 import ctypes
 from shuffle_lib import _load_c_shuffle, find_seeds_batch

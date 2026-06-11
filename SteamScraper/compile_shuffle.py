@@ -1,6 +1,6 @@
 """
 compile_shuffle.py — Compile shuffle.dll for Neon White Tools
-Run this once to produce shuffle.dll, then place it alongside neonwhite_app.py
+Run this once to produce shuffle.dll, then place it in SteamScraper/ alongside shuffle_lib.py
 
 Supports:
   - Visual Studio cl.exe (auto-detected, called directly — no vcvars needed)

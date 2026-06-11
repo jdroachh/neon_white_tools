@@ -29,8 +29,8 @@ def _rgb_to_colorref(hex_color: str) -> int:
     r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
     return (b << 16) | (g << 8) | r
 
-_TITLEBAR_BG   = "#050505"   # matches --titlebar in dark theme
-_TITLEBAR_TEXT = "#f0f0e8"   # matches --titlebar-text in dark theme
+_TITLEBAR_BG   = "#050505"   # native titlebar bg, matched to the dark theme
+_TITLEBAR_TEXT = "#f0f0e8"   # native titlebar text, matched to the dark theme
 
 def _apply_titlebar_theme(hwnd: int) -> None:
     if sys.platform != "win32":
