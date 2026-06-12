@@ -96,6 +96,11 @@ RUSHES = [
 ]
 
 _loaded = _load_c_shuffle()
+if not _loaded:
+    from logger import get_logger
+    get_logger("bridge").warning(
+        "shuffle.dll failed to load — full_shuffle using pure-Python fallback; "
+        "Rush Seed Finder will be unavailable")
 
 MAX_SEED = 2_147_483_647
 
