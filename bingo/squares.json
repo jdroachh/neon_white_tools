@@ -555,6 +555,18 @@
       "name": "Beat 2 Topaz medals",
       "mods_required": [],
       "verification": "honor"
+    },
+    {
+      "id": "mean-pb-on-any-level-7a3c1e",
+      "name": "PB on any level",
+      "mods_required": [],
+      "verification": "honor"
+    },
+    {
+      "id": "mean-hit-21-pummel-boosts-on-one-pummel-grenade-c92f48",
+      "name": "Hit 21 pummel boosts on one pummel grenade",
+      "mods_required": [],
+      "verification": "honor"
     }
   ],
   "modded": [
