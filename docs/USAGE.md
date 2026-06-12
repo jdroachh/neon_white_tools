@@ -159,6 +159,5 @@ back to "Open in YouTube" if YouTube blocks the embed.
 - **Accent color.** 8 preset swatches; the chosen color drives most of the UI's
   accent variable. Status indicators (Steam connect light) stay green/red
   regardless.
-- **Theme.** Light / dark.
 - **Open log folder.** Opens the `logs/` folder in `%APPDATA%\NeonWhiteLeaderboardTool\` —
   useful if something goes wrong and you want to attach `app.log` to a bug report.
