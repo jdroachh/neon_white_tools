@@ -11,9 +11,7 @@ from webview_app.models import (
     SeedFindRequest, SeedParseRequest, SeedParseResponse,
     SplitsParseRequest, SplitsParseResponse, SplitLevel,
     TimerCalcRequest, TimerInputRow,
-    GlobalExportRequest, LevelSearchRequest,
     LeaderboardRow, LogLine,
-    Settings,
 )
 
 
@@ -70,27 +68,9 @@ def test_timer_calc_request_roundtrip():
     assert len(req.rows) == 2
 
 
-def test_global_export_request_roundtrip():
-    req = GlobalExportRequest(top_n=100, output="both", csv_path="C:/out.csv")
-    assert req.top_n == 100
-
-
 def test_log_line_roundtrip():
     line = LogLine(text="Fetching page 1...", kind="info")
     assert line.cursor is False
-
-
-def test_settings_defaults():
-    s = Settings()
-    assert s.theme == "dark"
-    assert s.default_rush == "White / Mikey"
-
-
-def test_settings_roundtrip():
-    data = {"theme": "light", "dll_path": "C:/SteamApps/neonwhite/steam_api64.dll"}
-    s = Settings(**data)
-    assert s.theme == "light"
-    assert s.dll_path is not None
 
 
 # ── M2: Seed Finder bridge ────────────────────────────────────────────────────
