@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "purpose": "Source-of-truth square pool for Bingo Mode Phase 1. Move to SteamScraper/bingo_proto/phase1/squares.json at Stage 1 start.",
+    "purpose": "Source-of-truth square pool for Bingo Mode Phase 1.",
     "schema": {
       "name": "Square text shown on the tile",
       "mods_required": "Array of mod names. Empty = vanilla. Modded squares are excluded unless lobby toggles 'allow_modded'.",
