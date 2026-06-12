@@ -63,6 +63,9 @@ plans/
 .obsidian/
 CLAUDE.md
 
+# ── Code analysis notes (Claude-authored walkthroughs, local-only) ────
+04_Code_Analysis/
+
 # ── Loose local-only files ────────────────────────────────────────────
 scraps/
 uploads/
