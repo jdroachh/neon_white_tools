@@ -919,27 +919,6 @@
   font-family: var(--ui-font);
 }
 
-/* Sheet push card */
-.hifi .sheet-push {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 14px 18px;
-  border-radius: 2px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-}
-.hifi .sheet-push.ready {
-  border-color: var(--accent);
-  background: rgba(0, 224, 154, 0.06);
-}
-.hifi .sheet-push .title {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  color: var(--text);
-}
-
 /* Scrollbar styling for dark */
 .hifi.dark ::-webkit-scrollbar { width: 10px; height: 10px; }
 .hifi.dark ::-webkit-scrollbar-track { background: var(--bg); }
