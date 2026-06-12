@@ -18,8 +18,6 @@ class PlayerLookupRequest(BaseModel):
     mode: Literal["Single Level", "Chapter", "Whole Game"]
     level_name: str | None = None
     chapter: str | None = None
-    write_to_sheet: bool = False
-    sheet_id: str | None = None
 
 
 class LeaderboardRow(BaseModel):

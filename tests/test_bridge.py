@@ -11,7 +11,7 @@ from webview_app.models import (
     SeedFindRequest, SeedParseRequest, SeedParseResponse,
     SplitsParseRequest, SplitsParseResponse, SplitLevel,
     TimerCalcRequest, TimerInputRow,
-    GlobalExportRequest, LevelSearchRequest, PlayerLookupRequest,
+    GlobalExportRequest, LevelSearchRequest,
     LeaderboardRow, LogLine,
     Settings,
 )
@@ -73,16 +73,6 @@ def test_timer_calc_request_roundtrip():
 def test_global_export_request_roundtrip():
     req = GlobalExportRequest(top_n=100, output="both", csv_path="C:/out.csv")
     assert req.top_n == 100
-
-
-def test_player_lookup_request_roundtrip():
-    req = PlayerLookupRequest(
-        player_name="speedrunner42",
-        mode="Whole Game",
-        write_to_sheet=True,
-        sheet_id="abc123",
-    )
-    assert req.write_to_sheet is True
 
 
 def test_log_line_roundtrip():
