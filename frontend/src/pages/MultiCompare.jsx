@@ -95,6 +95,7 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
   const [levelTarget, setLevelTarget] = useState("");
   const [chapterTarget, setChapterTarget] = useState("");
   const [running, setRunning] = useState(false);
+  const [runError, setRunError] = useState("");
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [results, setResults] = useState({});
   const [rosterEditing, setRosterEditing] = useState(true);  // expand-to-edit default open until first run
@@ -282,6 +283,7 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
   function handleRun() {
     if (!canRun) return;
     setResults({});
+    setRunError("");
     setProgress({ done: 0, total: 0 });
     setDrill(null);
     setFilterPlayer(null);
@@ -296,8 +298,13 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
     runMultiCompare(steam_ids, mode, target).then(res => {
       if (!res.ok) {
         console.error("[multi-compare] run failed:", res.error);
+        setRunError(res.error || "Run failed.");
         setRunning(false);
       }
+    }).catch(err => {
+      console.error("[multi-compare] run threw:", err);
+      setRunError("Run failed.");
+      setRunning(false);
     });
   }
   function handleStop() { stopMultiCompare(); }
@@ -582,6 +589,7 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
             onRefresh={handleRefresh}
             searchHint={searchHint}
             runStatusHint={runStatusHint}
+            runError={runError}
             customCount={customLevels.length}
             onOpenPicker={() => setPickerOpen(true)}
             onClearCustom={() => handleCustomLevelsChange([])}
@@ -947,7 +955,7 @@ function SearchModePanel({
   mode, onModeChange, levels, chapters, levelTarget, chapterTarget,
   onLevelTargetChange, onChapterTargetChange,
   running, canRun, anyResults, onRun, onStop, onRefresh, searchHint, runStatusHint,
-  customCount, onOpenPicker, onClearCustom,
+  runError, customCount, onOpenPicker, onClearCustom,
 }) {
   return (
     <div className="nwt-panel">
@@ -1000,6 +1008,9 @@ function SearchModePanel({
           <span style={{ color: "var(--mc-text-3)", fontSize: 11 }}>{runStatusHint}</span>
         )}
       </div>
+      {runError && (
+        <div style={{ color: "var(--bad, #f87171)", fontSize: 11, marginTop: 6 }}>{runError}</div>
+      )}
     </div>
   );
 }
