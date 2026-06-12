@@ -1,5 +1,5 @@
 /* Hi-fi design system for Neon White Tools.
-   Two themes — light (.hifi.light) and dark (.hifi.dark).
+   Dark-only theme (.hifi.dark).
    Aesthetic cue: OBS / Streamlabs tool chrome with subtle Neon White nods
    (checker motif, mint accent, sharp edges, small data type). */
 
@@ -30,23 +30,6 @@
   app-region: no-drag;
 }
 
-/* ===== LIGHT ===== */
-.hifi.light {
-  --bg:        #f4f4ef;          /* warm paper */
-  --bg-2:      #ebebe4;
-  --surface:   #ffffff;
-  --surface-2: #f8f8f4;
-  --border:    #d6d6cf;
-  --border-2:  #e3e3dc;
-  --text:      #1a1a1a;
-  --text-2:    #4a4a48;
-  --text-3:    #8a8a86;
-  --shadow: 0 1px 0 rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.04);
-  --row-hl: rgba(0,0,0,0.045);        /* subtle hover lift — faint dark tint on paper */
-  --row-hl-center: rgba(0,0,0,0.085);  /* crosshair intersection — a touch stronger */
-}
-
-/* ===== DARK ===== */
 .hifi.dark {
   --bg:        #0e0e0e;
   --bg-2:      #161616;
@@ -500,14 +483,12 @@
   border-color: rgba(0, 224, 154, 0.5);
   color: var(--text);
 }
-.hifi.light .lvl.desired { color: #0a7050; }
 .hifi .lvl.desired .ix { color: var(--accent); }
 .hifi .lvl.excluded {
   background: rgba(245, 166, 35, 0.12);
   border-color: rgba(245, 166, 35, 0.5);
   color: var(--text);
 }
-.hifi.light .lvl.excluded { color: #8a5800; }
 .hifi .lvl.excluded .ix { color: var(--warn); }
 
 /* Level rows — used in seed result card */
