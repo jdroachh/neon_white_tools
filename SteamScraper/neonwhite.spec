@@ -28,6 +28,13 @@ all_hidden = [
     'csv',
     'threading',
     'ctypes',
+    # Steam worker subprocess modules. run_app.py imports steam_worker only
+    # inside the --steam-worker branch, and steam_client/steam_backend are
+    # reached lazily via the backend selector — name them explicitly so the
+    # onedir bundle always collects them.
+    'steam_worker',
+    'steam_client',
+    'steam_backend',
 ]
 
 a = Analysis(

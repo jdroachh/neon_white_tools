@@ -21,7 +21,10 @@ elif getattr(sys, "frozen", False):
 else:
     _HERE = os.path.dirname(os.path.abspath(__file__))
 _LOG_DIR      = os.path.join(_HERE, "logs")
-_LOG_FILE     = os.path.join(_LOG_DIR, "app.log")
+# The Steam worker subprocess sets NW_LOG_FILE so it logs to its own file
+# (steam_worker.log) instead of sharing the parent's rotating app.log — two
+# processes cannot share one RotatingFileHandler on Windows (file locking).
+_LOG_FILE     = os.path.join(_LOG_DIR, os.environ.get("NW_LOG_FILE", "app.log"))
 _MAX_BYTES    = 5 * 1024 * 1024   # 5 MB per file
 _BACKUP_COUNT = 3                  # 3 rotated backups
 _FORMAT       = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
