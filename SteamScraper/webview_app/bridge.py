@@ -1072,8 +1072,7 @@ class JsApi:
                 lb = steam_api.find_leaderboard(internal)
                 if not lb:
                     continue
-                total_lb = steam_api.steam.SteamAPI_ISteamUserStats_GetLeaderboardEntryCount(
-                    steam_api.user_stats, lb)
+                total_lb = steam_api.get_entry_count(lb)
                 fetch = min(total_lb, count_int)
                 start = 1
                 while start <= fetch and not stop_event.is_set():
@@ -1163,8 +1162,7 @@ class JsApi:
                 self._lb_running = False
                 return
 
-            total_lb = steam_api.steam.SteamAPI_ISteamUserStats_GetLeaderboardEntryCount(
-                steam_api.user_stats, lb)
+            total_lb = steam_api.get_entry_count(lb)
             fetch = min(total_lb, count_int)
             all_rows = 0
             start = 1
@@ -1225,11 +1223,8 @@ class JsApi:
         entry = steam_api.get_player_entry(lb, sid)
         if not entry:
             return {"ok": False, "error": "No entry on Global Rankings."}
-        nb = steam_api.steam.SteamAPI_ISteamFriends_GetFriendPersonaName(
-            steam_api.friends, sid)
-        pname = nb.decode("utf-8", errors="replace") if nb else str(sid)
-        total = steam_api.steam.SteamAPI_ISteamUserStats_GetLeaderboardEntryCount(
-            steam_api.user_stats, lb)
+        pname = steam_api.get_persona_name(sid)
+        total = steam_api.get_entry_count(lb)
         return {
             "ok": True,
             "rank": entry.global_rank,
@@ -1275,8 +1270,7 @@ class JsApi:
                 _emit_to("_nwLevelEvent", {"type": "error", "message": "Leaderboard not found."})
                 self._lb_running = False
                 return
-            total_lb = steam_api.steam.SteamAPI_ISteamUserStats_GetLeaderboardEntryCount(
-                steam_api.user_stats, lb)
+            total_lb = steam_api.get_entry_count(lb)
             fetch = min(total_lb, count_int)
             _emit_to("_nwLevelEvent", {
                 "type": "status",
@@ -1385,8 +1379,7 @@ class JsApi:
                 _emit_to("_nwRushEvent", {"type": "error", "message": "Leaderboard not found."})
                 self._lb_running = False
                 return
-            total_lb = steam_api.steam.SteamAPI_ISteamUserStats_GetLeaderboardEntryCount(
-                steam_api.user_stats, lb)
+            total_lb = steam_api.get_entry_count(lb)
             fetch = min(total_lb, count_int)
             _emit_to("_nwRushEvent", {
                 "type": "status",
@@ -1464,11 +1457,8 @@ class JsApi:
         entry = steam_api.get_player_entry(lb, sid)
         if not entry:
             return {"ok": False, "error": f"No entry on {board['label']} {diff.title()} Rush."}
-        nb = steam_api.steam.SteamAPI_ISteamFriends_GetFriendPersonaName(
-            steam_api.friends, sid)
-        pname = nb.decode("utf-8", errors="replace") if nb else str(sid)
-        total = steam_api.steam.SteamAPI_ISteamUserStats_GetLeaderboardEntryCount(
-            steam_api.user_stats, lb)
+        pname = steam_api.get_persona_name(sid)
+        total = steam_api.get_entry_count(lb)
         return {
             "ok": True,
             "rank": entry.global_rank,
@@ -1656,9 +1646,7 @@ class JsApi:
         stop_event = self._lb_stop_event = threading.Event()
 
         def worker():
-            nb = steam_api.steam.SteamAPI_ISteamFriends_GetFriendPersonaName(
-                steam_api.friends, sid)
-            pname = nb.decode("utf-8", errors="replace") if nb else str(sid)
+            pname = steam_api.get_persona_name(sid)
             _emit_to("_nwPlayerEvent", {
                 "type": "status",
                 "message": f"Looking up {pname} across {len(levels_to_search)} levels...",
@@ -1672,8 +1660,7 @@ class JsApi:
                 lb = steam_api.find_leaderboard(internal)
                 if not lb:
                     continue
-                total_lb = steam_api.steam.SteamAPI_ISteamUserStats_GetLeaderboardEntryCount(
-                    steam_api.user_stats, lb)
+                total_lb = steam_api.get_entry_count(lb)
                 entry = steam_api.get_player_entry(lb, sid)
                 if entry:
                     time_str = f"{entry.score / 1000:.3f}"
@@ -1753,12 +1740,8 @@ class JsApi:
         stop_event = self._lb_stop_event = threading.Event()
 
         def worker():
-            nb1 = steam_api.steam.SteamAPI_ISteamFriends_GetFriendPersonaName(
-                steam_api.friends, sid1)
-            pname1 = nb1.decode("utf-8", errors="replace") if nb1 else str(sid1)
-            nb2 = steam_api.steam.SteamAPI_ISteamFriends_GetFriendPersonaName(
-                steam_api.friends, sid2)
-            pname2 = nb2.decode("utf-8", errors="replace") if nb2 else str(sid2)
+            pname1 = steam_api.get_persona_name(sid1)
+            pname2 = steam_api.get_persona_name(sid2)
             _emit_to("_nwCompareEvent", {
                 "type": "status",
                 "message": f"Comparing {pname1} vs {pname2} across {len(levels_to_search)} levels...",
@@ -1778,8 +1761,7 @@ class JsApi:
                 lb = steam_api.find_leaderboard(internal)
                 if not lb:
                     continue
-                total_lb = steam_api.steam.SteamAPI_ISteamUserStats_GetLeaderboardEntryCount(
-                    steam_api.user_stats, lb)
+                total_lb = steam_api.get_entry_count(lb)
                 entries = steam_api.get_player_entries(lb, [sid1, sid2])
                 entry1 = entries.get(sid1)
                 entry2 = entries.get(sid2)

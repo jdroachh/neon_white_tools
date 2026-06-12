@@ -285,6 +285,12 @@ def get_entry_count(lb_handle) -> int:
     return steam.SteamAPI_ISteamUserStats_GetLeaderboardEntryCount(user_stats, lb_handle)
 
 
+def get_persona_name(steam_id) -> str:
+    """Return the cached persona name for a Steam ID, or the numeric ID as a string."""
+    nb = steam.SteamAPI_ISteamFriends_GetFriendPersonaName(friends, steam_id)
+    return nb.decode("utf-8", errors="replace") if nb else str(steam_id)
+
+
 def fetch_batch(lb_handle, start, end, _poll_interval=0.02):
     call = steam.SteamAPI_ISteamUserStats_DownloadLeaderboardEntries(
         user_stats, lb_handle, 0, start, end
