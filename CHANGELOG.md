@@ -22,6 +22,7 @@ All notable changes to Neon White Tools are documented here.
 - Serialize concurrent leaderboard/finder runs and lock-guard the Steam callback pump to prevent overlap (7714446, 4a797d2)
 - Copied Player Lookup rank drops the leading `#` — matches CSV, spreadsheet-friendly (aab80f7)
 - Medal classification rounds times to the ms grid, fixing boundary mis-promotion into a harder tier (e.g. Topaz vs Sapphire) when a time sat exactly on a threshold (5577f49)
+- App version no longer renders blank in the header/Settings when the bridge is slow to wire up on launch — the version fetch now retries past the first-boot window
 - Bingo worker: input hardening (team id, length caps, settings ranges) + auth-token redaction in client frames (650246d, ab1b337)
 
 ### Docs

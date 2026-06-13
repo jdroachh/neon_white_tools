@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { PageHead, Field, Btn, ErrorBanner, Seg } from "../shared.jsx";
 import { getConfig, saveConfigField, initSteam, pickDllFile, pickFolder, applyAccent, openLogFolder, getAppVersion, findSteamDll, checkForUpdate, openExternalUrl, openConfigFolder, exportConfig, importConfig } from "../api.js";
+import { retryUntilOk } from "../lib/retry.js";
 import { loadProfiles, saveProfiles, addProfile, updateProfile, removeProfile, moveProfile, validateProfile, MAX as MAX_PROFILES } from "../lib/savedProfiles.js";
 import { loadSeeds, saveSeeds, removeSeed, moveSeed, updateNickname as updateSeedNickname, MAX as MAX_SEEDS } from "../lib/savedSeeds.js";
 import { loadRosters, saveRosters, removeRoster, moveRoster, updateNickname as updateRosterNickname, MAX as MAX_ROSTERS } from "../lib/savedRosters.js";
@@ -51,7 +52,8 @@ export default function Settings({ onSteamConnected, onFolderChange, steamReady 
     loadProfiles().then(setSavedProfiles);
     loadSeeds().then(setSavedSeeds);
     loadRosters().then(setSavedRosters);
-    getAppVersion().then(v => setAppVersion(v || ""));
+    // Retry past the first-boot window so the version isn't left blank (see shared.jsx).
+    retryUntilOk(getAppVersion, v => !!v, { label: "getAppVersion" }).then(v => setAppVersion(v || ""));
     checkForUpdate().then(u => {
       if (u && u.ok && u.update_available) {
         setUpdateAvail({ latest: u.latest, release_url: u.release_url });

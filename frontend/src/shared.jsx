@@ -5,6 +5,7 @@
  */
 import React, { useState, useEffect } from "react";
 import { getConfig, saveConfigField, getAppVersion } from "./api.js";
+import { retryUntilOk } from "./lib/retry.js";
 
 export const RUSHES = [
   { name: "White / Mikey", count: 96 },
@@ -85,7 +86,9 @@ export function Sidebar({ active = "parse", onNav, steamReady = false, playerNam
     getConfig().then(cfg => {
       if (cfg.sidebar_collapsed) setCollapsed(c => ({ ...c, ...cfg.sidebar_collapsed }));
     });
-    getAppVersion().then(setVersion);
+    // Retry past the first-boot window: a bare getAppVersion() can reject before
+    // pywebview finishes wiring the bridge, leaving the version blank for the session.
+    retryUntilOk(getAppVersion, v => !!v, { label: "getAppVersion" }).then(v => { if (v) setVersion(v); });
   }, []);
 
   function toggle(section) {
