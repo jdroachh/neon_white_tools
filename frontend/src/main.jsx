@@ -4,7 +4,7 @@ import "./styles.css";
 import "./mc-styles.css";
 
 import { Sidebar } from "./shared.jsx";
-import { getSteamStatus, getConfig, applyAccent, saveConfigFields, initSteam, checkForUpdate, openExternalUrl } from "./api.js";
+import { getSteamStatus, getConfig, applyAccent, saveConfigFields, initSteam, disconnectSteam, checkForUpdate, openExternalUrl } from "./api.js";
 import { retryUntilOk } from "./lib/retry.js";
 import Welcome       from "./pages/Welcome.jsx";
 import SeedParser    from "./pages/SeedParser.jsx";
@@ -207,6 +207,17 @@ function App() {
     }
   }
 
+  // Canonical disconnect action: releases the session and clears global state on
+  // success. Returns the bridge result so each surface can present errors its own
+  // way (Sidebar alerts; Settings shows an inline message).
+  async function handleDisconnect() {
+    const r = await disconnectSteam().catch(() => null);
+    if (r && r.ok) {
+      setSteamStatus({ ready: false, playerName: "", steamId: 0 });
+    }
+    return r;
+  }
+
   function handleNav(key) {
     if (key !== "welcome") setShowWelcome(false);
     setPage(key);
@@ -230,7 +241,11 @@ function App() {
          style={{ width: "100vw", height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
         <Sidebar active={page} onNav={handleNav}
-                 steamReady={steamStatus.ready} playerName={steamStatus.playerName} />
+                 steamReady={steamStatus.ready} playerName={steamStatus.playerName}
+                 onDisconnect={async () => {
+                   const r = await handleDisconnect();
+                   if (!r || !r.ok) alert((r && r.error) || "Disconnect failed.");
+                 }} />
         <div className="main" style={{ flex: 1, minWidth: 0, overflow: "hidden", position: "relative", display: "flex", flexDirection: "column" }}>
           {updateInfo && (
             <UpdateBanner
@@ -264,6 +279,7 @@ function App() {
             flexDirection: "column", flex: 1, minHeight: 0, overflow: "hidden",
           }}>
             <Settings onSteamConnected={setSteamStatus} onFolderChange={setOutputFolder}
+                      steamReady={steamStatus.ready} onDisconnect={handleDisconnect}
                       visible={!showWelcome && page === "settings"} />
           </div>
           {/* Post-welcome landing panel */}

@@ -18,7 +18,12 @@ from logger import get_logger
 
 logger = get_logger("steam_backend")
 
-_USE_WORKER = os.environ.get("NW_STEAM_WORKER", "").strip().lower() in ("1", "true", "yes", "on")
+# Default-ON since Phase 3 (the worker is the shipping backend): the worker is
+# selected unless NW_STEAM_WORKER is explicitly set to a falsy value. Setting it
+# to 0/false/no/off is the in-process rollback (the only backend without
+# disconnect/crash-isolation).
+_FLAG = os.environ.get("NW_STEAM_WORKER", "").strip().lower()
+_USE_WORKER = _FLAG not in ("0", "false", "no", "off")
 
 # True when the worker backend is active. bridge.py reads this to decide whether
 # to run its own 100ms callback pump + cheater fetch (the in-process backend has
@@ -27,7 +32,7 @@ IS_WORKER = _USE_WORKER
 
 if _USE_WORKER:
     import steam_client as steam
-    logger.info("Steam backend: worker subprocess (NW_STEAM_WORKER on)")
+    logger.info("Steam backend: worker subprocess (default; NW_STEAM_WORKER=%r)", _FLAG or "unset")
 else:
     import steam_api as steam
-    logger.info("Steam backend: in-process steam_api (default)")
+    logger.info("Steam backend: in-process steam_api (rollback; NW_STEAM_WORKER=%r)", _FLAG)

@@ -106,6 +106,11 @@ export async function initSteam(dllPath) {
   return api.init_steam(dllPath);
 }
 
+export async function disconnectSteam() {
+  const api = await waitForApi();
+  return api.disconnect_steam();
+}
+
 export async function getSteamStatus() {
   const api = await waitForApi();
   return api.get_steam_status();

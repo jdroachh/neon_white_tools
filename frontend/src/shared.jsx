@@ -44,6 +44,7 @@ export const Icon = ({ name, size = 14 }) => {
     case "crown":    return <svg viewBox="0 0 16 16" style={s}><g {...sp}><path d="M2 11l1-5 2.5 3L8 4l2.5 5L13 6l1 5z"/><path d="M2.5 13.5h11"/></g></svg>;
     case "trend":    return <svg viewBox="0 0 16 16" style={s}><g {...sp}><path d="M3 2.5v11h11"/><path d="M5 11l2.5-2.5 2 1.5L13.3 5.4"/><path d="M11.3 5.4h2v2"/></g></svg>;
     case "refresh":  return <svg viewBox="0 0 16 16" style={s}><g {...sp}><path d="M13 3v3.5H9.5"/><path d="M3 13V9.5H6.5"/><path d="M12.5 6.5A5 5 0 003.5 5M3.5 9.5A5 5 0 0012.5 11"/></g></svg>;
+    case "power":    return <svg viewBox="0 0 16 16" style={s}><g {...sp}><path d="M8 2v6"/><path d="M4.8 4.6a4.5 4.5 0 106.4 0"/></g></svg>;
     default: return null;
   }
 };
@@ -76,7 +77,7 @@ const NAV_ITEMS = {
 };
 
 /* onNav: (key: string) => void — called when a nav item is clicked */
-export function Sidebar({ active = "parse", onNav, steamReady = false, playerName = "" }) {
+export function Sidebar({ active = "parse", onNav, steamReady = false, playerName = "", onDisconnect }) {
   const [collapsed, setCollapsed] = useState({ leaderboard: false, rush: false, resources: false });
   const [version, setVersion] = useState("");
 
@@ -143,7 +144,16 @@ export function Sidebar({ active = "parse", onNav, steamReady = false, playerNam
       <div className="sidebar-footer">
         <div className="row">
           <span className={"dot " + (steamReady ? "ok" : "bad")}></span>
-          {steamReady ? (playerName || "Connected") : "Not connected"}
+          <span className="sf-name" title={steamReady ? (playerName || "Connected") : "Not connected"}>
+            {steamReady ? (playerName || "Connected") : "Not connected"}
+          </span>
+          {steamReady && onDisconnect && (
+            <button type="button" className="sf-disc"
+                    title="Disconnect from Steam" aria-label="Disconnect from Steam"
+                    onClick={() => { if (window.confirm("Disconnect from Steam?")) onDisconnect(); }}>
+              <Icon name="power" />
+            </button>
+          )}
         </div>
       </div>
     </div>

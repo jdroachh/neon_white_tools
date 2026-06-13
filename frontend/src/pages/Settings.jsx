@@ -16,12 +16,13 @@ const ACCENT_PRESETS = [
   { hex: "#fb7185", label: "Rose"    },
 ];
 
-export default function Settings({ onSteamConnected, onFolderChange, visible = false }) {
+export default function Settings({ onSteamConnected, onFolderChange, steamReady = false, onDisconnect, visible = false }) {
   const [dllPath, setDllPath]         = useState("");
   const [outputFolder, setOutputFolder] = useState("");
   const [status, setStatus]           = useState("");
   const [error, setError]             = useState("");
   const [connecting, setConnecting]   = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
   const [accentColor, setAccentColor] = useState("#00e09a");
   const [savedProfiles, setSavedProfiles] = useState([]);
   const [profileErrors, setProfileErrors] = useState({});
@@ -57,6 +58,12 @@ export default function Settings({ onSteamConnected, onFolderChange, visible = f
       }
     }).catch(() => {});
   }, []);
+
+  // If the session is dropped from elsewhere (e.g. the sidebar power button),
+  // clear the stale "Connected as …" line so Settings stops claiming we're up.
+  useEffect(() => {
+    if (!steamReady) setStatus(s => (s.startsWith("Connected") ? "" : s));
+  }, [steamReady]);
 
   useEffect(() => {
     if (visible) {
@@ -122,6 +129,20 @@ export default function Settings({ onSteamConnected, onFolderChange, visible = f
       onSteamConnected && onSteamConnected({ ready: true, playerName: r.player_name, steamId: r.steam_id });
     } else {
       setError(r.message || "Connection failed.");
+      setStatus("");
+    }
+  }
+
+  async function handleDisconnect() {
+    if (!onDisconnect) return;
+    setError(""); setStatus("Disconnecting…");
+    setDisconnecting(true);
+    const r = await onDisconnect();
+    setDisconnecting(false);
+    if (r && r.ok) {
+      setStatus("Disconnected.");
+    } else {
+      setError((r && r.error) || "Disconnect failed.");
       setStatus("");
     }
   }
@@ -321,9 +342,16 @@ export default function Settings({ onSteamConnected, onFolderChange, visible = f
             {status && (
               <div style={{ fontSize: 11, color: "var(--good, #3ddc84)" }}>{status}</div>
             )}
-            <Btn kind="primary" size="lg" onClick={handleConnect} disabled={connecting}>
-              {connecting ? "Connecting..." : "Connect to Steam"}
-            </Btn>
+            <div style={{ display: "flex", gap: 8 }}>
+              <Btn kind="primary" size="lg" onClick={handleConnect} disabled={connecting}>
+                {connecting ? "Connecting..." : "Connect to Steam"}
+              </Btn>
+              {steamReady && (
+                <Btn kind="ghost" size="lg" onClick={handleDisconnect} disabled={disconnecting}>
+                  {disconnecting ? "Disconnecting…" : "Disconnect"}
+                </Btn>
+              )}
+            </div>
             <div style={{ borderTop: "1px solid var(--border)", margin: "4px 0" }} />
             <Field label="Default output folder"
                    hint="Used as the default save location for CSV exports.">

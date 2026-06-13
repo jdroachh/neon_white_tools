@@ -818,6 +818,26 @@ class JsApi:
             "steam_id":    str(steam.logged_in_steam_id) if ok else "",
         }
 
+    def disconnect_steam(self) -> dict:
+        """Release the Steam session by killing the worker subprocess — the only
+        thing that frees the appid (Steam binds it to the SteamAPI_Init PID until
+        that PID dies). Refused mid-run so we never yank the session out from under
+        an in-flight leaderboard/finder worker.
+
+        Only the worker backend can disconnect; in-process (NW_STEAM_WORKER=0) has
+        no way to release the appid without exiting the whole app, so it's refused.
+        """
+        if not IS_WORKER:
+            return {"ok": False,
+                    "error": "Disconnect requires the worker backend (unset NW_STEAM_WORKER)."}
+        if getattr(self, "_lb_running", False) or getattr(self, "_finder_running", False):
+            return {"ok": False, "error": "An operation is running — stop it first."}
+        try:
+            steam.shutdown()
+        except Exception as e:
+            return {"ok": False, "error": f"Disconnect failed: {e}"}
+        return {"ok": True}
+
     def get_cheater_count(self) -> int:
         return len(steam.cheater_ids)
 
