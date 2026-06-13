@@ -8,6 +8,27 @@ All notable changes to Neon White Tools are documented here.
 
 ---
 
+## [1.7.0] — 2026-06-12
+
+### Added
+- Steam now runs in an isolated worker subprocess (default backend): a **Disconnect** button releases the appid so the real game can launch while the tool stays open, and the old steam-exit hard crash is contained to the worker (the app survives Steam closing). `NW_STEAM_WORKER=0` rolls back to in-process (aafd3b0, 84356bb, cf15759, f075caf)
+- Projected Rank tool — find where a time would rank on a board (9727aea)
+- Route Videos: segmented route picker for levels with multiple routes (48fea7b)
+- Two new bingo squares: PB any level, 21 pummel boosts (fa60584)
+
+### Fixed
+- Multi Compare surfaces run errors in the panel instead of failing silently (c88fb99)
+- Multi Compare retries a slow initial levels/chapters load instead of coming up empty (9f9ba3f)
+- Serialize concurrent leaderboard/finder runs and lock-guard the Steam callback pump to prevent overlap (7714446, 4a797d2)
+- Copied Player Lookup rank drops the leading `#` — matches CSV, spreadsheet-friendly (aab80f7)
+- Medal classification rounds times to the ms grid, fixing boundary mis-promotion into a harder tier (e.g. Topaz vs Sapphire) when a time sat exactly on a threshold (5577f49)
+- Bingo worker: input hardening (team id, length caps, settings ranges) + auth-token redaction in client frames (650246d, ab1b337)
+
+### Docs
+- USAGE/RELEASING corrections: drop nonexistent theme setting, fix stale config/log paths + fonts comment, %APPDATA% and repo-root-relative paths (ad7368e, 000812a, 12a6b70, 4f0470a)
+
+---
+
 ## [1.6.0] — 2026-06-02
 
 ### Added
