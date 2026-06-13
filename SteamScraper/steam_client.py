@@ -85,6 +85,25 @@ _id_counter = 0
 _id_lock = threading.Lock()
 _job_handle = None                  # Windows Job Object; kept alive intentionally
 
+# Crash detection. _intentional_stop is True while we deliberately kill the worker
+# (disconnect / clean shutdown) so its death doesn't masquerade as a crash. _on_lost
+# fires only on UNEXPECTED worker death (Steam client exit, worker fault) so the
+# bridge can push a lost-connection event to the UI.
+_intentional_stop = False
+_on_lost = None
+# Liveness keyed off the reader thread (stdout EOF), not proc.poll(): after a
+# crash, poll() can briefly still read None while the OS tears the process down,
+# which would make _ensure_running write to a dead pipe instead of respawning.
+# The reader sets this False the instant it sees EOF — an authoritative signal.
+_proc_alive = False
+
+
+def set_on_lost(callback):
+    """Register a 0-arg callback fired when the worker dies unexpectedly (not via
+    our own disconnect/shutdown). The bridge uses this to notify the webview."""
+    global _on_lost
+    _on_lost = callback
+
 
 class _Slot:
     __slots__ = ("event", "ok", "result", "error")
@@ -191,7 +210,9 @@ def _create_job_object(pid: int):
 
 def _spawn():
     """Spawn the worker and start its reader thread. Caller holds _proc_lock."""
-    global _proc
+    global _proc, _intentional_stop, _proc_alive
+    _intentional_stop = False        # a fresh worker; its next death is a crash unless we kill it
+    _proc_alive = True
     env = os.environ.copy()
     env["NW_PARENT_PID"] = str(os.getpid())
     env["NW_LOG_FILE"] = "steam_worker.log"
@@ -221,7 +242,7 @@ def _spawn():
 
 def _ensure_running():
     with _proc_lock:
-        if _proc is None or _proc.poll() is not None:
+        if _proc is None or not _proc_alive or _proc.poll() is not None:
             _spawn()
 
 
@@ -253,11 +274,14 @@ def _reader_loop(proc):
             slot.error = msg.get("error")
             slot.event.set()
     finally:
-        _on_worker_exit()
+        _on_worker_exit(proc)
 
 
-def _on_worker_exit():
-    """Worker stdout closed: mark disconnected and wake every pending caller."""
+def _on_worker_exit(proc):
+    """Worker stdout closed: mark disconnected and wake every pending caller.
+    `proc` is the worker this reader owned — guard against a newer worker that a
+    concurrent respawn may already have installed as `_proc`."""
+    global _proc_alive
     _reset_mirror()
     with _pending_lock:
         pending = list(_pending.values())
@@ -267,8 +291,26 @@ def _on_worker_exit():
             slot.error = "worker process exited"
             slot.ok = False
             slot.event.set()
-    code = _proc.poll() if _proc is not None else None
-    logger.info("steam_worker reader exited (worker exit code=%s)", code)
+
+    # Only clear liveness if this IS the current worker — a faster respawn may have
+    # already replaced _proc, and we must not mark the new one dead. Flip the flag
+    # BEFORE firing on_lost so a reconnect triggered from the callback respawns.
+    with _proc_lock:
+        is_current = (_proc is proc)
+        if is_current:
+            _proc_alive = False
+    logger.info("steam_worker reader exited (worker exit code=%s, current=%s)",
+                proc.poll(), is_current)
+
+    # Unexpected death of the current worker (Steam client exit, worker fault) —
+    # not our own kill: tell the bridge so it can flip the UI to "Not connected".
+    # Subsumes the old steam-exit hard crash, which now only takes down the worker.
+    if is_current and not _intentional_stop and _on_lost is not None:
+        logger.warning("worker died unexpectedly; firing on_lost")
+        try:
+            _on_lost()
+        except Exception:
+            logger.debug("on_lost callback raised", exc_info=True)
 
 
 def _handle_event(msg: dict):
@@ -411,8 +453,10 @@ def shutdown(timeout: float = 1.0):
 
     Note: not held under _proc_lock — _request -> _ensure_running needs that lock,
     and threading.Lock isn't reentrant, so holding it here would deadlock."""
+    global _intentional_stop
     if _proc is None:
         return
+    _intentional_stop = True         # this death is deliberate — don't fire on_lost
     try:
         _request("shutdown", timeout=timeout)
     except SteamWorkerError:
@@ -422,10 +466,11 @@ def shutdown(timeout: float = 1.0):
 
 def kill():
     """Terminate the worker and wait. Safe to call directly."""
-    global _proc
+    global _proc, _intentional_stop
     proc = _proc
     if proc is None:
         return
+    _intentional_stop = True         # deliberate kill — don't fire on_lost
     if proc.poll() is None:
         proc.terminate()
         try:

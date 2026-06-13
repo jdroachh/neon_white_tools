@@ -204,11 +204,19 @@ def _start_pump():
 
 def _pump_loop():
     import time
+    ticks = 0
     while steam_api.steam_ready:
         try:
             steam_api.run_callbacks()
         except Exception:
             logger.debug("run_callbacks raised in pump", exc_info=True)
+        # ~once/second, check the Steam client is still up. If it exited, die now
+        # (clean process exit => parent reader EOF => on_lost => UI flips to "Not
+        # connected") rather than waiting for the next interface call to fault.
+        ticks += 1
+        if ticks % 10 == 0 and not steam_api.is_steam_running():
+            logger.warning("Steam client is no longer running; worker self-terminating")
+            os._exit(1)
         time.sleep(0.1)
 
 

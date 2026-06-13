@@ -66,6 +66,17 @@ def run_callbacks():
         steam.SteamAPI_RunCallbacks()
 
 
+def is_steam_running() -> bool:
+    """True while the Steam client is up. Flat API call (no interface needed) —
+    safe to poll even after Steam exits, unlike GetLeaderboard/etc which fault
+    natively once the client is gone. The worker pump uses this to detect a
+    Steam-client exit promptly instead of waiting for the next interface call."""
+    try:
+        return bool(steam.SteamAPI_IsSteamRunning())
+    except Exception:
+        return False
+
+
 # ── ctypes Structures ─────────────────────────────────────────────────────
 class LeaderboardFindResult(ctypes.Structure):
     _fields_ = [("leaderboard_handle", ctypes.c_uint64),
@@ -239,6 +250,10 @@ def init_steam(dll_path):
     steam.SteamAPI_ISteamFriends_GetFriendPersonaName.argtypes = [
         ctypes.c_void_p, ctypes.c_uint64
     ]
+
+    # Flat API liveness probe — lets the worker detect a Steam-client exit without
+    # making an interface call (which faults natively once Steam is gone).
+    steam.SteamAPI_IsSteamRunning.restype = ctypes.c_bool
 
     steam_ready = True
     return True, "Connected"

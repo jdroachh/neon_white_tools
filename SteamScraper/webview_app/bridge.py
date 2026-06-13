@@ -413,6 +413,13 @@ class JsApi:
         # overlapping workers.
         self._run_gate = threading.Lock()
 
+        # Worker backend: when the worker dies unexpectedly (Steam client exit,
+        # worker fault — NOT a deliberate disconnect), push a lost-connection event
+        # so the UI flips to "Not connected". This is what turns the old steam-exit
+        # hard crash into graceful degradation.
+        if IS_WORKER:
+            steam.set_on_lost(lambda: _emit_to("_nwSteamEvent", {"type": "lost"}))
+
     # ── Smoke test ────────────────────────────────────────────────────────────
 
     def ping(self) -> dict:

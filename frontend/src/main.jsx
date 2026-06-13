@@ -196,6 +196,19 @@ function App() {
     }).catch(() => {});
   }, []);
 
+  // Worker backend pushes _nwSteamEvent {type:"lost"} when the Steam worker dies
+  // unexpectedly (Steam client exit / worker fault — not a deliberate disconnect).
+  // Flip to "Not connected" so the sidebar reflects reality; the user reconnects
+  // via the existing Settings → Connect flow. Quiet by design — no banner.
+  useEffect(() => {
+    window._nwSteamEvent = (e) => {
+      if (e && e.type === "lost") {
+        setSteamStatus({ ready: false, playerName: "", steamId: 0 });
+      }
+    };
+    return () => { delete window._nwSteamEvent; };
+  }, []);
+
   function handleDismissUpdate() {
     const latest = updateInfo && updateInfo.latest;
     setUpdateInfo(null);
