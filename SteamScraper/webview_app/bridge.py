@@ -243,7 +243,7 @@ def _get_medal(level_name: str, secs: float) -> str:
     code = _resolve_level_code(level_name)
     if not code:
         return ""
-    us = int(secs * 1_000_000)
+    us = round(secs * 1000) * 1000   # snap to ms grid; int(secs*1_000_000) truncated 16.08 -> 16079999
     # Community medals are faster than DEV — check hardest first.
     bd = _BD_MEDAL_DATA.get(code)
     if bd and us <= bd[0]: return "BLOOD DIAMOND"
@@ -272,7 +272,7 @@ def _next_medal(level_name: str, secs: float) -> dict | None:
     code = _resolve_level_code(level_name)
     if not code:
         return None
-    us = int(secs * 1_000_000)
+    us = round(secs * 1000) * 1000   # snap to ms grid; int(secs*1_000_000) truncated 16.08 -> 16079999
     tiers: list[tuple[str, int]] = []  # (name, threshold_us)
     bd = _BD_MEDAL_DATA.get(code)
     if bd: tiers.append(("BLOOD DIAMOND", bd[0]))
