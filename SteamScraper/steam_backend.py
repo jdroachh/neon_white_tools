@@ -20,6 +20,11 @@ logger = get_logger("steam_backend")
 
 _USE_WORKER = os.environ.get("NW_STEAM_WORKER", "").strip().lower() in ("1", "true", "yes", "on")
 
+# True when the worker backend is active. bridge.py reads this to decide whether
+# to run its own 100ms callback pump + cheater fetch (the in-process backend has
+# neither built in; the worker runs both itself).
+IS_WORKER = _USE_WORKER
+
 if _USE_WORKER:
     import steam_client as steam
     logger.info("Steam backend: worker subprocess (NW_STEAM_WORKER on)")

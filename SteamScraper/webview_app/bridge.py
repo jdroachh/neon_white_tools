@@ -26,6 +26,11 @@ from .models.multi_compare import MultiCompareRequest
 from . import resources as _resources
 from . import multi_compare_cache
 
+# Steam access goes through the backend selector: in-process steam_api (default)
+# or the worker subprocess (NW_STEAM_WORKER=1). `steam` is a drop-in for the old
+# `import steam_api`; IS_WORKER gates the bridge-side callback pump (see init_steam).
+from steam_backend import steam, IS_WORKER
+
 _resources.start_background_fetch()
 
 APP_VERSION = "1.6.0"
@@ -781,44 +786,46 @@ class JsApi:
     # ── Steam runtime ─────────────────────────────────────────────────────────
 
     def init_steam(self, dll_path: str) -> dict:
-        import steam_api
-        ok, msg = steam_api.init_steam(dll_path)
+        ok, msg = steam.init_steam(dll_path)
         if ok:
             cfg = _load_config()
             cfg["dll_path"] = dll_path
             _save_config(cfg)
-            if not getattr(self, "_steam_polling", False):
+            # The in-process backend has no internal callback pump and doesn't
+            # auto-fetch the cheater list, so the bridge drives both here. The
+            # worker backend runs its own pump + cheater fetch inside the child,
+            # so we skip this entirely (steam.run_callbacks/fetch_cheater_list are
+            # no-ops there anyway).
+            if not IS_WORKER and not getattr(self, "_steam_polling", False):
                 self._steam_polling = True
                 import time as _time
 
                 def _poll():
-                    while steam_api.steam_ready:
+                    while steam.steam_ready:
                         try:
-                            steam_api.run_callbacks()
+                            steam.run_callbacks()
                         except Exception:
                             pass
                         _time.sleep(0.1)
                     self._steam_polling = False
 
                 threading.Thread(target=_poll, daemon=True).start()
-                threading.Thread(target=steam_api.fetch_cheater_list, daemon=True).start()
+                threading.Thread(target=steam.fetch_cheater_list, daemon=True).start()
         return {
             "ok":          ok,
             "message":     msg,
-            "player_name": steam_api.player_name if ok else "",
-            "steam_id":    str(steam_api.logged_in_steam_id) if ok else "",
+            "player_name": steam.player_name if ok else "",
+            "steam_id":    str(steam.logged_in_steam_id) if ok else "",
         }
 
     def get_cheater_count(self) -> int:
-        import steam_api
-        return len(steam_api.cheater_ids)
+        return len(steam.cheater_ids)
 
     def get_steam_status(self) -> dict:
-        import steam_api
         return {
-            "ready":       steam_api.steam_ready,
-            "player_name": steam_api.player_name,
-            "steam_id":    str(steam_api.logged_in_steam_id),
+            "ready":       steam.steam_ready,
+            "player_name": steam.player_name,
+            "steam_id":    str(steam.logged_in_steam_id),
         }
 
     def pick_dll_file(self) -> dict:
@@ -1028,8 +1035,8 @@ class JsApi:
             self._lb_running = False
 
     def run_global_export(self, count: str, out_mode: str = "display", folder: str = "") -> dict:
-        import steam_api, time as _time, csv as _csv
-        if not steam_api.steam_ready:
+        import time as _time, csv as _csv
+        if not steam.steam_ready:
             return {"ok": False, "error": "Steam not connected. Connect in Settings first."}
         if getattr(self, "_lb_running", False):
             return {"ok": False, "error": "An operation is already running."}
@@ -1069,15 +1076,15 @@ class JsApi:
                     "type": "progress", "level_idx": idx,
                     "total_levels": total_levels, "level_name": display,
                 })
-                lb = steam_api.find_leaderboard(internal)
+                lb = steam.find_leaderboard(internal)
                 if not lb:
                     continue
-                total_lb = steam_api.get_entry_count(lb)
+                total_lb = steam.get_entry_count(lb)
                 fetch = min(total_lb, count_int)
                 start = 1
                 while start <= fetch and not stop_event.is_set():
-                    end = min(start + steam_api.BATCH_SIZE - 1, fetch)
-                    batch = steam_api.fetch_batch(lb, start, end)
+                    end = min(start + steam.BATCH_SIZE - 1, fetch)
+                    batch = steam.fetch_batch(lb, start, end)
                     if not batch:
                         break
                     for e in batch:
@@ -1121,8 +1128,8 @@ class JsApi:
         client-side per modders — that's not Steam-queryable. See memory
         [[project-global-neon-rankings]] for the discrepancy.
         """
-        import steam_api, time as _time, csv as _csv
-        if not steam_api.steam_ready:
+        import time as _time, csv as _csv
+        if not steam.steam_ready:
             return {"ok": False, "error": "Steam not connected. Connect in Settings first."}
         if getattr(self, "_lb_running", False):
             return {"ok": False, "error": "An operation is already running."}
@@ -1153,7 +1160,7 @@ class JsApi:
                 writer.writeheader()
 
             _emit_to("_nwNeonRankingsEvent", {"type": "status", "message": "Finding leaderboard..."})
-            lb = steam_api.find_leaderboard("GlobalNeonRankings")
+            lb = steam.find_leaderboard("GlobalNeonRankings")
             if not lb:
                 _emit_to("_nwNeonRankingsEvent", {"type": "error",
                                                   "message": "GlobalNeonRankings leaderboard not found."})
@@ -1162,15 +1169,15 @@ class JsApi:
                 self._lb_running = False
                 return
 
-            total_lb = steam_api.get_entry_count(lb)
+            total_lb = steam.get_entry_count(lb)
             fetch = min(total_lb, count_int)
             all_rows = 0
             start = 1
             while start <= fetch and not stop_event.is_set():
-                end = min(start + steam_api.BATCH_SIZE - 1, fetch)
+                end = min(start + steam.BATCH_SIZE - 1, fetch)
                 _emit_to("_nwNeonRankingsEvent", {"type": "progress",
                                                   "current": end, "total": fetch})
-                batch = steam_api.fetch_batch(lb, start, end)
+                batch = steam.fetch_batch(lb, start, end)
                 if not batch:
                     break
                 for e in batch:
@@ -1209,22 +1216,21 @@ class JsApi:
         """Single-player lookup on GlobalNeonRankings. Story-only — see
         [[project-global-neon-rankings]]. Returns {ok, rank, score_ms, time}
         or {ok: False, error} when the player has no entry."""
-        import steam_api
-        if not steam_api.steam_ready:
+        if not steam.steam_ready:
             return {"ok": False, "error": "Steam not connected."}
         try:
             sid = int(str(steam_id).strip())
         except ValueError:
             return {"ok": False, "error": "Invalid Steam ID."}
 
-        lb = steam_api.find_leaderboard("GlobalNeonRankings")
+        lb = steam.find_leaderboard("GlobalNeonRankings")
         if not lb:
             return {"ok": False, "error": "GlobalNeonRankings leaderboard not found."}
-        entry = steam_api.get_player_entry(lb, sid)
+        entry = steam.get_player_entry(lb, sid)
         if not entry:
             return {"ok": False, "error": "No entry on Global Rankings."}
-        pname = steam_api.get_persona_name(sid)
-        total = steam_api.get_entry_count(lb)
+        pname = steam.get_persona_name(sid)
+        total = steam.get_entry_count(lb)
         return {
             "ok": True,
             "rank": entry.global_rank,
@@ -1236,8 +1242,8 @@ class JsApi:
 
     def run_level_search(self, level_name: str, count: str,
                          out_mode: str = "display", folder: str = "") -> dict:
-        import steam_api, time as _time, csv as _csv
-        if not steam_api.steam_ready:
+        import time as _time, csv as _csv
+        if not steam.steam_ready:
             return {"ok": False, "error": "Steam not connected. Connect in Settings first."}
         if getattr(self, "_lb_running", False):
             return {"ok": False, "error": "An operation is already running."}
@@ -1265,12 +1271,12 @@ class JsApi:
 
         def worker():
             _emit_to("_nwLevelEvent", {"type": "status", "message": f"Finding {display}..."})
-            lb = steam_api.find_leaderboard(internal)
+            lb = steam.find_leaderboard(internal)
             if not lb:
                 _emit_to("_nwLevelEvent", {"type": "error", "message": "Leaderboard not found."})
                 self._lb_running = False
                 return
-            total_lb = steam_api.get_entry_count(lb)
+            total_lb = steam.get_entry_count(lb)
             fetch = min(total_lb, count_int)
             _emit_to("_nwLevelEvent", {
                 "type": "status",
@@ -1279,8 +1285,8 @@ class JsApi:
             all_entries = []
             start = 1
             while start <= fetch and not stop_event.is_set():
-                end = min(start + steam_api.BATCH_SIZE - 1, fetch)
-                batch = steam_api.fetch_batch(lb, start, end)
+                end = min(start + steam.BATCH_SIZE - 1, fetch)
+                batch = steam.fetch_batch(lb, start, end)
                 if not batch:
                     break
                 for e in batch:
@@ -1339,8 +1345,8 @@ class JsApi:
         """Top-N fetch on a Level Rush board. Clone of run_level_search streaming
         via _nwRushEvent — no medal field (no rush threshold data), times as
         mm:ss.mmm via _fmt_ms_clock."""
-        import steam_api, time as _time, csv as _csv
-        if not steam_api.steam_ready:
+        import time as _time, csv as _csv
+        if not steam.steam_ready:
             return {"ok": False, "error": "Steam not connected. Connect in Settings first."}
         if getattr(self, "_lb_running", False):
             return {"ok": False, "error": "An operation is already running."}
@@ -1374,12 +1380,12 @@ class JsApi:
 
         def worker():
             _emit_to("_nwRushEvent", {"type": "status", "message": f"Finding {label} Rush..."})
-            lb = steam_api.find_leaderboard(board_name)
+            lb = steam.find_leaderboard(board_name)
             if not lb:
                 _emit_to("_nwRushEvent", {"type": "error", "message": "Leaderboard not found."})
                 self._lb_running = False
                 return
-            total_lb = steam_api.get_entry_count(lb)
+            total_lb = steam.get_entry_count(lb)
             fetch = min(total_lb, count_int)
             _emit_to("_nwRushEvent", {
                 "type": "status",
@@ -1388,8 +1394,8 @@ class JsApi:
             all_entries = []
             start = 1
             while start <= fetch and not stop_event.is_set():
-                end = min(start + steam_api.BATCH_SIZE - 1, fetch)
-                batch = steam_api.fetch_batch(lb, start, end)
+                end = min(start + steam.BATCH_SIZE - 1, fetch)
+                batch = steam.fetch_batch(lb, start, end)
                 if not batch:
                     break
                 for e in batch:
@@ -1434,8 +1440,7 @@ class JsApi:
         """Single-player lookup on a Level Rush board. Synchronous on the
         pywebview worker thread. Returns {ok, rank, name, total, time} or
         {ok: False, error}."""
-        import steam_api
-        if not steam_api.steam_ready:
+        if not steam.steam_ready:
             return {"ok": False, "error": "Steam not connected."}
         board = RUSH_BOARD_LOOKUP.get(str(rush_key).strip().lower())
         if not board:
@@ -1451,14 +1456,14 @@ class JsApi:
         except ValueError:
             return {"ok": False, "error": "Steam ID must be a 17-digit number."}
 
-        lb = steam_api.find_leaderboard(board_name)
+        lb = steam.find_leaderboard(board_name)
         if not lb:
             return {"ok": False, "error": "Leaderboard not found."}
-        entry = steam_api.get_player_entry(lb, sid)
+        entry = steam.get_player_entry(lb, sid)
         if not entry:
             return {"ok": False, "error": f"No entry on {board['label']} {diff.title()} Rush."}
-        pname = steam_api.get_persona_name(sid)
-        total = steam_api.get_entry_count(lb)
+        pname = steam.get_persona_name(sid)
+        total = steam.get_entry_count(lb)
         return {
             "ok": True,
             "rank": entry.global_rank,
@@ -1475,8 +1480,7 @@ class JsApi:
         time_str:   "MM:SS.mmm" or bare seconds
         Returns {rank, total, medal|null, board_kind} or {error}.
         """
-        import steam_api
-        if not steam_api.steam_ready:
+        if not steam.steam_ready:
             return {"error": "Steam not connected. Connect in Settings first."}
 
         secs = _parse_time_to_secs(str(time_str))
@@ -1507,11 +1511,11 @@ class JsApi:
         else:
             return {"error": f"Unknown board_kind '{board_kind}'."}
 
-        handle = steam_api.find_leaderboard(board_name)
+        handle = steam.find_leaderboard(board_name)
         if not handle:
             return {"error": "Leaderboard not found on Steam."}
 
-        N = steam_api.get_entry_count(handle)
+        N = steam.get_entry_count(handle)
         if N == 0:
             return {"rank": 1, "total": 0, "medal": None, "board_kind": kind}
 
@@ -1525,7 +1529,7 @@ class JsApi:
             mid = (lo + hi) // 2
             w_lo = max(1, mid - _PAD)
             w_hi = min(N, w_lo + _PAD * 2)
-            batch = steam_api.fetch_batch(handle, w_lo, w_hi, _poll_interval=0.02)
+            batch = steam.fetch_batch(handle, w_lo, w_hi, _poll_interval=0.02)
             new_lo, new_hi = lo, hi
             for e in batch:                          # batch is rank-ascending
                 if e["score_ms"] <= target_ms:
@@ -1548,7 +1552,7 @@ class JsApi:
         # two adjacent ranks; either side may be absent at the board edges.
         above = below = None
         a, b = max(1, lo - 1), min(N, lo)
-        nb = steam_api.fetch_batch(handle, a, b, _poll_interval=0.02)
+        nb = steam.fetch_batch(handle, a, b, _poll_interval=0.02)
         by_rank = {e["rank"]: e for e in nb}
         if lo - 1 >= 1 and (lo - 1) in by_rank:
             e = by_rank[lo - 1]
@@ -1618,8 +1622,8 @@ class JsApi:
 
     def run_player_lookup(self, steam_id: str, mode: str, target: str,
                           out_mode: str = "display", folder: str = "") -> dict:
-        import steam_api, csv as _csv
-        if not steam_api.steam_ready:
+        import csv as _csv
+        if not steam.steam_ready:
             return {"ok": False, "error": "Steam not connected. Connect in Settings first."}
         if getattr(self, "_lb_running", False):
             return {"ok": False, "error": "An operation is already running."}
@@ -1646,7 +1650,7 @@ class JsApi:
         stop_event = self._lb_stop_event = threading.Event()
 
         def worker():
-            pname = steam_api.get_persona_name(sid)
+            pname = steam.get_persona_name(sid)
             _emit_to("_nwPlayerEvent", {
                 "type": "status",
                 "message": f"Looking up {pname} across {len(levels_to_search)} levels...",
@@ -1657,11 +1661,11 @@ class JsApi:
             for display, internal in levels_to_search:
                 if stop_event.is_set():
                     break
-                lb = steam_api.find_leaderboard(internal)
+                lb = steam.find_leaderboard(internal)
                 if not lb:
                     continue
-                total_lb = steam_api.get_entry_count(lb)
-                entry = steam_api.get_player_entry(lb, sid)
+                total_lb = steam.get_entry_count(lb)
+                entry = steam.get_player_entry(lb, sid)
                 if entry:
                     time_str = f"{entry.score / 1000:.3f}"
                     medal = _get_medal(display, entry.score / 1000.0)
@@ -1719,8 +1723,7 @@ class JsApi:
         if err:
             return err
 
-        import steam_api
-        if not steam_api.steam_ready:
+        if not steam.steam_ready:
             return {"ok": False, "error": "Steam not connected. Connect in Settings first."}
         if getattr(self, "_lb_running", False):
             return {"ok": False, "error": "An operation is already running."}
@@ -1740,8 +1743,8 @@ class JsApi:
         stop_event = self._lb_stop_event = threading.Event()
 
         def worker():
-            pname1 = steam_api.get_persona_name(sid1)
-            pname2 = steam_api.get_persona_name(sid2)
+            pname1 = steam.get_persona_name(sid1)
+            pname2 = steam.get_persona_name(sid2)
             _emit_to("_nwCompareEvent", {
                 "type": "status",
                 "message": f"Comparing {pname1} vs {pname2} across {len(levels_to_search)} levels...",
@@ -1758,11 +1761,11 @@ class JsApi:
             for display, internal in levels_to_search:
                 if stop_event.is_set():
                     break
-                lb = steam_api.find_leaderboard(internal)
+                lb = steam.find_leaderboard(internal)
                 if not lb:
                     continue
-                total_lb = steam_api.get_entry_count(lb)
-                entries = steam_api.get_player_entries(lb, [sid1, sid2])
+                total_lb = steam.get_entry_count(lb)
+                entries = steam.get_player_entries(lb, [sid1, sid2])
                 entry1 = entries.get(sid1)
                 entry2 = entries.get(sid2)
                 p1_data = None
@@ -1859,8 +1862,7 @@ class JsApi:
         except Exception as exc:
             return {"ok": False, "error": str(exc)}
 
-        import steam_api
-        if not steam_api.steam_ready:
+        if not steam.steam_ready:
             return {"ok": False, "error": "Steam not connected. Connect in Settings first."}
         if getattr(self, "_lb_running", False):
             return {"ok": False, "error": "An operation is already running."}
@@ -1900,9 +1902,9 @@ class JsApi:
                         missing.append(sid)
 
                 if missing:
-                    lb = steam_api.find_leaderboard(internal)
+                    lb = steam.find_leaderboard(internal)
                     if lb:
-                        fetched = steam_api.get_player_entries(lb, missing)
+                        fetched = steam.get_player_entries(lb, missing)
                         for sid, entry in fetched.items():
                             cache_val = None
                             if entry is not None:
