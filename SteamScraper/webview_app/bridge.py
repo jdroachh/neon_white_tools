@@ -1538,59 +1538,158 @@ class JsApi:
         else:
             return {"error": f"Unknown board_kind '{board_kind}'."}
 
-        handle = steam.find_leaderboard(board_name)
-        if not handle:
-            return {"error": "Leaderboard not found on Steam."}
+        # Single-flight guard so only one rank query runs at a time — also gives
+        # stop_find_rank a single in-flight query to cancel.
+        with self._run_gate:
+            if getattr(self, "_rank_running", False):
+                return {"error": "A rank query is already running."}
+            self._rank_running = True
+            self._rank_cancel = False
 
-        N = steam.get_entry_count(handle)
-        if N == 0:
-            return {"rank": 1, "total": 0, "medal": None, "board_kind": kind}
+        try:
+            import time
+            handle = steam.find_leaderboard(board_name)
+            if not handle:
+                return {"error": "Leaderboard not found on Steam."}
 
-        # Bisect-right: find first rank r where score_ms > target_ms.
-        # Fetch 5 entries per step (mid±2) — single Steam call, more narrowing per round-trip.
-        # Invariant: all ranks < lo have score_ms <= target_ms;
-        #            all ranks >= hi have score_ms > target_ms.
-        _PAD = 2
-        lo, hi = 1, N + 1
-        while lo < hi:
-            mid = (lo + hi) // 2
-            w_lo = max(1, mid - _PAD)
-            w_hi = min(N, w_lo + _PAD * 2)
-            batch = steam.fetch_batch(handle, w_lo, w_hi, _poll_interval=0.02)
-            new_lo, new_hi = lo, hi
-            for e in batch:                          # batch is rank-ascending
-                if e["score_ms"] <= target_ms:
-                    new_lo = max(new_lo, e["rank"] + 1)
+            N = steam.get_entry_count(handle)
+            if N == 0:
+                return {"rank": 1, "rank_low": 1, "rank_high": 1, "tie_count": 0,
+                        "total": 0, "medal": None, "board_kind": kind,
+                        "target_ms": target_ms, "above": None, "below": None,
+                        "next_medal": None}
+
+            # Guard the bisect against a flaky / rate-limited Steam. A failed fetch_batch
+            # returns [] (indistinguishable from an all-cheater window), and the bisect would
+            # otherwise absorb those as real data and grind one 10s wait_for_call timeout at a
+            # time — minutes of silent spinning. An overall wall-clock budget plus a cancel
+            # flag (set by stop_find_rank) turn that into a fast, surfaced bail.
+            class _Cancelled(Exception):
+                pass
+
+            class _Stalled(Exception):
+                pass
+
+            deadline = time.time() + 25.0
+            empty_streak = [0]
+
+            def _fetch(a, b):
+                """fetch_batch with cancel + stall guards (used only in the bisect loops)."""
+                if getattr(self, "_rank_cancel", False):
+                    raise _Cancelled()
+                if time.time() > deadline:
+                    raise _Stalled()
+                batch = steam.fetch_batch(handle, a, b, _poll_interval=0.02)
+                if batch:
+                    empty_streak[0] = 0
                 else:
-                    new_hi = min(new_hi, e["rank"])
-                    break
-            else:
-                new_lo = max(new_lo, w_hi + 1)      # all batch entries at/below target
-            lo, hi = new_lo, new_hi
+                    empty_streak[0] += 1
+                    if empty_streak[0] >= 8:        # 8 windows of nothing → Steam isn't answering
+                        raise _Stalled()
+                return batch
 
-        medal = None
-        next_medal = None
-        if kind == "level" and display:
-            medal = _get_medal(display, secs) or None
-            next_medal = _next_medal(display, secs)
+            _PAD = 2
+            try:
+                # Bisect-RIGHT: first rank r where score_ms > target_ms.
+                # Fetch 5 entries per step (mid±2) — single Steam call, more narrowing per
+                # round-trip. Invariant: all ranks < lo have score_ms <= target_ms;
+                #                        all ranks >= hi have score_ms > target_ms.
+                lo, hi = 1, N + 1
+                while lo < hi:
+                    mid = (lo + hi) // 2
+                    w_lo = max(1, mid - _PAD)
+                    w_hi = min(N, w_lo + _PAD * 2)
+                    batch = _fetch(w_lo, w_hi)
+                    new_lo, new_hi = lo, hi
+                    for e in batch:                      # batch is rank-ascending
+                        if e["score_ms"] <= target_ms:
+                            new_lo = max(new_lo, e["rank"] + 1)
+                        else:
+                            new_hi = min(new_hi, e["rank"])
+                            break
+                    else:
+                        new_lo = max(new_lo, w_hi + 1)   # all batch entries at/below target
+                    lo, hi = new_lo, new_hi
 
-        # Neighbors: the entry just above (rank lo-1, faster) and the one your
-        # time would displace (currently rank lo). Single Steam call over the
-        # two adjacent ranks; either side may be absent at the board edges.
-        above = below = None
-        a, b = max(1, lo - 1), min(N, lo)
-        nb = steam.fetch_batch(handle, a, b, _poll_interval=0.02)
-        by_rank = {e["rank"]: e for e in nb}
-        if lo - 1 >= 1 and (lo - 1) in by_rank:
-            e = by_rank[lo - 1]
-            above = {"rank": e["rank"], "score_ms": e["score_ms"]}
-        if lo <= N and lo in by_rank:
-            e = by_rank[lo]
-            below = {"rank": e["rank"], "score_ms": e["score_ms"]}
+                # `lo` is the bisect-RIGHT insertion point. If the run directly above (rank lo-1)
+                # ties the target exactly, the target lands inside a block of equal-time runs;
+                # find that block's start (bisect-LEFT) so we can report the tied range your run
+                # would occupy (lo_left … lo_right, your worst-case slot) instead of one number.
+                lo_right = lo
+                lo_left = lo_right
 
-        return {"rank": lo, "total": N, "medal": medal, "board_kind": kind,
-                "target_ms": target_ms, "above": above, "below": below,
-                "next_medal": next_medal}
+                # Probe rank lo_right-1 (slot directly above) — also our ▼below source at lo_right.
+                below = None
+                probe_lo, probe_hi = max(1, lo_right - 1), min(N, lo_right)
+                nb = steam.fetch_batch(handle, probe_lo, probe_hi, _poll_interval=0.02)
+                by_rank = {e["rank"]: e for e in nb}
+                if lo_right <= N and lo_right in by_rank:
+                    e = by_rank[lo_right]
+                    below = {"rank": e["rank"], "score_ms": e["score_ms"]}
+
+                tied = (lo_right - 1) >= 1 and (lo_right - 1) in by_rank \
+                    and by_rank[lo_right - 1]["score_ms"] == target_ms
+                if tied:
+                    # bisect-LEFT: first rank with score_ms >= target_ms. Same windowed pattern;
+                    # only runs on an exact tie, so no extra Steam calls in the common no-tie case.
+                    llo, lhi = 1, lo_right
+                    while llo < lhi:
+                        mid = (llo + lhi) // 2
+                        w_lo = max(1, mid - _PAD)
+                        w_hi = min(N, w_lo + _PAD * 2)
+                        batch = _fetch(w_lo, w_hi)
+                        new_lo, new_hi = llo, lhi
+                        for e in batch:                  # batch is rank-ascending
+                            if e["score_ms"] < target_ms:
+                                new_lo = max(new_lo, e["rank"] + 1)
+                            else:
+                                new_hi = min(new_hi, e["rank"])
+                                break
+                        else:
+                            new_lo = max(new_lo, w_hi + 1)
+                        llo, lhi = new_lo, new_hi
+                    lo_left = llo
+
+                # ▲above: the next genuinely-faster run at rank lo_left-1 (not a tied peer). Reuse
+                # the probe fetch when not tied (it already returned lo_left-1); else fetch it.
+                above = None
+                if lo_left == lo_right:
+                    if (lo_left - 1) >= 1 and (lo_left - 1) in by_rank:
+                        e = by_rank[lo_left - 1]
+                        above = {"rank": e["rank"], "score_ms": e["score_ms"]}
+                elif lo_left - 1 >= 1:
+                    ab = steam.fetch_batch(handle, lo_left - 1, lo_left - 1, _poll_interval=0.02)
+                    if ab:
+                        e = ab[0]
+                        above = {"rank": e["rank"], "score_ms": e["score_ms"]}
+            except _Cancelled:
+                return {"cancelled": True}
+            except _Stalled:
+                return {"error": "Steam stopped responding — try again in a moment."}
+
+            medal = None
+            next_medal = None
+            if kind == "level" and display:
+                medal = _get_medal(display, secs) or None
+                next_medal = _next_medal(display, secs)
+
+            # tie_count = how many OTHER runs share this exact time. When you tie, your run
+            # extends the block, so the range you'd occupy is lo_left … lo_right (your worst
+            # slot). No tie ⇒ rank_high == rank_low and the UI shows a single number.
+            tie_count = lo_right - lo_left
+            rank_high = lo_right if tie_count else lo_left
+            return {"rank": lo_left, "rank_low": lo_left, "rank_high": rank_high,
+                    "tie_count": tie_count, "total": N, "medal": medal, "board_kind": kind,
+                    "target_ms": target_ms, "above": above, "below": below,
+                    "next_medal": next_medal}
+        finally:
+            self._rank_running = False
+
+    def stop_find_rank(self) -> dict:
+        """Signal an in-flight find_rank to abort. The query's finally clause clears
+        _rank_running once it unwinds, so a fresh query can start right after."""
+        self._rank_cancel = True
+        return {"ok": True}
 
     def _resolve_levels_for_mode(self, mode, target):
         """Resolve a (mode, target) selection into the levels to search.

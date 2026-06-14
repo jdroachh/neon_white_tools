@@ -235,6 +235,11 @@ export async function findRank(boardKind, boardKey, timeStr) {
   return api.find_rank(boardKind, boardKey, timeStr);
 }
 
+export async function stopFindRank() {
+  const api = await waitForApi();
+  return api.stop_find_rank();
+}
+
 export async function clearMultiCompareCache(steamIds) {
   const api = await waitForApi();
   return api.clear_multi_compare_cache(steamIds.map(String));

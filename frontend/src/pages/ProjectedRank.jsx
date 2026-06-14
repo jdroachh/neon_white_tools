@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { PageHead, Field, Seg, Btn, MedalBadge } from "../shared.jsx";
-import { getLevels, getRushBoards, findRank } from "../api.js";
+import { getLevels, getRushBoards, findRank, stopFindRank } from "../api.js";
 import { loadWithRetry, loadLevelsWithRetry } from "../lib/retryLevels.js";
 
 const LEVEL_MAX_SECS = 900; // 15:00.000
@@ -95,7 +95,9 @@ export default function ProjectedRank() {
     setLoading(true);
     try {
       const r = await findRank(kind, key, timeStr);
-      if (r.error) {
+      if (r.cancelled) {
+        // user hit Stop — leave the panel cleared, no error
+      } else if (r.error) {
         setError(r.error);
       } else {
         setResult(r);
@@ -105,6 +107,10 @@ export default function ProjectedRank() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleStop() {
+    stopFindRank();
   }
 
   const canSubmit = !loading && timeStr.trim() &&
@@ -167,6 +173,9 @@ export default function ProjectedRank() {
             <Btn kind="primary" size="lg" onClick={handleSubmit} disabled={!canSubmit}>
               {loading ? "Searching…" : "Find Rank"}
             </Btn>
+            {loading && (
+              <Btn kind="ghost" size="lg" onClick={handleStop}>Stop</Btn>
+            )}
 
             {error && (
               <div className="field-hint" style={{ color: "var(--accent-red, #ff5555)", marginTop: 8 }}>
@@ -184,14 +193,21 @@ export default function ProjectedRank() {
                 fontFamily: "var(--display-font)",
                 color: "var(--accent)", lineHeight: 1,
               }}>
-                #{result.rank.toLocaleString()}
+                #{result.tie_count > 0
+                  ? `${result.rank_low.toLocaleString()}–${result.rank_high.toLocaleString()}`
+                  : result.rank.toLocaleString()}
               </div>
               <div style={{ fontSize: "1em", color: "var(--text-3)", marginTop: 6 }}>
                 of {result.total.toLocaleString()} entries
-                {result.rank > result.total && result.total > 0 && (
+                {result.rank > result.total && result.total > 0 && !result.tie_count && (
                   <span style={{ marginLeft: 6, opacity: 0.7 }}>(below last)</span>
                 )}
               </div>
+              {result.tie_count > 0 && (
+                <div style={{ fontSize: "0.82em", color: "var(--text-3)", marginTop: 4 }}>
+                  tied with {result.tie_count.toLocaleString()} {result.tie_count === 1 ? "run" : "runs"} at {fmtMs(result.target_ms)}
+                </div>
+              )}
 
               {result.medal && (
                 <div style={{ marginTop: 16, display: "flex", justifyContent: "center" }}>
@@ -243,7 +259,9 @@ export default function ProjectedRank() {
                   }}>
                     <span style={{ width: 16, color: "var(--accent)" }}>●</span>
                     <span style={{ flex: 1, textAlign: "left", color: "var(--accent)", fontWeight: 700 }}>
-                      #{result.rank.toLocaleString()} · you
+                      #{result.tie_count > 0
+                        ? `${result.rank_low.toLocaleString()}–${result.rank_high.toLocaleString()}`
+                        : result.rank.toLocaleString()} · you
                     </span>
                     <span style={{ color: "var(--text-1)", fontWeight: 600 }}>
                       {fmtMs(result.target_ms)}
@@ -251,7 +269,7 @@ export default function ProjectedRank() {
                   </div>
                   {result.below && (
                     <NeighborRow
-                      arrow="▼" rank={result.rank + 1}
+                      arrow="▼" rank={result.tie_count > 0 ? result.rank_high + 1 : result.rank + 1}
                       time={fmtMs(result.below.score_ms)}
                       gap={fmtGap(result.below.score_ms - result.target_ms)}
                       gapColor="var(--accent-green, #6ee7a8)" gapTitle="cushion below you" />
