@@ -21,7 +21,7 @@ import threading
 import time
 from urllib.request import urlopen
 
-from logger import get_logger
+from logger import get_logger, get_app_data_dir
 logger = get_logger(__name__)
 
 
@@ -138,8 +138,24 @@ def init_steam(dll_path):
     except Exception:
         logger.debug("add_dll_directory(%r) skipped", os.path.dirname(dll_path), exc_info=True)
 
-    with open("steam_appid.txt", "w") as f:
-        f.write(APP_ID)
+    # Steam needs to know the app id before SteamAPI_Init. It reads (in order)
+    # the SteamAppId env var, then a steam_appid.txt in the CWD. We set BOTH:
+    #   - the env var is the primary signal and needs no filesystem write;
+    #   - the file is written to the guaranteed-writable app data dir (NOT the
+    #     CWD), and the worker is spawned with that dir as its CWD so init finds
+    #     it. Writing to the CWD blows up with PermissionError when the EXE is
+    #     launched from a protected CWD like System32 (Windows Search / Start).
+    os.environ["SteamAppId"] = APP_ID
+    os.environ["SteamGameId"] = APP_ID
+    try:
+        appid_path = os.path.join(get_app_data_dir(), "steam_appid.txt")
+        with open(appid_path, "w") as f:
+            f.write(APP_ID)
+    except OSError:
+        # The env var alone is enough for modern SDKs; don't fail init over the
+        # file write. (Older fallback: a stale steam_appid.txt already in CWD.)
+        logger.warning("Could not write steam_appid.txt; relying on SteamAppId env var",
+                       exc_info=True)
 
     try:
         steam = ctypes.CDLL(dll_path)

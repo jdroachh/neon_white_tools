@@ -22,7 +22,7 @@ import sys
 import threading
 from collections import namedtuple
 
-from logger import get_logger
+from logger import get_logger, get_app_data_dir
 
 logger = get_logger("steam_client")
 
@@ -226,7 +226,9 @@ def _spawn():
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=None,                 # inherit; worker logs to stderr + its own file
-        cwd=os.getcwd(),             # explicit writable CWD => steam_appid.txt unchanged
+        cwd=get_app_data_dir(),      # guaranteed-writable CWD so the worker can
+                                     # write/read steam_appid.txt (the launch CWD
+                                     # may be System32 from Windows Search)
         env=env,
         encoding="utf-8",
         bufsize=1,                   # line-buffered text mode

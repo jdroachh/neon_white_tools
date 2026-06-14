@@ -83,3 +83,16 @@ def get_log_dir() -> str:
     """
     os.makedirs(_LOG_DIR, exist_ok=True)
     return _LOG_DIR
+
+
+def get_app_data_dir() -> str:
+    """Absolute path to the writable per-user app data root
+    (%APPDATA%\\NeonWhiteLeaderboardTool). Created on first call.
+
+    Used for files that must live somewhere guaranteed-writable regardless of
+    the process CWD — notably steam_appid.txt, which Steam init writes/reads and
+    which fails with PermissionError when the CWD is a protected dir like
+    C:\\Windows\\System32 (e.g. when the EXE is launched from Windows Search).
+    """
+    os.makedirs(_HERE, exist_ok=True)
+    return _HERE
