@@ -162,9 +162,9 @@ export default function LevelSearch({ outputFolder: defaultFolder = "" }) {
                     <col style={{ width: 80 }} />
                     <col />
                     <col style={{ width: 120 }} />
-                    {showMedals && <col style={{ width: 100 }} />}
+                    {showMedals && <col style={{ width: largeText ? 160 : 120 }} />}
                   </colgroup>
-                  <thead style={{ position: "sticky", top: 0, background: "var(--bg-2)" }}>
+                  <thead style={{ position: "sticky", top: 0, zIndex: 2, background: "var(--bg-2)" }}>
                     <tr>
                       <th style={TH}>Rank</th>
                       <th style={TH}>Player</th>
