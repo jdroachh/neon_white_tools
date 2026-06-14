@@ -8,6 +8,13 @@ All notable changes to Neon White Tools are documented here.
 
 ---
 
+## [1.7.1] — 2026-06-13
+
+### Fixed
+- Steam connect from Windows Search / Start Menu: `steam_appid.txt` is now written to `%APPDATA%\NeonWhiteLeaderboardTool` instead of the launch directory, fixing `PermissionError: [Errno 13]` when the CWD was a protected folder like System32 (c993907)
+
+---
+
 ## [1.7.0] — 2026-06-12
 
 ### Added
