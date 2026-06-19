@@ -60,6 +60,13 @@ _TIMEOUT_S = 8
 
 _VALID_MEDALS = {"emerald", "amethyst", "sapphire"}
 
+# Medals present as 4-cell column blocks on the Route Videos "Backend" tab,
+# in display order. Distinct from the ghosts medals (_VALID_MEDALS, 3 tiers only).
+# A medal whose header column is absent is skipped (see _index_videos), so adding
+# a tier here before the sheet has its column is safe — that medal just yields no
+# videos until the column exists. ("blood diamond" goes here once its block lands.)
+_VIDEO_MEDALS = ("emerald", "amethyst", "sapphire", "topaz")
+
 # level (lowercase) -> medal (lowercase) -> [row dicts]
 _GHOSTS: dict[str, dict[str, list[dict]]] = {}
 _VIDEOS: dict[str, dict[str, list[dict]]] = {}
@@ -140,12 +147,17 @@ def _index_videos(rows: list[list[str]]) -> dict[str, dict[str, list[dict]]]:
 
     header = [c.lower() for c in rows[0]]
     anchors = {}
-    for medal in _VALID_MEDALS:
+    for medal in _VIDEO_MEDALS:
         try:
             anchors[medal] = header.index(medal)
         except ValueError:
-            logger.warning("Videos sheet: medal column %r missing from header", medal)
-            return out
+            # Skip a medal whose column isn't on the sheet yet (e.g. Topaz before
+            # the maintainer adds its block) instead of discarding the whole index.
+            logger.info("Videos sheet: medal column %r not present — skipping", medal)
+            continue
+    if not anchors:
+        logger.warning("Videos sheet: no known medal columns found in header")
+        return out
 
     stage_col = header.index("stage") if "stage" in header else 1
     skipped = 0

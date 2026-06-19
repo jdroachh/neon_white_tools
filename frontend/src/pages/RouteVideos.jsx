@@ -4,7 +4,13 @@ import { getLevels, getVideos, getResourcesStatus, openExternalUrl, getMedalTime
 import { loadLevelsWithRetry } from "../lib/retryLevels.js";
 
 const MEDALS = ["Emerald", "Amethyst", "Sapphire"];
-const MEDAL_COLOR = { Emerald: "#54d09a", Amethyst: "#b886ff", Sapphire: "#5db1ff" };
+// Higher tiers live behind the "Extended medals" dropdown. Add "Blood Diamond"
+// here once its sheet column + route videos exist (target time + color are ready).
+const EXTENDED_MEDALS = ["Topaz"];
+const MEDAL_COLOR = {
+  Emerald: "#54d09a", Amethyst: "#b886ff", Sapphire: "#5db1ff",
+  Topaz: "#e0a33a", "Blood Diamond": "#ff4d6d",
+};
 
 function extractYouTubeId(url) {
   const m = (url || "").match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([A-Za-z0-9_-]{11})/);
@@ -111,7 +117,19 @@ export default function RouteVideos() {
               </select>
             </Field>
             <Field label="Medal">
-              <Seg options={MEDALS} value={medal} onChange={setMedal} />
+              <div className="medal-seg" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <Seg options={MEDALS} value={medal} onChange={setMedal} />
+                {EXTENDED_MEDALS.length > 0 && (
+                  <select
+                    className="input"
+                    value={EXTENDED_MEDALS.includes(medal) ? medal : ""}
+                    onChange={e => { if (e.target.value) setMedal(e.target.value); }}
+                  >
+                    <option value="">Extended medals…</option>
+                    {EXTENDED_MEDALS.map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                )}
+              </div>
             </Field>
             <Field label={`${medal} target time`}>
               <div style={{

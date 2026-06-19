@@ -2170,11 +2170,20 @@ class JsApi:
         comm = _COMMUNITY_MEDAL_DATA.get(code)
         if not comm or len(comm) < 3:
             return {}
-        return {
+        out = {
             "emerald":  comm[0] / 1_000_000,
             "amethyst": comm[1] / 1_000_000,
             "sapphire": comm[2] / 1_000_000,
         }
+        # Higher community tiers — only present when their data has loaded.
+        # Keys match the frontend's medal.toLowerCase() ("topaz", "blood diamond").
+        topaz = _TOPAZ_MEDAL_DATA.get(code)
+        if topaz:
+            out["topaz"] = topaz[0] / 1_000_000
+        bd = _BD_MEDAL_DATA.get(code)
+        if bd:
+            out["blood diamond"] = bd[0] / 1_000_000
+        return out
 
     # ── Resources (Ghosts + Route Videos) ─────────────────────────────────────
 
