@@ -87,7 +87,9 @@ export default function Ghosts() {
               </select>
             </Field>
             <Field label="Medal">
-              <Seg options={MEDALS} value={medal} onChange={setMedal} />
+              <div className="medal-seg">
+                <Seg options={MEDALS} value={medal} onChange={setMedal} />
+              </div>
             </Field>
             <Field label={`${medal} target time`}>
               <div style={{

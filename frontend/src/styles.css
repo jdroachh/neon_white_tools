@@ -315,6 +315,9 @@
   color: #042b1f;
   font-weight: 600;
 }
+/* Full-width segmented control — stretches to match sibling .input fields */
+.hifi .medal-seg .seg { display: flex; align-self: stretch; }
+.hifi .medal-seg .seg-btn { flex: 1; }
 
 /* Checkbox */
 .hifi .cb { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12px; }
