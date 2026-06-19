@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { standardizeSplits } from "../api.js";
+import React, { useState, useEffect } from "react";
+import { standardizeSplits, getStandardOrder } from "../api.js";
 import { PageHead, Field, Btn, RushSelect, OutputPanel, ErrorBanner, MedalBadge, MedalToggle, Icon, RUSHES } from "../shared.jsx";
 
 function SplitsOutputPanel({ title, times, medals, showMedals, onCopy }) {
@@ -43,6 +43,17 @@ export default function Standardize({ showMedals, setShowMedals }) {
   const [result, setResult]     = useState(null);
   const [error, setError]       = useState(null);
   const [loading, setLoading]   = useState(false);
+  const [levels, setLevels]     = useState([]);
+
+  // Standard level order is fixed per rush (independent of seed/splits), so we
+  // can show the copyable list as soon as a rush is picked — no Standardize run.
+  useEffect(() => {
+    let cancelled = false;
+    getStandardOrder(rushName)
+      .then(res => { if (!cancelled && res.ok) setLevels(res.lines); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [rushName]);
 
   async function handleStandardize() {
     setError(null);
@@ -89,6 +100,9 @@ export default function Standardize({ showMedals, setShowMedals }) {
             <Btn kind="primary" size="lg" icn="play" onClick={handleStandardize} disabled={loading}>
               {loading ? "Standardizing…" : "Standardize"}
             </Btn>
+            <Btn kind="ghost" icn="copy" onClick={() => copy(levels)} disabled={levels.length === 0}>
+              Copy level order
+            </Btn>
           </div>
         </div>
 
@@ -129,6 +143,15 @@ export default function Standardize({ showMedals, setShowMedals }) {
             <div className="muted" style={{ padding: 32, fontSize: 12, textAlign: "center" }}>
               Paste your seed-order splits and press Standardize.
             </div>
+          )}
+
+          {levels.length > 0 && (
+            <SplitsOutputPanel
+              title="Level order — standard"
+              times={levels}
+              showMedals={false}
+              onCopy={() => copy(levels)}
+            />
           )}
         </div>
       </div>
