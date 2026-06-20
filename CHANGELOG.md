@@ -8,6 +8,19 @@ All notable changes to Neon White Tools are documented here.
 
 ---
 
+## [1.7.2] — 2026-06-19
+
+### Added
+- Projected Rank: tied-rank ranges, a 25s hang guard, and a Stop button (a63c388)
+- Route Videos: Topaz medal support — "Extended medals…" dropdown, target time, and tier color (videos pending upstream) (b35c0d5)
+- Standardize: "Copy level order" button — standard rush order shown without running Standardize (30b8507)
+
+### Fixed
+- Level Search: medal column overflow + gradient badges overlapping the sticky header on scroll (3db2cfc)
+- Ghosts/Route Videos: full-width medal segmented control (27954eb)
+
+---
+
 ## [1.7.1] — 2026-06-13
 
 ### Fixed
