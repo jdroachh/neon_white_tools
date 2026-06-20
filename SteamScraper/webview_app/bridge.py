@@ -2234,6 +2234,7 @@ class JsApi:
             "https://github.com/",
             "https://www.github.com/",
             "https://raw.githubusercontent.com/",
+            "https://derelictjade.github.io/",
             "https://nwbingo.pages.dev/",
         )
         if not any(u.startswith(p) for p in allowed_prefixes):
