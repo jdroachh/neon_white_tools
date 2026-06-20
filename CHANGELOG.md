@@ -18,6 +18,7 @@ All notable changes to Neon White Tools are documented here.
 ### Fixed
 - Level Search: medal column overflow + gradient badges overlapping the sticky header on scroll (3db2cfc)
 - Ghosts/Route Videos: full-width medal segmented control (27954eb)
+- Helpful Links: the Ghost Visualizer link (derelictjade.github.io) now opens instead of being silently blocked (4641819)
 
 ---
 
