@@ -423,8 +423,9 @@ def get_player_entry(lb_handle, steam_id):
     return _rehydrate(_request("get_player_entry", {"handle": lb_handle, "sid": steam_id}))
 
 
-def get_player_entries(lb_handle, steam_ids):
-    res = _request("get_player_entries", {"handle": lb_handle, "sids": list(steam_ids)})
+def get_player_entries(lb_handle, steam_ids, fallback=True):
+    res = _request("get_player_entries",
+                   {"handle": lb_handle, "sids": list(steam_ids), "fallback": fallback})
     # JSON object keys came back as strings; restore int sids for callers.
     return {int(sid): _rehydrate(d) for sid, d in res.items()}
 

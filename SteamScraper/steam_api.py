@@ -368,21 +368,29 @@ def get_player_entry(lb_handle, steam_id):
     return entry if (ok and entry.steam_id_user == steam_id) else None
 
 
-def get_player_entries(lb_handle, steam_ids):
+def get_player_entries(lb_handle, steam_ids, fallback=True):
     """
     Batched variant of get_player_entry. Single Steamworks round-trip for up
     to 100 steam_ids (Valve's documented cap on DownloadLeaderboardEntriesForUsers).
 
     Returns {sid: LeaderboardEntry or None} — every requested sid is keyed,
-    with None for players who have no entry on this board (or for whom the
-    batched lookup couldn't be confirmed via the per-sid fallback).
+    with None for players who have no entry on this board.
 
     Fallback behavior: Steamworks fails the entire batched call (entry_count=0)
     if any sid in the array is invalid (e.g. malformed or non-existent account).
-    When that happens — or when the batched call errors out — we retry one sid
-    at a time so valid sids still return their entries. This pays an N-call
-    penalty in the rare "everyone missing this level" case too, but correctness
-    matters more than perf at the edge.
+    With `fallback=True` (default) we then retry one sid at a time so valid sids
+    still return their entries — correctness over perf at the edge.
+
+    `fallback=False` skips the per-sid retry ONLY on the empty-result path (the
+    batched call succeeds but returns 0 entries — i.e. nobody in the chunk charted).
+    For bulk consistency sweeps that's the expected, common case, and the retry is a
+    pathological cost: a 100-id chunk where nobody has a time turns one batched call
+    into 100 single calls, which on sparsely-covered boards (traversal / sidequest
+    levels vs a story-elite seed set) grinds for minutes. The seed set there is real
+    on-leaderboard sids, so invalid-sid poisoning effectively can't happen.
+    NB: a genuine API-call FAILURE still retries per-sid even with fallback=False —
+    otherwise a transient Steam error would silently drop real entries and fabricate
+    coverage gaps.
     """
     if not steam_ids:
         return {}
@@ -396,14 +404,23 @@ def get_player_entries(lb_handle, steam_ids):
     )
     result = LeaderboardScoresDownloaded()
     if not wait_for_call(call, result, LEADERBOARD_SCORES_CALLBACK):
-        # Whole call failed — retry per-sid so any valid ones still resolve.
+        # The API call itself failed/timed out — a genuine error, not a "nobody
+        # charted" result. Always retry per-sid (even with fallback=False) so a
+        # transient Steam hiccup can't silently drop up to 100 real entries and
+        # fabricate coverage gaps. This path is rare; the cost only bites under a
+        # real outage, where the per-call timeout + Stop still bound it.
         return {sid: get_player_entry(lb_handle, sid) for sid in steam_ids}
 
     if result.entry_count == 0:
-        # Batched call succeeded but returned no entries. Two possibilities:
+        # Batched call SUCCEEDED but returned no entries. Two possibilities:
         #   (a) an invalid sid poisoned the batch (verified via smoke test),
         #   (b) genuinely no entries for any sid on this leaderboard.
-        # Per-sid retry covers (a) and produces the same result for (b).
+        # Per-sid retry covers (a) and produces the same all-None result for (b).
+        # fallback=False short-circuits to (b) — correct whenever the sids are
+        # known-valid (bulk sweeps), and avoids the 100-single-call explosion on
+        # sparsely-covered boards.
+        if not fallback:
+            return {sid: None for sid in steam_ids}
         return {sid: get_player_entry(lb_handle, sid) for sid in steam_ids}
 
     out = {sid: None for sid in steam_ids}

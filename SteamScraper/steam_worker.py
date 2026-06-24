@@ -153,7 +153,8 @@ def _rpc_get_player_entry(params):
 def _rpc_get_player_entries(params):
     # steam_api returns {sid:int -> struct|None}. JSON object keys must be strings;
     # the client restores int keys on rehydration.
-    out = steam_api.get_player_entries(params["handle"], params["sids"])
+    out = steam_api.get_player_entries(
+        params["handle"], params["sids"], params.get("fallback", True))
     return {str(sid): _entry_to_dict(entry) for sid, entry in out.items()}
 
 
