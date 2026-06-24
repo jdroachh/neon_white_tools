@@ -550,13 +550,18 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
                     // bunch on the right". Sums to 100 per medal-toggle state.
                     const cols = showMedals
                       ? [
-                          { key: "level",        label: "Level",    width: "22%", align: "left"  },
+                          // P1/P2 Medal are FIXED px columns (like Level Search / Player
+                          // Lookup) — the nowrap MedalBadge scales with font size, so a %
+                          // width starves "BLOOD DIAMOND"/"TOPAZ" and overflows at small
+                          // widths / large text. Two medal cols, so siblings are trimmed
+                          // to make room; overflow:auto scrolls on very narrow windows.
+                          { key: "level",        label: "Level",    width: "20%", align: "left"  },
                           { key: "rank_best_p1", label: "P1 Rank",  width: "10%", align: "right" },
-                          { key: "time_p1",      label: "P1 Time",  width: "13%", align: "right" },
-                          { key: "medal_tier_p1", label: "P1 Medal", width: "9%",  align: "left"  },
+                          { key: "time_p1",      label: "P1 Time",  width: "12%", align: "right" },
+                          { key: "medal_tier_p1", label: "P1 Medal", width: largeText ? 160 : 120, align: "left"  },
                           { key: "delta",        label: "Δ",        width: "14%", align: "right" },
-                          { key: "medal_tier_p2", label: "P2 Medal", width: "9%",  align: "left"  },
-                          { key: "time_p2",      label: "P2 Time",  width: "13%", align: "right" },
+                          { key: "medal_tier_p2", label: "P2 Medal", width: largeText ? 160 : 120, align: "left"  },
+                          { key: "time_p2",      label: "P2 Time",  width: "12%", align: "right" },
                           { key: "rank_best_p2", label: "P2 Rank",  width: "10%", align: "right" },
                         ]
                       : [
@@ -573,7 +578,7 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
                           <col key={i} style={c.width ? { width: c.width } : undefined} />
                         ))}
                       </colgroup>
-                      <thead style={{ position: "sticky", top: 0, background: "var(--bg-2)" }}>
+                      <thead style={{ position: "sticky", top: 0, zIndex: 2, background: "var(--bg-2)" }}>
                         <tr>
                           {cols.map((h, i) => {
                             const baseTh = { ...TH, textAlign: h.align };

@@ -428,10 +428,14 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "", visible
                     // not sortable. Sortable: rank, time, medal_tier.
                     const cols = showMedals
                       ? [
-                          { key: "level",      label: "Level",   width: "32%", align: "left"  },
+                          // Medal is a FIXED px column (like Level Search) — the
+                          // MedalBadge is whiteSpace:nowrap and scales with font size,
+                          // so a % width starves "BLOOD DIAMOND"/"TOPAZ" and overflows
+                          // at small widths / large text. Fixed px never clips.
+                          { key: "level",      label: "Level",   width: "30%", align: "left"  },
                           { key: "rank",       label: "Rank",    width: "13%", align: "right" },
                           { key: "time",       label: "Time",    width: "16%", align: "right" },
-                          { key: "medal_tier", label: "Medal",   width: "13%", align: "left"  },
+                          { key: "medal_tier", label: "Medal",   width: largeText ? 160 : 120, align: "left"  },
                           { key: null,         label: "/ Total", width: "16%", align: "right" },
                         ]
                       : [
@@ -446,7 +450,7 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "", visible
                           <col key={i} style={c.width ? { width: c.width } : undefined} />
                         ))}
                       </colgroup>
-                      <thead style={{ position: "sticky", top: 0, background: "var(--bg-2)" }}>
+                      <thead style={{ position: "sticky", top: 0, zIndex: 2, background: "var(--bg-2)" }}>
                         <tr>
                           {cols.map((h, i) => {
                             const baseTh = { ...TH, textAlign: h.align };
