@@ -25,6 +25,7 @@ from .models.resources import GuidesResponse, HelpfulLinksResponse
 from .models.multi_compare import MultiCompareRequest
 from . import resources as _resources
 from . import multi_compare_cache
+from . import avg_rankings as _avg_rankings
 
 # Steam access goes through the backend selector: in-process steam_api (default)
 # or the worker subprocess (NW_STEAM_WORKER=1). `steam` is a drop-in for the old
@@ -1266,6 +1267,193 @@ class JsApi:
             "score_ms": entry.score,
             "time": f"{entry.score / 1000:.3f}",
         }
+
+    def run_avg_rankings(self, k: str = "500", scope: str = "story+side",
+                         out_mode: str = "display", folder: str = "") -> dict:
+        """Average Placement Leaderboard — rank players by mean per-level placement.
+
+        Seed method: take the top-`k` players from GlobalNeonRankings (complete-game
+        players), then look up each one's rank on every in-scope board via batched
+        get_player_entries, and score the average. The consistency counterpart to the
+        sum-of-times GlobalNeonRankings page. Players without a complete game have no
+        GlobalNeonRankings entry and are unrankable here (known v1 exclusion).
+        See plans/2026-06-22-avg-rankings-in-app.md.
+        """
+        import time as _time, csv as _csv, datetime as _dt
+        if not steam.steam_ready:
+            return {"ok": False, "error": "Steam not connected. Connect in Settings first."}
+        if getattr(self, "_lb_running", False):
+            return {"ok": False, "error": "An operation is already running."}
+        try:
+            k_int = max(1, int(str(k).strip()))
+        except ValueError:
+            return {"ok": False, "error": "Candidate count must be a number."}
+        if scope not in ("story", "story+side", "side"):
+            scope = "story+side"
+        err = _guard_output_folder(folder, out_mode)
+        if err:
+            return err
+
+        board_pairs = _avg_rankings.board_list(scope)
+
+        with self._run_gate:
+            if getattr(self, "_lb_running", False):
+                return {"ok": False, "error": "An operation is already running."}
+            self._lb_running = True
+        # Capture in a local so a later run reassigning self._lb_stop_event can't
+        # make this worker poll the wrong event.
+        stop_event = self._lb_stop_event = threading.Event()
+
+        def worker():
+            CH = "_nwAvgRankEvent"
+            _emit_to(CH, {"type": "status",
+                          "message": "Selecting the top players to measure (from Global Rankings)…"})
+            glb = steam.find_leaderboard("GlobalNeonRankings")
+            if not glb:
+                _emit_to(CH, {"type": "error",
+                              "message": "GlobalNeonRankings leaderboard not found."})
+                self._lb_running = False
+                return
+
+            # Page the top-k candidate set (cheater-filtered by fetch_batch already).
+            candidates = []
+            start = 1
+            while start <= k_int and not stop_event.is_set():
+                end = min(start + steam.BATCH_SIZE - 1, k_int)
+                batch = steam.fetch_batch(glb, start, end)
+                if not batch:
+                    break
+                candidates.extend(batch)
+                start = end + 1
+            if not candidates:
+                _emit_to(CH, {"type": "error",
+                              "message": "No candidates returned from Global Rankings."})
+                self._lb_running = False
+                return
+
+            names = {c["steam_id"]: c["name"] for c in candidates}
+            sids = [c["steam_id"] for c in candidates]
+            ranks = {sid: {} for sid in sids}
+            entry_counts = {}
+
+            total_boards = len(board_pairs)
+            board_times = []   # wall-clock per completed board, for ETA
+            empty_boards = []  # display names that returned zero coverage (diagnostic)
+            for idx, (display, internal) in enumerate(board_pairs, 1):
+                if stop_event.is_set():
+                    break
+                # ETA: mean of completed boards x remaining. Skip the first 2
+                # (handle-resolve + entry-count make them slower/noisier).
+                eta = None
+                if len(board_times) >= 2:
+                    eta = (sum(board_times) / len(board_times)) * (total_boards - idx + 1)
+
+                t_board = _time.time()
+                # Board-start tick — keeps the UI moving while the handle resolves.
+                _emit_to(CH, {"type": "progress", "board_idx": idx,
+                              "total_boards": total_boards, "board_name": display,
+                              "eta_seconds": eta, "chunk_idx": 0, "chunk_total": 0,
+                              "slow": False})
+                lb = steam.find_leaderboard(internal)
+                if not lb:
+                    empty_boards.append(display)  # didn't resolve — no data for anyone
+                    board_times.append(_time.time() - t_board)
+                    continue
+                entry_counts[internal] = steam.get_entry_count(lb)
+                chunk_list = list(_avg_rankings.chunks(sids, 100))
+                nchunks = len(chunk_list)
+                found = 0
+                for ci, chunk in enumerate(chunk_list, 1):
+                    if stop_event.is_set():
+                        break
+                    _emit_to(CH, {"type": "progress", "board_idx": idx,
+                                  "total_boards": total_boards, "board_name": display,
+                                  "eta_seconds": eta, "chunk_idx": ci,
+                                  "chunk_total": nchunks,
+                                  "slow": (_time.time() - t_board) > 45})
+                    # fallback=False: a player missing this board is expected, not an
+                    # error — skip the per-sid retry that otherwise turns an all-missing
+                    # 100-id chunk into 100 single calls (minutes on sparse boards).
+                    res = steam.get_player_entries(lb, chunk, fallback=False)
+                    for sid, entry in res.items():
+                        if entry is not None:
+                            ranks[sid][internal] = entry.global_rank
+                            found += 1
+                    _time.sleep(0.02)
+                if found == 0 and not stop_event.is_set():
+                    empty_boards.append(display)  # resolved but nobody charted
+                board_times.append(_time.time() - t_board)
+
+            if empty_boards:
+                from logger import get_logger
+                get_logger("bridge").info(
+                    "avg_rankings: %d board(s) returned zero coverage: %s",
+                    len(empty_boards), ", ".join(empty_boards))
+
+            rows, dropped = _avg_rankings.compute_scores(
+                ranks, entry_counts, names, [b for _, b in board_pairs])
+            ranked = _avg_rankings.sort_rows(rows, "rank")
+            as_of = _dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+            stopped = stop_event.is_set()
+
+            # Which in-scope boards a player has NO entry on — for verifying that a
+            # sub-121 coverage count is genuine (player truly never charted there)
+            # vs a fetch artifact. Short for kept rows (coverage gate caps the gap).
+            def _missing_for(sid):
+                present = ranks.get(sid, {})
+                return [d for d, i in board_pairs if i not in present]
+
+            csv_path = None
+            if out_mode in ("csv", "both"):
+                csv_path = os.path.join(
+                    folder.strip(), f"avg_placement_{scope}_top{k_int}.csv")
+                with open(csv_path, "w", newline="", encoding="utf-8") as f:
+                    w = _csv.DictWriter(f, fieldnames=[
+                        "pos", "name", "avg_rank", "avg_pct",
+                        "median_rank", "boards_covered", "boards_total", "missing_boards"])
+                    w.writeheader()
+                    for i, r in enumerate(ranked, 1):
+                        w.writerow({
+                            "pos": i, "name": r["name"],
+                            "avg_rank": round(r["avg_rank"], 2),
+                            "avg_pct": "" if r["avg_pct"] is None else round(r["avg_pct"], 6),
+                            "median_rank": r["median_rank"],
+                            "boards_covered": r["boards_n"], "boards_total": total_boards,
+                            "missing_boards": "; ".join(_missing_for(r["steam_id"])),
+                        })
+
+            # steam_id exceeds JS's 2^53 safe-integer range — send as string.
+            out_rows = [{
+                "pos": i, "steam_id": str(r["steam_id"]), "name": r["name"],
+                "avg_rank": round(r["avg_rank"], 2),
+                "avg_pct": r["avg_pct"],
+                "median_rank": r["median_rank"],
+                "boards_n": r["boards_n"], "boards_total": total_boards,
+                "missing": _missing_for(r["steam_id"]),
+            } for i, r in enumerate(ranked, 1)]
+
+            _emit_to(CH, {
+                "type": "done", "rows": out_rows, "as_of": as_of,
+                "stopped": stopped, "dropped": dropped, "boards_total": total_boards,
+                "empty_boards": empty_boards, "csv_path": csv_path or "",
+                "message": (f"Stopped. {len(out_rows)} players ranked."
+                            if stopped else
+                            f"Done. {len(out_rows)} players ranked, {dropped} below coverage."),
+            })
+            self._lb_running = False
+
+        threading.Thread(
+            target=lambda: self._run_worker_safe(worker, "_nwAvgRankEvent"),
+            daemon=True,
+        ).start()
+        return {"ok": True}
+
+    def stop_avg_rankings(self) -> dict:
+        # Mirror stop_leaderboard: signal the worker, let it clear _lb_running
+        # when it actually exits (and emit partial results).
+        if hasattr(self, "_lb_stop_event"):
+            self._lb_stop_event.set()
+        return {"ok": True}
 
     def run_level_search(self, level_name: str, count: str,
                          out_mode: str = "display", folder: str = "") -> dict:

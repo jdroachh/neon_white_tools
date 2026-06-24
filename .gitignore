@@ -124,3 +124,6 @@ SteamScraper/_seed_repro.py
 SteamScraper/_probe_leaderboards.py
 SteamScraper/_dump_global_neon.py
 SteamScraper/_probe_leaderboards2.py
+
+# ── Standalone beta prototypes (local-only, not part of the shipping app) ─────
+avg_rankings_beta/

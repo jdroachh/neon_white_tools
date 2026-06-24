@@ -190,6 +190,16 @@ export async function getGlobalNeonRank(steamId) {
   return api.get_global_neon_rank(String(steamId));
 }
 
+export async function runAvgRankings(k, scope = "story+side", outMode = "display", folder = "") {
+  const api = await waitForApi();
+  return api.run_avg_rankings(String(k), scope, outMode, folder);
+}
+
+export async function stopAvgRankings() {
+  const api = await waitForApi();
+  return api.stop_avg_rankings();
+}
+
 export async function runLevelSearch(levelName, count, outMode = "display", folder = "") {
   const api = await waitForApi();
   return api.run_level_search(levelName, String(count), outMode, folder);

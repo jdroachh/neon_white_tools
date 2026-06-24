@@ -54,6 +54,7 @@ const NAV_ITEMS = {
   leaderboard: [
     { key: "global",         label: "Global Export",    icn: "export" },
     { key: "neonrankings",   label: "Global Rankings",  icn: "globe" },
+    { key: "avgplacement",   label: "Avg Placement",    icn: "crown" },
     { key: "levelsearch",    label: "Level Search",     icn: "search" },
     { key: "rushrankings",   label: "Rush Rankings",    icn: "timer"  },
     { key: "projectedrank",  label: "Projected Rank",   icn: "trend"  },
