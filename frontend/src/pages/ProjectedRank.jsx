@@ -118,7 +118,7 @@ export default function ProjectedRank() {
 
   return (
     <>
-      <PageHead crumb="Leaderboard Tools" title="PROJECTED" accentWord="RANK" />
+      <PageHead crumb={<>Leaderboard Tools <span style={{ color: "var(--text-3)", fontSize: "0.85em", fontWeight: 400 }}>· thanks Lleni!</span></>} title="PROJECTED" accentWord="RANK" />
       <div className="body">
         <div className="panel-left">
           <div className="form">
