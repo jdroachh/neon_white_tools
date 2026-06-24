@@ -8,6 +8,19 @@ All notable changes to Neon White Tools are documented here.
 
 ---
 
+## [1.8.0] — 2026-06-24
+
+### Added
+- Average Placement Leaderboard — rank players by average per-level placement (consistency); scopes for All stages (121) / Main game (97) / Sidequests (24); sort by avg place / percentile / median; name search, depth control, coverage diagnostics, and CSV export (81edf66)
+
+### Fixed
+- Player Lookup / Compare Players: medal column width + sticky-header paint-through (1f6b07c)
+
+### Internal
+- get_player_entries: fallback flag to skip the per-sid retry on bulk sweeps — fixes the high-depth grind and coverage drops on sparse boards (665b464)
+
+---
+
 ## [1.7.2] — 2026-06-19
 
 ### Added
