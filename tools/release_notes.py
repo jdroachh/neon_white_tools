@@ -186,6 +186,11 @@ def render_notes(version: str, buckets: dict[str, list[tuple[str, str]]]) -> str
         f"1. Download `NeonWhiteLeaderboardTool-{version}.zip` below",
         "2. **Before extracting** — right-click the zip → Properties → check **Unblock** → OK.",
         "   Windows flags files downloaded from the internet; skipping this step may block the app from running.",
+        # SmartScreen/Unblock screenshot — required in every release. Was silently dropped
+        # from v1.7.2 and v1.8.0 when hand-editing; templating it here keeps it automatic.
+        # Stable GitHub user-attachments URL (same image used since v1.6.0).
+        '<img width="304" height="389" alt="SecuritySetting" src="https://github.com/user-attachments/assets/3069c4e7-066f-43fc-9dbe-365eacb86e59" />',
+        "",
         "3. Extract the zip and run `NeonWhiteLeaderboardTool.exe`",
         "4. On first launch, the Welcome page will guide you through locating `steam_api64.dll` from your Neon White install",
         "",

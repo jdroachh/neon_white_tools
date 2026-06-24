@@ -50,6 +50,12 @@ The script reads commits since the most recent tag (override with `--from v1.x.x
 
 The script groups commits by [prefix convention](#commit-prefix-convention). If it warns on stderr about commits with no recognized prefix, either rewrite the subject line or edit the drafts manually before publishing.
 
+> **Keep the Installation block intact when hand-editing `release-notes.md`.** It must
+> include the **Unblock screenshot** (`<img ... src=".../user-attachments/...3069c4e7..." />`)
+> right after step 2, plus the DLL guidance. The template (`tools/release_notes.py`) emits it
+> automatically — do **not** delete it. It was silently dropped from v1.7.2 and v1.8.0 by
+> over-trimming the draft.
+
 ### 2.6. Commit version bump + CHANGELOG
 
 ```powershell
