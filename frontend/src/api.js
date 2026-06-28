@@ -190,9 +190,11 @@ export async function getGlobalNeonRank(steamId) {
   return api.get_global_neon_rank(String(steamId));
 }
 
-export async function runAvgRankings(k, scope = "story+side", outMode = "display", folder = "") {
+export async function runAvgRankings(k, scope = "story+side", outMode = "display", folder = "",
+                                     source = "depth", sids = [], levels = "[]") {
   const api = await waitForApi();
-  return api.run_avg_rankings(String(k), scope, outMode, folder);
+  return api.run_avg_rankings(String(k), scope, outMode, folder,
+                              source, sids.map(String), levels);
 }
 
 export async function stopAvgRankings() {

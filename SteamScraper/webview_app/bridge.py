@@ -152,7 +152,9 @@ _DEFAULT_CONFIG = {
     "custom_levels_last_pl": [],
     "custom_levels_last_cp": [],
     "custom_levels_last_mc": [],
+    "custom_levels_last_avg": [],
     "custom_level_presets":  [],
+    "custom_rushes":         [],
 }
 
 _CONFIG_LOCK = __import__("threading").Lock()
@@ -712,10 +714,13 @@ class JsApi:
         order = full_shuffle(count, s)
         return {"ok": True, "lines": [names[i] for i in order]}
 
-    def calculate_timer(self, rush_name: str, seed: str, splits_text: str) -> dict:
+    def calculate_timer(self, rush_name: str, seed: str, splits_text: str,
+                        cumulative: bool = True) -> dict:
         """
-        Parse cumulative split times and compute segment times + medal grades.
+        Parse split times and compute segment times + medal grades.
         splits_text: one split per line, format "Name time" or "Name: time" or bare "time".
+        cumulative: True  -> times are running totals (default; segments = successive diffs).
+                    False -> times are per-segment durations (segments = the values as-is).
         seed is optional (pass "" to skip medal lookup fallback to standard order).
         Returns {ok, rows: [{name, cumulative, segment, segment_fmt, medal}]} or {ok: false, error}.
         """
@@ -725,7 +730,7 @@ class JsApi:
 
         key, count, names = _resolve_rush(rush_name)
 
-        cumulative = []
+        values = []
         level_names = []
         errors = []
 
@@ -748,20 +753,33 @@ class JsApi:
             if t_val is None:
                 errors.append(f"Row {i + 1}: cannot parse time from '{line.strip()}'")
                 continue
-            if cumulative and t_val <= cumulative[-1]:
+            if cumulative and values and t_val <= values[-1]:
                 errors.append(
-                    f"Row {i + 1} ({name_part}): time {_format_secs(t_val)} must be "
-                    f"greater than previous ({_format_secs(cumulative[-1])})"
+                    f"Row {i + 1} ({name_part}): cumulative time {_format_secs(t_val)} must be "
+                    f"greater than previous ({_format_secs(values[-1])})"
                 )
                 continue
-            cumulative.append(t_val)
+            if not cumulative and t_val <= 0:
+                errors.append(f"Row {i + 1} ({name_part}): segment time must be greater than 0")
+                continue
+            values.append(t_val)
             level_names.append(name_part)
 
         if errors:
             return {"ok": False, "error": "\n".join(errors)}
 
-        segments = [cumulative[0]] + [cumulative[i] - cumulative[i - 1]
-                                       for i in range(1, len(cumulative))]
+        if cumulative:
+            cumulative_totals = values
+            segments = [values[0]] + [values[i] - values[i - 1]
+                                       for i in range(1, len(values))]
+        else:
+            segments = values
+            cumulative_totals = []
+            running = 0.0
+            for v in values:
+                running += v
+                cumulative_totals.append(running)
+        cumulative = cumulative_totals
         rows = []
         for i, (seg, cum, name) in enumerate(zip(segments, cumulative, level_names)):
             medal = _get_medal(name, seg)
@@ -1275,7 +1293,8 @@ class JsApi:
         }
 
     def run_avg_rankings(self, k: str = "500", scope: str = "story+side",
-                         out_mode: str = "display", folder: str = "") -> dict:
+                         out_mode: str = "display", folder: str = "",
+                         source: str = "depth", sids=None, levels: str = "[]") -> dict:
         """Average Placement Leaderboard — rank players by mean per-level placement.
 
         Seed method: take the top-`k` players from GlobalNeonRankings (complete-game
@@ -1290,17 +1309,49 @@ class JsApi:
             return {"ok": False, "error": "Steam not connected. Connect in Settings first."}
         if getattr(self, "_lb_running", False):
             return {"ok": False, "error": "An operation is already running."}
-        try:
-            k_int = max(1, int(str(k).strip()))
-        except ValueError:
-            return {"ok": False, "error": "Candidate count must be a number."}
-        if scope not in ("story", "story+side", "side"):
+        if scope not in ("story", "story+side", "side", "custom"):
             scope = "story+side"
+
+        # Resolve the in-scope boards. "custom" reuses the shared level resolver
+        # (a JSON list of display names -> (display, internal) pairs) that Player
+        # Lookup / Compare use for their own custom mode.
+        if scope == "custom":
+            board_pairs, _ctx, lerr = self._resolve_levels_for_mode("custom", levels)
+            if lerr:
+                return lerr
+        else:
+            board_pairs = _avg_rankings.board_list(scope)
+
+        # Candidate source: "depth" pages the top-k of GlobalNeonRankings;
+        # "roster" scores an explicit, user-supplied Steam-ID list with no
+        # coverage gate (the user chose these players, so partial coverage is
+        # shown, not dropped).
+        source = source if source in ("depth", "roster") else "depth"
+        roster_sids = None
+        if source == "roster":
+            raw = sids if isinstance(sids, list) else []
+            if not raw:
+                return {"ok": False, "error": "Add at least one Steam ID to the roster."}
+            roster_sids = []
+            seen = set()
+            for s in raw:
+                s = str(s).strip()
+                if not (s.isdigit() and len(s) == 17):
+                    return {"ok": False, "error": f"Invalid Steam ID: {s or '(empty)'}"}
+                v = int(s)
+                if v not in seen:
+                    seen.add(v)
+                    roster_sids.append(v)
+            k_int = len(roster_sids)
+        else:
+            try:
+                k_int = max(1, int(str(k).strip()))
+            except ValueError:
+                return {"ok": False, "error": "Candidate count must be a number."}
+
         err = _guard_output_folder(folder, out_mode)
         if err:
             return err
-
-        board_pairs = _avg_rankings.board_list(scope)
 
         with self._run_gate:
             if getattr(self, "_lb_running", False):
@@ -1312,35 +1363,53 @@ class JsApi:
 
         def worker():
             CH = "_nwAvgRankEvent"
-            _emit_to(CH, {"type": "status",
-                          "message": "Selecting the top players to measure (from Global Rankings)…"})
-            glb = steam.find_leaderboard("GlobalNeonRankings")
-            if not glb:
-                _emit_to(CH, {"type": "error",
-                              "message": "GlobalNeonRankings leaderboard not found."})
-                self._lb_running = False
-                return
+            if source == "roster":
+                # Explicit roster: no Global seed. Resolve display names up front
+                # the same way Player Lookup / Compare do (get_persona_name), with
+                # the SteamID string as the fallback for unknown personas.
+                _emit_to(CH, {"type": "status", "message": "Resolving player names…"})
+                sids = list(roster_sids)
+                names = {}
+                for sid in sids:
+                    if stop_event.is_set():
+                        break
+                    try:
+                        nm = steam.get_persona_name(sid)
+                    except Exception:
+                        nm = ""
+                    names[sid] = nm or str(sid)
+                ranks = {sid: {} for sid in sids}
+                entry_counts = {}
+            else:
+                _emit_to(CH, {"type": "status",
+                              "message": "Selecting the top players to measure (from Global Rankings)…"})
+                glb = steam.find_leaderboard("GlobalNeonRankings")
+                if not glb:
+                    _emit_to(CH, {"type": "error",
+                                  "message": "GlobalNeonRankings leaderboard not found."})
+                    self._lb_running = False
+                    return
 
-            # Page the top-k candidate set (cheater-filtered by fetch_batch already).
-            candidates = []
-            start = 1
-            while start <= k_int and not stop_event.is_set():
-                end = min(start + steam.BATCH_SIZE - 1, k_int)
-                batch = steam.fetch_batch(glb, start, end)
-                if not batch:
-                    break
-                candidates.extend(batch)
-                start = end + 1
-            if not candidates:
-                _emit_to(CH, {"type": "error",
-                              "message": "No candidates returned from Global Rankings."})
-                self._lb_running = False
-                return
+                # Page the top-k candidate set (cheater-filtered by fetch_batch already).
+                candidates = []
+                start = 1
+                while start <= k_int and not stop_event.is_set():
+                    end = min(start + steam.BATCH_SIZE - 1, k_int)
+                    batch = steam.fetch_batch(glb, start, end)
+                    if not batch:
+                        break
+                    candidates.extend(batch)
+                    start = end + 1
+                if not candidates:
+                    _emit_to(CH, {"type": "error",
+                                  "message": "No candidates returned from Global Rankings."})
+                    self._lb_running = False
+                    return
 
-            names = {c["steam_id"]: c["name"] for c in candidates}
-            sids = [c["steam_id"] for c in candidates]
-            ranks = {sid: {} for sid in sids}
-            entry_counts = {}
+                names = {c["steam_id"]: c["name"] for c in candidates}
+                sids = [c["steam_id"] for c in candidates]
+                ranks = {sid: {} for sid in sids}
+                entry_counts = {}
 
             total_boards = len(board_pairs)
             board_times = []   # wall-clock per completed board, for ETA
@@ -1396,8 +1465,13 @@ class JsApi:
                     "avg_rankings: %d board(s) returned zero coverage: %s",
                     len(empty_boards), ", ".join(empty_boards))
 
+            # Roster mode shows everyone (threshold 0) — the user picked these
+            # players, so partial coverage is flagged, not dropped. Depth keeps
+            # the validated 0.95 gate.
+            threshold = 0.0 if source == "roster" else 0.95
             rows, dropped = _avg_rankings.compute_scores(
-                ranks, entry_counts, names, [b for _, b in board_pairs])
+                ranks, entry_counts, names, [b for _, b in board_pairs],
+                threshold=threshold)
             ranked = _avg_rankings.sort_rows(rows, "rank")
             as_of = _dt.datetime.now().strftime("%Y-%m-%d %H:%M")
             stopped = stop_event.is_set()
@@ -1411,8 +1485,9 @@ class JsApi:
 
             csv_path = None
             if out_mode in ("csv", "both"):
-                csv_path = os.path.join(
-                    folder.strip(), f"avg_placement_{scope}_top{k_int}.csv")
+                fname = (f"avg_placement_{scope}_roster.csv" if source == "roster"
+                         else f"avg_placement_{scope}_top{k_int}.csv")
+                csv_path = os.path.join(folder.strip(), fname)
                 with open(csv_path, "w", newline="", encoding="utf-8") as f:
                     w = _csv.DictWriter(f, fieldnames=[
                         "pos", "name", "avg_rank", "avg_pct",
@@ -1444,6 +1519,8 @@ class JsApi:
                 "empty_boards": empty_boards, "csv_path": csv_path or "",
                 "message": (f"Stopped. {len(out_rows)} players ranked."
                             if stopped else
+                            f"Done. {len(out_rows)} players ranked."
+                            if source == "roster" else
                             f"Done. {len(out_rows)} players ranked, {dropped} below coverage."),
             })
             self._lb_running = False

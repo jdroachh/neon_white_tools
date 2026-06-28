@@ -1,22 +1,37 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { PageHead, Field, Seg, Btn, ErrorBanner } from "../shared.jsx";
-import { runAvgRankings, stopAvgRankings, pickFolder, getCheaterCount } from "../api.js";
+import {
+  runAvgRankings, stopAvgRankings, pickFolder, getCheaterCount,
+  getLevels, getChapters, getSteamStatus,
+} from "../api.js";
+import LevelPickerModal from "../components/LevelPickerModal.jsx";
+import SavedProfilesDropdown from "../components/SavedProfilesDropdown.jsx";
+import { loadLastSelection, saveLastSelection } from "../lib/customLevels.js";
+import { loadProfiles } from "../lib/savedProfiles.js";
+import { loadRosters, saveRosters, addRoster, removeRoster } from "../lib/savedRosters.js";
+import { loadWithRetry } from "../lib/retryLevels.js";
 
 const TH = { padding: "4px 8px", fontWeight: 600, fontSize: "0.91em", borderBottom: "1px solid var(--border)", textAlign: "left" };
 const TD = { padding: "3px 8px", fontSize: "1em" };
 
 // Times are intentionally absent here — this board ranks by AVERAGE per-level
-// placement (consistency), not by any time. The seed set is the top-K of
-// GlobalNeonRankings, so players without a complete game are unrankable (no
-// GlobalNeonRankings entry). See plans/2026-06-22-avg-rankings-in-app.md.
+// placement (consistency), not by any time. In depth mode the seed set is the
+// top-K of GlobalNeonRankings (so only complete-game players appear); in roster
+// mode it's an explicit Steam-ID list. See plans/2026-06-25-avg-placement-custom-filter.md.
 
-const SCOPES = { "All stages": "story+side", "Main game": "story", "Sidequests": "side" };
+const STEAM_ID_RE = /^\d{17}$/;
+const ROSTER_MAX = 50;  // roster size cap (matches saved_profiles)
+
+// Short Seg labels keep the 4-option control compact; the full meaning lives in
+// the SCOPE_DESC line rendered under the Seg.
+const SCOPES = { "All": "story+side", "Main": "story", "Side": "side", "Custom": "custom" };
 const SCOPE_DESC = {
-  "All stages": "All 121 stages.",
-  "Main game": "Main-game only (excludes Red/Violet/Yellow stages).",
-  "Sidequests": "Sidequest stages only (24 Red/Violet/Yellow stages).",
+  "All": "All stages (121).",
+  "Main": "Main-game stages only — excludes Red/Violet/Yellow (97).",
+  "Side": "Sidequest stages only — Red/Violet/Yellow (24).",
+  "Custom": "Pick the exact stages to score below.",
 };
-const SCOPE_BOARDS = { "All stages": 121, "Main game": 97, "Sidequests": 24 };
+const SCOPE_BOARDS = { "All": 121, "Main": 97, "Side": 24 };
 const OUTPUT_DESC = {
   display: "Show results in the app only.",
   csv: "Write results to a CSV file (pick a folder below).",
@@ -60,9 +75,10 @@ function fmtPctBare(v, decimals = 3) {
   return v == null ? "" : `${(v * 100).toFixed(decimals)}%`;
 }
 
-export default function AvgRankings({ outputFolder: defaultFolder = "" }) {
+export default function AvgRankings({ outputFolder: defaultFolder = "", visible = false }) {
+  const [source, setSource]       = useState("depth");   // depth | roster
   const [k, setK]                 = useState("500");   // user-set board depth
-  const [scope, setScope]         = useState("All stages");
+  const [scope, setScope]         = useState("All");
   const [outMode, setOutMode]     = useState("display");
   const [folder, setFolder]       = useState(defaultFolder);
   const [running, setRunning]     = useState(false);
@@ -81,6 +97,20 @@ export default function AvgRankings({ outputFolder: defaultFolder = "" }) {
   const [lastParams, setLastParams]     = useState(null);
   const [emptyBoards, setEmptyBoards]   = useState([]);  // boards that returned no data
 
+  // Custom stages (display names) + the catalog the picker needs.
+  const [customLevels, setCustomLevels] = useState([]);
+  const [pickerOpen, setPickerOpen]     = useState(false);
+  const [levels, setLevels]             = useState([]);   // [{display, ...}]
+  const [chapters, setChapters]         = useState([]);   // [{name, levels}]
+  const customHydrated = useRef(false);
+
+  // Roster source.
+  const [roster, setRoster]               = useState([{ name: "", steam_id: "" }]);
+  const [savedProfiles, setSavedProfiles] = useState([]);
+  const [savedRosters, setSavedRosters]   = useState([]);
+
+  const stageCount = scope === "Custom" ? customLevels.length : SCOPE_BOARDS[scope];
+
   // Sort the full board by the active metric, then stamp each row's position
   // (_pos) under that ordering. The name filter operates on this list, so _pos
   // stays the player's true board rank regardless of what's filtered out.
@@ -93,12 +123,56 @@ export default function AvgRankings({ outputFolder: defaultFolder = "" }) {
     return sortedRows.filter(r => r.name.toLowerCase().includes(q));
   }, [sortedRows, nameFilter]);
 
-  const boardsTotal = rows[0]?.boards_total;
+  // ── Roster validity ──────────────────────────────────────────────────────
+  const idCounts = useMemo(() => {
+    const counts = {};
+    for (const r of roster) {
+      const id = (r.steam_id || "").trim();
+      if (id) counts[id] = (counts[id] || 0) + 1;
+    }
+    return counts;
+  }, [roster]);
+  const validRoster = useMemo(
+    () => roster.filter(r => {
+      const id = (r.steam_id || "").trim();
+      return STEAM_ID_RE.test(id) && idCounts[id] === 1;
+    }),
+    [roster, idCounts]);
+  const rosterIds = useMemo(
+    () => new Set(roster.map(r => (r.steam_id || "").trim()).filter(Boolean)),
+    [roster]);
 
   const [folderTouched, setFolderTouched] = useState(false);
   useEffect(() => { if (!folderTouched) setFolder(defaultFolder); }, [defaultFolder]);
 
   useEffect(() => { getCheaterCount().then(n => { if (n > 0) setCheaterCount(n); }); }, []);
+
+  // Levels + chapters for the custom picker (first-boot bridge race → retry,
+  // same as Player Lookup / Compare / Multi Compare). getChapters returns
+  // [{name, levels}] which LevelPickerModal consumes directly.
+  useEffect(() => {
+    const cancelLevels = loadWithRetry(getLevels, { onData: setLevels });
+    const cancelChapters = loadWithRetry(getChapters, { onData: setChapters });
+    loadProfiles().then(setSavedProfiles).catch(() => {});
+    loadRosters().then(setSavedRosters).catch(() => {});
+    return () => { cancelLevels(); cancelChapters(); };
+  }, []);
+
+  // Reload saved profiles/rosters whenever the tab regains focus (they may have
+  // been edited on Settings or another page).
+  useEffect(() => {
+    if (!visible) return;
+    loadProfiles().then(setSavedProfiles).catch(() => {});
+    loadRosters().then(setSavedRosters).catch(() => {});
+  }, [visible]);
+
+  // Hydrate the last-used custom selection the first time the user picks Custom.
+  useEffect(() => {
+    if (scope === "Custom" && !customHydrated.current) {
+      customHydrated.current = true;
+      loadLastSelection("avg").then(sel => { if (sel.length) setCustomLevels(sel); });
+    }
+  }, [scope]);
 
   useEffect(() => {
     // Self-rearming handler (a no-op failure path shouldn't strand the page).
@@ -134,16 +208,73 @@ export default function AvgRankings({ outputFolder: defaultFolder = "" }) {
     if (r.ok && r.path) { setFolder(r.path); setFolderTouched(true); }
   }
 
+  function handleCustomLevelsChange(next) {
+    setCustomLevels(next);
+    saveLastSelection("avg", next).catch(() => {});
+  }
+
+  // ── Roster mutations ───────────────────────────────────────────────────────
+  function updateRow(idx, patch) {
+    setRoster(prev => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+  }
+  function addRow() {
+    if (roster.length >= ROSTER_MAX) return;
+    setRoster(prev => [...prev, { name: "", steam_id: "" }]);
+  }
+  function removeRow(idx) {
+    setRoster(prev => (prev.length <= 1 ? prev : prev.filter((_, i) => i !== idx)));
+  }
+  function applyProfileToRow(idx, profile) {
+    updateRow(idx, { name: profile.nickname || "", steam_id: profile.steam_id || "" });
+  }
+  async function handleUseMine(idx) {
+    const s = await getSteamStatus();
+    if (s.ready && s.steam_id) {
+      const patch = { steam_id: String(s.steam_id) };
+      if (s.player_name) patch.name = s.player_name;
+      updateRow(idx, patch);
+    } else {
+      window.alert("Steam not connected. Connect in Settings first.");
+    }
+  }
+  function handleSaveRoster() {
+    if (validRoster.length === 0) return;
+    const nickname = window.prompt(`Save this roster (${validRoster.length} players).\n\nName:`);
+    if (nickname === null) return;
+    const members = validRoster.map(r => ({ name: r.name || "", steam_id: r.steam_id.trim() }));
+    const { error: err, list } = addRoster(savedRosters, { nickname, members });
+    if (err) { setError(err); return; }
+    setSavedRosters(list);
+    saveRosters(list).catch(() => {});
+  }
+  function handleLoadSavedRoster(idx) {
+    const sr = savedRosters[idx];
+    if (!sr || !Array.isArray(sr.members) || sr.members.length === 0) return;
+    setRoster(sr.members.slice(0, ROSTER_MAX).map(m => ({
+      name: m.name || "", steam_id: m.steam_id || "",
+    })));
+  }
+  function handleDeleteSavedRoster(idx) {
+    const next = removeRoster(savedRosters, idx);
+    setSavedRosters(next);
+    saveRosters(next).catch(() => {});
+  }
+
   async function start(params) {
     setError(""); setStatus("Starting…"); setRows([]); setAsOf(""); setProgress(null); setNameFilter(""); setEmptyBoards([]); setStoppedEmpty(false);
-    const r = await runAvgRankings(params.k, params.scope, params.outMode, params.folder);
+    const r = await runAvgRankings(params.k, params.scope, params.outMode, params.folder,
+                                   params.source, params.sids, params.levels);
     if (!r.ok) { setError(r.error); return; }
     setLastParams(params);
     setRunning(true);
   }
 
   function handleRun() {
-    start({ k, scope: SCOPES[scope], outMode, folder });
+    start({
+      k, scope: SCOPES[scope], outMode, folder, source,
+      sids: source === "roster" ? validRoster.map(r => r.steam_id.trim()) : [],
+      levels: scope === "Custom" ? JSON.stringify(customLevels) : "[]",
+    });
   }
 
   function handleRefresh() {
@@ -163,6 +294,8 @@ export default function AvgRankings({ outputFolder: defaultFolder = "" }) {
   }
 
   const showFolder = outMode === "csv" || outMode === "both";
+  const runDisabled = (source === "roster" && validRoster.length === 0)
+                   || (scope === "Custom" && customLevels.length === 0);
 
   return (
     <>
@@ -178,24 +311,113 @@ export default function AvgRankings({ outputFolder: defaultFolder = "" }) {
       <div className="body">
         <div className="panel-left">
           <div className="form">
-            <Field label="Board depth">
-              <input className="input" value={k} onChange={e => setK(e.target.value)}
-                     disabled={running} style={{ width: 120 }} placeholder="500" />
+            <Field label="Players from">
+              <Seg options={["depth", "roster"]} value={source} onChange={setSource} />
               <div className="muted" style={{ fontSize: 10, marginTop: 4 }}>
-                Scoring the top {Number(k) ? Number(k).toLocaleString() : "N"} players across {SCOPE_BOARDS[scope]} stages.
+                {source === "depth"
+                  ? "Top players on the Global Rankings (total-time) board."
+                  : "An explicit list of Steam IDs you choose."}
               </div>
             </Field>
-            {Number(k) > 1000 && (
-              <div className="muted" style={{ fontSize: 10, color: "var(--accent)" }}>
-                Large depth — scoring {Number(k).toLocaleString()} players across every stage can take a while.
-              </div>
+
+            {source === "depth" && (
+              <>
+                <Field label="Board depth">
+                  <input className="input" value={k} onChange={e => setK(e.target.value)}
+                         disabled={running} style={{ width: 120 }} placeholder="500" />
+                  <div className="muted" style={{ fontSize: 10, marginTop: 4 }}>
+                    Scoring the top {Number(k) ? Number(k).toLocaleString() : "N"} players across {stageCount} stages.
+                  </div>
+                </Field>
+                {Number(k) > 1000 && (
+                  <div className="muted" style={{ fontSize: 10, color: "var(--accent)" }}>
+                    Large depth — scoring {Number(k).toLocaleString()} players across every stage can take a while.
+                  </div>
+                )}
+              </>
             )}
+
+            {source === "roster" && (
+              <Field label="Roster">
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {roster.map((row, idx) => {
+                    const id = (row.steam_id || "").trim();
+                    const dup = id && idCounts[id] > 1;
+                    const bad = id && !STEAM_ID_RE.test(id);
+                    return (
+                      <div key={idx} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        <input className="input" style={{ flex: 1, fontSize: 11 }}
+                               value={row.steam_id} disabled={running}
+                               placeholder="17-digit Steam ID"
+                               onChange={e => updateRow(idx, { steam_id: e.target.value })} />
+                        <SavedProfilesDropdown
+                          profiles={savedProfiles}
+                          disabled={running}
+                          disabledIds={rosterIds}
+                          onSelect={p => applyProfileToRow(idx, p)}
+                        />
+                        <Btn kind="ghost" size="sm" disabled={running}
+                             onClick={() => handleUseMine(idx)} title="Use my Steam ID">Mine</Btn>
+                        <Btn kind="ghost" size="sm" disabled={running || roster.length <= 1}
+                             onClick={() => removeRow(idx)} title="Remove">✕</Btn>
+                        {(dup || bad) && (
+                          <span style={{ fontSize: 10, color: "var(--bad, #e0533a)" }}>
+                            {dup ? "dup" : "invalid"}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                    <Btn kind="ghost" size="sm" disabled={running || roster.length >= ROSTER_MAX}
+                         onClick={addRow}>+ Add player</Btn>
+                    <Btn kind="ghost" size="sm" disabled={running || validRoster.length === 0}
+                         onClick={handleSaveRoster}>Save roster…</Btn>
+                    <span style={{ fontSize: 10, color: "var(--text-3)" }}>
+                      {validRoster.length}/{roster.length} valid · max {ROSTER_MAX}
+                    </span>
+                  </div>
+                  {savedRosters.length > 0 && (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+                      <span style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, color: "var(--text-3)" }}>
+                        Saved
+                      </span>
+                      {savedRosters.map((sr, i) => (
+                        <span key={`${sr.nickname}-${i}`} className="lpm-preset">
+                          <span onClick={() => handleLoadSavedRoster(i)}
+                                title={`Load ${sr.members?.length || 0} players`}>
+                            {sr.nickname}
+                          </span>
+                          <span className="lpm-preset-x" onClick={() => handleDeleteSavedRoster(i)}
+                                title="Delete roster">×</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </Field>
+            )}
+
             <Field label="Stages">
               <Seg options={Object.keys(SCOPES)} value={scope} onChange={setScope} />
               <div className="muted" style={{ fontSize: 10, marginTop: 4 }}>
                 {SCOPE_DESC[scope]}
               </div>
             </Field>
+            {scope === "Custom" && (
+              <Field label="Custom stages">
+                <div style={{ display: "flex", gap: 8 }}>
+                  <Btn kind="ghost" size="sm" onClick={() => setPickerOpen(true)} disabled={running}>
+                    {customLevels.length ? `${customLevels.length} stages selected` : "Pick stages…"}
+                  </Btn>
+                  {customLevels.length > 0 && (
+                    <Btn kind="ghost" size="sm" disabled={running}
+                         onClick={() => handleCustomLevelsChange([])}>Clear</Btn>
+                  )}
+                </div>
+              </Field>
+            )}
+
             <Field label="Output">
               <Seg options={["display", "csv", "both"]} value={outMode} onChange={setOutMode} />
               <div className="muted" style={{ fontSize: 10, marginTop: 4 }}>
@@ -203,7 +425,7 @@ export default function AvgRankings({ outputFolder: defaultFolder = "" }) {
               </div>
             </Field>
             {showFolder && (
-              <Field label="Output folder" hint="Saved as avg_placement_<scope>_topK.csv">
+              <Field label="Output folder" hint="Saved as avg_placement_<scope>_<depth|roster>.csv">
                 <div style={{ display: "flex", gap: 8 }}>
                   <input className="input" style={{ flex: 1, fontSize: 10 }} value={folder}
                          onChange={e => { setFolder(e.target.value); setFolderTouched(true); }} disabled={running}
@@ -218,19 +440,28 @@ export default function AvgRankings({ outputFolder: defaultFolder = "" }) {
               borderRadius: 4, background: "var(--surface-2)",
             }}>
               <span style={{ color: "var(--accent)", fontWeight: 600 }}>How it works:</span>{" "}
-              Steam has no "average placement" board, so this takes the{" "}
-              <span style={{ color: "var(--text-2)" }}>top {Number(k) || "N"} players</span> from
-              the Global Rankings (total-time) board, measures each one's placement on every
-              stage, and ranks them by their <span style={{ color: "var(--text-2)" }}>average
-              placement</span>. Because the starting list is the total-time board, only{" "}
-              <span style={{ color: "var(--text-2)" }}>complete-game players</span> appear. A full
-              run fetches every stage and can take several minutes.
+              {source === "depth" ? (
+                <>Steam has no "average placement" board, so this takes the{" "}
+                <span style={{ color: "var(--text-2)" }}>top {Number(k) || "N"} players</span> from
+                the Global Rankings (total-time) board, measures each one's placement on every
+                selected stage, and ranks them by their <span style={{ color: "var(--text-2)" }}>average
+                placement</span>. Because the starting list is the total-time board, only{" "}
+                <span style={{ color: "var(--text-2)" }}>complete-game players</span> appear. A full
+                run fetches every stage and can take several minutes.</>
+              ) : (
+                <>This measures each player you list on the{" "}
+                <span style={{ color: "var(--text-2)" }}>selected stages</span> and ranks them by
+                their <span style={{ color: "var(--text-2)" }}>average placement</span>. Placement is
+                each player's rank on the <span style={{ color: "var(--text-2)" }}>full Steam board</span>,
+                not within your list. Everyone you add is shown — a player who hasn't charted on every
+                stage appears with partial coverage rather than being dropped.</>
+              )}
             </div>
             <ErrorBanner message={error} />
             <div style={{ display: "flex", gap: 8 }}>
               {running
                 ? <Btn kind="danger" size="lg" onClick={handleStop}>Stop</Btn>
-                : <Btn kind="primary" size="lg" icn="export" onClick={handleRun}>Run</Btn>}
+                : <Btn kind="primary" size="lg" icn="export" onClick={handleRun} disabled={runDisabled}>Run</Btn>}
             </div>
             {progress && (
               <div>
@@ -341,6 +572,14 @@ export default function AvgRankings({ outputFolder: defaultFolder = "" }) {
           )}
         </div>
       </div>
+      <LevelPickerModal
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        value={customLevels}
+        onChange={handleCustomLevelsChange}
+        levels={levels}
+        chapters={chapters}
+      />
     </>
   );
 }

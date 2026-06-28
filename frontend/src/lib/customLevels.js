@@ -7,6 +7,7 @@ const LAST_KEYS = {
   pl: "custom_levels_last_pl",
   cp: "custom_levels_last_cp",
   mc: "custom_levels_last_mc",
+  avg: "custom_levels_last_avg",
 };
 const PRESETS_KEY = "custom_level_presets";
 const MAX_PRESETS = 50;
