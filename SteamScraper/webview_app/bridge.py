@@ -109,6 +109,11 @@ if not _loaded:
         "Rush Seed Finder will be unavailable")
 
 MAX_SEED = 2_147_483_647
+# Small (8-level) sidequest rushes — Red, Violet, Yellow — match densely, so
+# all 8! = 40,320 orderings provably appear within the first ~695k seeds,
+# uniformly distributed. Capping the scan keeps the progress bar meaningful and
+# finishes in under a second instead of stalling on a dense full-buffer return.
+SMALL_RUSH_SCAN_CAP = 2_000_000
 
 # ── Config ────────────────────────────────────────────────────────────────
 # neonwhite_config.json lives in %APPDATA%\NeonWhiteLeaderboardTool\ so it
@@ -520,6 +525,7 @@ class JsApi:
             return {"ok": False, "error": "Search already running."}
 
         key, count, names = _resolve_rush(rush_name)
+        scan_max = SMALL_RUSH_SCAN_CAP if count <= 16 else MAX_SEED
 
         if order_matters and key == "96":
             return {"ok": False, "error": "Order Matters is only supported for Violet, Red, and Yellow."}
@@ -577,7 +583,7 @@ class JsApi:
                 return {"ok": False, "error": f"Exclusion Window must be 1–{count - 1}."}
             excluded_set = set(ei)
 
-        expected = _expected_match_count(count, len(target_indices), depth_int, MAX_SEED)
+        expected = _expected_match_count(count, len(target_indices), depth_int, scan_max)
 
         with self._run_gate:
             if getattr(self, "_finder_running", False):
@@ -587,14 +593,14 @@ class JsApi:
         self._finder_user_stopped = False
 
         num_cores = max(1, (__import__("os").cpu_count() or 1) - 1)
-        chunk_size = MAX_SEED // num_cores
+        chunk_size = scan_max // num_cores
 
         def manager():
             result_queue = queue.Queue()
             workers = []
             for core in range(num_cores):
                 start = core * chunk_size + 1
-                end = (core + 1) * chunk_size + 1 if core < num_cores - 1 else MAX_SEED
+                end = (core + 1) * chunk_size + 1 if core < num_cores - 1 else scan_max
                 t = threading.Thread(
                     target=_seed_search_worker,
                     args=((start, end, count, set(target_indices), depth_int,
@@ -622,9 +628,9 @@ class JsApi:
 
                 if isinstance(item, tuple) and item and item[0] == "progress":
                     seeds_checked += item[1]
-                    pct = min(99, int(seeds_checked / MAX_SEED * 100))
+                    pct = min(99, int(seeds_checked / scan_max * 100))
                     _emit({"type": "progress", "seeds_checked": seeds_checked,
-                           "total": MAX_SEED, "found_count": len(found), "pct": pct})
+                           "total": scan_max, "found_count": len(found), "pct": pct})
                     continue
 
                 seed = item
