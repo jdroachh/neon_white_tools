@@ -70,9 +70,9 @@ export async function loadTimerSeed(rushName, seed) {
   return api.load_timer_seed(rushName, String(seed));
 }
 
-export async function calculateTimer(rushName, seed, splitsText) {
+export async function calculateTimer(rushName, seed, splitsText, cumulative = true) {
   const api = await waitForApi();
-  return api.calculate_timer(rushName, String(seed), splitsText);
+  return api.calculate_timer(rushName, String(seed), splitsText, cumulative);
 }
 
 // ── Accent color ─────────────────────────────────────────────────────────────
