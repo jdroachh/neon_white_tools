@@ -8,6 +8,20 @@ All notable changes to Neon White Tools are documented here.
 
 ---
 
+## [1.8.1] — 2026-06-28
+
+### Added
+- Run Timer — custom mode: build a run from any stages in any order (catalog picker + drag-to-reorder), save/load named custom rushes, cumulative/segment time toggle, and bulk paste-times-into-column (5a32403)
+- Average Placement — custom scope (score any hand-picked set of stages) and a roster candidate source (explicit Steam-ID list instead of the global top-k); last custom selection is remembered (735c429)
+
+### Fixed
+- Rush Seed Finder: progress bar no longer stalls on the small sidequest rushes (Red, Violet, Yellow) — the dense-match scan is capped at 2M seeds (all orderings still appear), so it completes in ~1s (708b5c3)
+
+### Docs
+- Bake the Unblock screenshot into the release-notes template (7084a6a)
+
+---
+
 ## [1.8.0] — 2026-06-24
 
 ### Added

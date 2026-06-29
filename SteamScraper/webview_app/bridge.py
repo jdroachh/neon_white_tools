@@ -34,7 +34,7 @@ from steam_backend import steam, IS_WORKER
 
 _resources.start_background_fetch()
 
-APP_VERSION = "1.8.0"
+APP_VERSION = "1.8.1"
 
 _UPDATE_CACHE: dict = {}  # {"checked_at": float, "result": dict}
 _UPDATE_CACHE_TTL_SEC = 6 * 60 * 60
