@@ -28,12 +28,23 @@ export default function SavedProfilesDropdown({
     ? disabledIds
     : new Set(disabledIds || []);
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+
+  function close() { setOpen(false); setQuery(""); }
 
   function handlePick(profile) {
     if (disabledSet.has(profile.steam_id)) return;
     onSelect && onSelect(profile);
-    setOpen(false);
+    close();
   }
+
+  // Show a type-to-filter box once the list gets long enough to scroll-hunt.
+  const showFilter = profiles.length > 8;
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? profiles.filter(p =>
+        p.nickname.toLowerCase().includes(q) || p.steam_id.includes(q))
+    : profiles;
 
   return (
     <div style={{ position: "relative", display: "flex" }}>
@@ -44,7 +55,7 @@ export default function SavedProfilesDropdown({
       {open && (
         <>
           <div style={{ position: "fixed", inset: 0, zIndex: 199 }}
-               onClick={() => setOpen(false)} />
+               onClick={close} />
           <div style={{
             position: "absolute", top: "100%", zIndex: 200,
             ...(align === "left" ? { left: 0 } : { right: 0 }),
@@ -52,11 +63,32 @@ export default function SavedProfilesDropdown({
             borderRadius: 6, minWidth: 220, boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
             marginTop: 4, maxHeight: 360, overflowY: "auto",
           }}>
+            {showFilter && (
+              <div style={{
+                position: "sticky", top: 0, zIndex: 1,
+                padding: 6, background: "var(--bg-2)",
+                borderBottom: "1px solid var(--border)",
+              }}>
+                <input
+                  className="input"
+                  autoFocus
+                  value={query}
+                  onChange={e => setQuery(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Escape") close(); }}
+                  placeholder="Filter by name or ID…"
+                  style={{ width: "100%", fontSize: 11, padding: "5px 8px" }}
+                />
+              </div>
+            )}
             {profiles.length === 0 ? (
               <div style={{ padding: "10px 12px", fontSize: 11, color: "var(--text-3)" }}>
                 No saved profiles yet. Use ★ to save a Steam ID.
               </div>
-            ) : profiles.map((p, i) => {
+            ) : filtered.length === 0 ? (
+              <div style={{ padding: "10px 12px", fontSize: 11, color: "var(--text-3)" }}>
+                No matches.
+              </div>
+            ) : filtered.map((p, i) => {
               const taken = disabledSet.has(p.steam_id);
               return (
                 <button

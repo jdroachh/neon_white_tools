@@ -20,7 +20,9 @@ const TD = { padding: "3px 8px", fontSize: "1em" };
 // mode it's an explicit Steam-ID list. See plans/2026-06-25-avg-placement-custom-filter.md.
 
 const STEAM_ID_RE = /^\d{17}$/;
-const ROSTER_MAX = 50;  // roster size cap (matches saved_profiles)
+const ROSTER_MAX = 100;  // roster size cap = Valve's DownloadLeaderboardEntriesForUsers
+                         // batch size, so a full roster is exactly one Steam call per board
+                         // (101+ would force a second batch per board × up to 121 boards)
 
 // Short Seg labels keep the 4-option control compact; the full meaning lives in
 // the SCOPE_DESC line rendered under the Seg.

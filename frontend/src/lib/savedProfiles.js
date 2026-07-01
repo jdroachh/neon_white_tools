@@ -1,7 +1,7 @@
 import { getConfig, saveConfigField } from "../api.js";
 
 const STEAM_ID_RE = /^\d{17}$/;
-const MAX_PROFILES = 50;
+const MAX_PROFILES = 200;
 
 export function validateProfile(nickname, steam_id) {
   const nick = (nickname || "").trim();
