@@ -21,6 +21,8 @@ SteamScraper/steam_api64.dll
 # (without `.local`) IS meant to be tracked if you ever add one.
 .claude/settings.local.json
 SteamScraper/.claude/
+# Private skill library — institutional-memory pack, may cite vault paths.
+.claude/skills/
 steam_appid.txt
 
 # ── Python ────────────────────────────────────────────────────────────
