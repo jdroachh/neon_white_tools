@@ -2286,7 +2286,7 @@ class JsApi:
 
     def run_multi_compare(self, steam_ids: list, mode: str, target: str = "") -> dict:
         """
-        Up to 10 players × Level/Chapter/Whole-Game compare. Batches Steam
+        Up to 16 players × Level/Chapter/Whole-Game compare. Batches Steam
         calls per level (one DownloadLeaderboardEntriesForUsers round-trip
         for whoever's not in cache). Streams row/progress/done events via
         window._nwMultiCompareEvent.

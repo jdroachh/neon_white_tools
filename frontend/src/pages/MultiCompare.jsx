@@ -16,7 +16,7 @@ const STEAM_ID_RE = /^\d{17}$/;
 const MEDAL_TIER_ORDER = ["BLOOD DIAMOND","TOPAZ","SAPPHIRE","AMETHYST","EMERALD","DEV","ACE","GOLD","SILVER","BRONZE"];
 const MIN_ROWS = 1;
 const DEFAULT_ROWS = 3;
-const MAX_ROWS = 10;
+const MAX_ROWS = 16;
 
 // ── Icons (verbatim from handoff multi-compare.jsx) ──────────────────────
 function McIcon({ name, size = 14 }) {
