@@ -146,6 +146,11 @@ export async function importConfig() {
   return api.import_config();
 }
 
+export async function saveTextFile(defaultName, content) {
+  const api = await waitForApi();
+  return api.save_text_file(String(defaultName), String(content));
+}
+
 export async function findSteamDll() {
   const api = await waitForApi();
   return api.find_steam_dll();

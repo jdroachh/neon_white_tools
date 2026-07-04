@@ -10,7 +10,7 @@ import {
   loadRosters, saveRosters, addRoster, removeRoster, MAX as MAX_ROSTERS,
 } from "../lib/savedRosters.js";
 import { PLAYER_COLORS, hexFor, nextAvailableColor } from "../lib/playerColors.js";
-import { getLevels, getChapters, getSteamStatus, runMultiCompare, stopMultiCompare, clearMultiCompareCache, getGlobalNeonRank } from "../api.js";
+import { getLevels, getChapters, getSteamStatus, runMultiCompare, stopMultiCompare, clearMultiCompareCache, getGlobalNeonRank, saveTextFile } from "../api.js";
 
 const STEAM_ID_RE = /^\d{17}$/;
 const MEDAL_TIER_ORDER = ["BLOOD DIAMOND","TOPAZ","SAPPHIRE","AMETHYST","EMERALD","DEV","ACE","GOLD","SILVER","BRONZE"];
@@ -477,41 +477,107 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
   // mode doesn't linger as a blank rail.
   useEffect(() => { setDrill(null); }, [mode]);
 
+  // Transient status shown next to the Copy/Export buttons.
+  const [actionMsg, setActionMsg] = useState("");
+  const actionMsgTimer = useRef(null);
+  function flash(msg) {
+    setActionMsg(msg);
+    if (actionMsgTimer.current) clearTimeout(actionMsgTimer.current);
+    actionMsgTimer.current = setTimeout(() => setActionMsg(""), 2500);
+  }
+  useEffect(() => () => { if (actionMsgTimer.current) clearTimeout(actionMsgTimer.current); }, []);
+
   function handleCellClick(chapterKey, levelDisplay, cellKey) {
     setDrill({ chapterKey, levelDisplay, cellKey });
   }
 
-  function handleCopy() {
-    // Copy a compact text summary of standings + per-chapter winners.
+  // Build the detailed, per-player table for the levels currently in scope.
+  // Columns are grouped per player: <name> time / rank / medal / delta(s).
+  // "fastest" is the roster-fastest (the on-screen winner), delta is each
+  // runner's gap behind it in seconds. Medal is always included (export is
+  // data, not display, so it ignores the on-screen Medals toggle).
+  function buildDetailTable() {
+    const sids = Object.keys(rosterById);
+    const nameFor = (sid) => rosterById[sid].name || truncateSid(sid);
+    const headers = ["chapter", "level", "fastest_time", "fastest_runner"];
+    for (const sid of sids) {
+      const n = nameFor(sid);
+      headers.push(`${n} time`, `${n} rank`, `${n} medal`, `${n} delta(s)`);
+    }
+    const rows = [];
+    for (const ck of chapterKeys) {
+      for (const lvl of mcData[ck] || []) {
+        // Drop levels with no data for anyone — the export should reflect the
+        // query, not pad it with empty rows for stages nobody has a time on.
+        const hasData = sids.some((sid) => {
+          const r = lvl.rowsBySid[sid];
+          return r && !r.missing && r.time_us != null;
+        });
+        if (!hasData) continue;
+        const row = [
+          ck,
+          lvl.levelDisplay,
+          lvl.winnerTime != null ? formatTimeUs(lvl.winnerTime) : "",
+          lvl.winnerSid ? nameFor(lvl.winnerSid) : "",
+        ];
+        for (const sid of sids) {
+          const r = lvl.rowsBySid[sid];
+          if (!r || r.missing || r.time_us == null) { row.push("", "", "", ""); continue; }
+          row.push(
+            formatTimeUs(r.time_us),
+            r.rank != null ? String(r.rank) : "",
+            r.medal || "",
+            lvl.winnerTime != null ? ((r.time_us - lvl.winnerTime) / 1_000_000).toFixed(3) : "",
+          );
+        }
+        rows.push(row);
+      }
+    }
+    return { headers, rows };
+  }
+
+  function toCsv({ headers, rows }) {
+    const esc = (c) => {
+      const s = `${c}`;
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    return [headers, ...rows].map(r => r.map(esc).join(",")).join("\r\n");
+  }
+  function toTsv({ headers, rows }) {
+    const esc = (c) => `${c}`.replace(/[\t\r\n]/g, " ");
+    return [headers, ...rows].map(r => r.map(esc).join("\t")).join("\n");
+  }
+
+  function handleCopyStandings() {
+    // Compact text summary of standings (players ordered by wins).
     const lines = [];
     lines.push(`Multi Compare — ${validRoster.length} players, ${totalLevels} levels`);
     for (const s of standings) {
       lines.push(`  ${s.row.name || truncateSid(s.sid)}: ${s.wins}`);
     }
-    try { navigator.clipboard.writeText(lines.join("\n")); } catch (e) {}
+    try { navigator.clipboard.writeText(lines.join("\n")); flash("Standings copied"); } catch (e) {}
   }
-  function handleExportCsv() {
-    // Wide CSV: chapter, level, then a column per player (time) + Best
-    const sids = Object.keys(rosterById);
-    const headers = ["chapter", "level", ...sids.map(s => rosterById[s].name || truncateSid(s)), "best", "winner"];
-    const lines = [headers.join(",")];
-    for (const ck of chapterKeys) {
-      for (const lvl of mcData[ck] || []) {
-        const row = [ck, lvl.levelDisplay];
-        for (const sid of sids) {
-          const r = lvl.rowsBySid[sid];
-          row.push(r && !r.missing ? formatTimeUs(r.time_us) : "");
-        }
-        row.push(lvl.winnerTime != null ? formatTimeUs(lvl.winnerTime) : "");
-        row.push(lvl.winnerSid ? (rosterById[lvl.winnerSid].name || truncateSid(lvl.winnerSid)) : "");
-        lines.push(row.map(c => (`${c}`.includes(",") ? `"${c}"` : `${c}`)).join(","));
-      }
+
+  function handleCopyData() {
+    // Tab-separated detailed table (pastes clean into Sheets/Excel) with the
+    // standings summary appended below.
+    const table = buildDetailTable();
+    const lines = [toTsv(table), ""];
+    lines.push(`Standings — ${validRoster.length} players, ${totalLevels} levels`);
+    for (const s of standings) {
+      lines.push(`${s.row.name || truncateSid(s.sid)}\t${s.wins}`);
     }
-    const blob = new Blob([lines.join("\n")], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = "multi-compare.csv"; a.click();
-    URL.revokeObjectURL(url);
+    try { navigator.clipboard.writeText(lines.join("\n")); flash("Data copied"); } catch (e) {}
+  }
+
+  async function handleExportCsv() {
+    const csv = toCsv(buildDetailTable());
+    try {
+      const res = await saveTextFile("multi-compare.csv", csv);
+      if (res && res.ok) flash("CSV saved");
+      else if (res && res.cancelled) { /* user dismissed the dialog */ }
+      else flash(res && res.error ? `Export failed: ${res.error}` : "Export failed");
+    } catch (e) { flash("Export failed"); }
   }
 
   // ── Render ──────────────────────────────────────────────────────────────
@@ -542,7 +608,9 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
           subtitle={totalsTag}
           actions={<>
             {anyResults && setShowMedals && <MedalToggle value={showMedals} onChange={setShowMedals} />}
-            {anyResults && <Btn kind="ghost" size="sm" icn="copy" onClick={handleCopy}>Copy</Btn>}
+            {anyResults && actionMsg && <span className="mc-action-msg">{actionMsg}</span>}
+            {anyResults && <Btn kind="ghost" size="sm" icn="copy" onClick={handleCopyStandings}>Copy standings</Btn>}
+            {anyResults && <Btn kind="ghost" size="sm" icn="copy" onClick={handleCopyData}>Copy data</Btn>}
             {anyResults && <Btn kind="ghost" size="sm" icn="export" onClick={handleExportCsv}>Export CSV</Btn>}
           </>}
         />

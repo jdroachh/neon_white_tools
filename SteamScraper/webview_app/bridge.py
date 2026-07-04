@@ -979,6 +979,43 @@ class JsApi:
                 pass
             return {"ok": False, "error": str(e)}
 
+    def save_text_file(self, default_name: str, content: str) -> dict:
+        """Write arbitrary text to a user-chosen file via a Save dialog.
+
+        WebView2 silently drops browser blob/anchor downloads, so pages that
+        build a file client-side (e.g. Multi Compare CSV export) route the
+        content here to be written by Python. Generic on purpose. Returns
+        {ok, path} / {cancelled} / {error}.
+        """
+        try:
+            import webview
+            if not webview.windows:
+                return {"ok": False, "error": "No window available."}
+            name = str(default_name or "export.txt")
+            is_csv = name.lower().endswith(".csv")
+            file_types = (
+                ("CSV Files (*.csv)", "All Files (*.*)") if is_csv
+                else ("Text Files (*.txt)", "All Files (*.*)")
+            )
+            result = webview.windows[0].create_file_dialog(
+                webview.SAVE_DIALOG,
+                save_filename=name,
+                file_types=file_types,
+            )
+            if not result:
+                return {"ok": False, "cancelled": True}
+            path = result if isinstance(result, str) else result[0]
+            with open(path, "w", encoding="utf-8", newline="") as f:
+                f.write(content if isinstance(content, str) else str(content))
+            return {"ok": True, "path": path}
+        except Exception as e:
+            try:
+                from logger import get_logger
+                get_logger("bridge").exception("save_text_file failed")
+            except Exception:
+                pass
+            return {"ok": False, "error": str(e)}
+
     def import_config(self) -> dict:
         """Restore config from a user-chosen .json via an Open dialog.
 
