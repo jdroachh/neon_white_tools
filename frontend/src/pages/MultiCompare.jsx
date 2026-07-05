@@ -477,15 +477,20 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
   // mode doesn't linger as a blank rail.
   useEffect(() => { setDrill(null); }, [mode]);
 
-  // Transient status shown next to the Copy/Export buttons.
-  const [actionMsg, setActionMsg] = useState("");
-  const actionMsgTimer = useRef(null);
-  function flash(msg) {
-    setActionMsg(msg);
-    if (actionMsgTimer.current) clearTimeout(actionMsgTimer.current);
-    actionMsgTimer.current = setTimeout(() => setActionMsg(""), 2500);
+  // Transient per-button confirmation: the clicked button's own icon flips to
+  // a check (or warn on failure) briefly. Kept off the layout flow entirely —
+  // no separate message element — so it never widens the actions cluster,
+  // shifts the buttons, or squeezes the title in a narrow/windowed header.
+  const [actionState, setActionState] = useState(null); // { key, ok } | null
+  const actionTimer = useRef(null);
+  function flash(key, ok = true) {
+    setActionState({ key, ok });
+    if (actionTimer.current) clearTimeout(actionTimer.current);
+    actionTimer.current = setTimeout(() => setActionState(null), ok ? 1800 : 2600);
   }
-  useEffect(() => () => { if (actionMsgTimer.current) clearTimeout(actionMsgTimer.current); }, []);
+  const iconFor = (key, base) =>
+    actionState && actionState.key === key ? (actionState.ok ? "check" : "warn") : base;
+  useEffect(() => () => { if (actionTimer.current) clearTimeout(actionTimer.current); }, []);
 
   function handleCellClick(chapterKey, levelDisplay, cellKey) {
     setDrill({ chapterKey, levelDisplay, cellKey });
@@ -555,7 +560,7 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
     for (const s of standings) {
       lines.push(`  ${s.row.name || truncateSid(s.sid)}: ${s.wins}`);
     }
-    try { navigator.clipboard.writeText(lines.join("\n")); flash("Standings copied"); } catch (e) {}
+    try { navigator.clipboard.writeText(lines.join("\n")); flash("standings"); } catch (e) { flash("standings", false); }
   }
 
   function handleCopyData() {
@@ -567,17 +572,17 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
     for (const s of standings) {
       lines.push(`${s.row.name || truncateSid(s.sid)}\t${s.wins}`);
     }
-    try { navigator.clipboard.writeText(lines.join("\n")); flash("Data copied"); } catch (e) {}
+    try { navigator.clipboard.writeText(lines.join("\n")); flash("data"); } catch (e) { flash("data", false); }
   }
 
   async function handleExportCsv() {
     const csv = toCsv(buildDetailTable());
     try {
       const res = await saveTextFile("multi-compare.csv", csv);
-      if (res && res.ok) flash("CSV saved");
-      else if (res && res.cancelled) { /* user dismissed the dialog */ }
-      else flash(res && res.error ? `Export failed: ${res.error}` : "Export failed");
-    } catch (e) { flash("Export failed"); }
+      if (res && res.ok) flash("csv");
+      else if (res && res.cancelled) { /* user dismissed the dialog — no signal */ }
+      else { console.error("CSV export failed:", res && res.error); flash("csv", false); }
+    } catch (e) { console.error("CSV export failed:", e); flash("csv", false); }
   }
 
   // ── Render ──────────────────────────────────────────────────────────────
@@ -600,7 +605,7 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
 
   return (
     <div className="mc-scope">
-      <main className="mc-main" style={{ paddingRight: drillVisible ? 520 : 0 }}>
+      <main className="mc-main" style={{ paddingRight: drillVisible ? 600 : 0 }}>
         <PageHead
           crumb="Leaderboard Tools"
           title="MULTI"
@@ -608,10 +613,9 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
           subtitle={totalsTag}
           actions={<>
             {anyResults && setShowMedals && <MedalToggle value={showMedals} onChange={setShowMedals} />}
-            {anyResults && actionMsg && <span className="mc-action-msg">{actionMsg}</span>}
-            {anyResults && <Btn kind="ghost" size="sm" icn="copy" onClick={handleCopyStandings}>Copy standings</Btn>}
-            {anyResults && <Btn kind="ghost" size="sm" icn="copy" onClick={handleCopyData}>Copy data</Btn>}
-            {anyResults && <Btn kind="ghost" size="sm" icn="export" onClick={handleExportCsv}>Export CSV</Btn>}
+            {anyResults && <Btn kind="ghost" size="sm" icn={iconFor("standings", "copy")} onClick={handleCopyStandings}>Copy standings</Btn>}
+            {anyResults && <Btn kind="ghost" size="sm" icn={iconFor("data", "copy")} onClick={handleCopyData}>Copy data</Btn>}
+            {anyResults && <Btn kind="ghost" size="sm" icn={iconFor("csv", "export")} onClick={handleExportCsv}>Export CSV</Btn>}
           </>}
         />
 
