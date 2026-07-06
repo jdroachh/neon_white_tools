@@ -99,6 +99,13 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [results, setResults] = useState({});
   const [rosterEditing, setRosterEditing] = useState(true);  // expand-to-edit default open until first run
+  // Collapse state for the roster pills row + the three summary strips. Plain
+  // useState, expanded by default, reset each app launch (MC is permanently
+  // mounted, so these survive page nav / mode switch within a session).
+  const [rosterCollapsed, setRosterCollapsed] = useState(false);
+  const [standingsCollapsed, setStandingsCollapsed] = useState(false);
+  const [medalsCollapsed, setMedalsCollapsed] = useState(false);
+  const [ranksCollapsed, setRanksCollapsed] = useState(false);
   const [drill, setDrill] = useState(null);  // {chapterKey, levelDisplay, cellKey} | null
   const [filterPlayer, setFilterPlayer] = useState(null);  // steam_id | null
   const [sortMode, setSortMode] = useState("chapter");  // chapter | most contested | biggest Δ
@@ -336,9 +343,14 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
   function handleLoadSavedRoster(idx) {
     const sr = savedRosters[idx];
     if (!sr || !Array.isArray(sr.members) || sr.members.length === 0) return;
-    const restored = sr.members.slice(0, MAX_ROWS).map(m => ({
-      color: m.color || "white", name: m.name || "", initial: m.initial || "", steam_id: m.steam_id || "",
-    }));
+    // Rosters saved elsewhere (e.g. Average Placement) carry no color field, so
+    // auto-assign a distinct palette color per member instead of defaulting them
+    // all to white. Members with a stored color keep it.
+    const restored = [];
+    for (const m of sr.members.slice(0, MAX_ROWS)) {
+      const color = m.color || nextAvailableColor(restored.map(r => r.color));
+      restored.push({ color, name: m.name || "", initial: m.initial || "", steam_id: m.steam_id || "" });
+    }
     setRoster(restored);
     setRosterEditing(true);
     setResults({});
@@ -625,6 +637,8 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
             validRoster={validRoster}
             editing={rosterEditing}
             onToggleEditing={() => setRosterEditing(e => !e)}
+            collapsed={rosterCollapsed}
+            onToggleCollapsed={() => setRosterCollapsed(c => !c)}
             savedProfiles={savedProfiles}
             savedRosters={savedRosters}
             idCounts={idCounts}
@@ -668,15 +682,24 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
           />
 
           {mode === "game" && Object.keys(neonRanks).length > 0 && (
-            <GlobalRanksStrip standings={standings} neonRanks={neonRanks} />
+            <GlobalRanksStrip
+              standings={standings} neonRanks={neonRanks}
+              collapsed={ranksCollapsed} onToggle={() => setRanksCollapsed(c => !c)}
+            />
           )}
 
           {mode !== "level" && standings.some(s => s.wins > 0) && (
-            <StandingsStrip standings={standings} totalLevels={scopeLevelCount} />
+            <StandingsStrip
+              standings={standings} totalLevels={scopeLevelCount}
+              collapsed={standingsCollapsed} onToggle={() => setStandingsCollapsed(c => !c)}
+            />
           )}
 
           {mode !== "level" && showMedals && anyResults && (
-            <MedalsStrip standings={standings} medalsPerPlayer={medalsPerPlayer} />
+            <MedalsStrip
+              standings={standings} medalsPerPlayer={medalsPerPlayer}
+              collapsed={medalsCollapsed} onToggle={() => setMedalsCollapsed(c => !c)}
+            />
           )}
 
           {mode === "level" ? (
@@ -730,7 +753,7 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
 
 // ── Roster panel ─────────────────────────────────────────────────────────
 function RosterPanel({
-  roster, validRoster, editing, onToggleEditing,
+  roster, validRoster, editing, onToggleEditing, collapsed, onToggleCollapsed,
   savedProfiles, savedRosters, idCounts,
   onUpdateRow, onAddRow, onRemoveRow, onApplyProfile, onUseMine,
   onLoadSavedRoster, onDeleteSavedRoster,
@@ -739,10 +762,19 @@ function RosterPanel({
 }) {
   return (
     <div className="nwt-panel">
-      <div className="nwt-panel-head" onClick={onToggleEditing}>
-        <span className="car"><McIcon name="caret" size={9} /></span>
+      {/* Caret toggles the pills-row collapse; Edit button toggles the editor.
+          Bar body is inert — the two actions have distinct, non-overlapping
+          hit targets. */}
+      <div className="nwt-panel-head">
+        <span
+          className={"car collapser" + (collapsed ? " collapsed" : "")}
+          onClick={onToggleCollapsed}
+          title={collapsed ? "Show roster" : "Hide roster"}
+        >
+          <McIcon name="caret" size={9} />
+        </span>
         <span className="title">Roster</span>
-        <span className="right" onClick={(e) => e.stopPropagation()}>
+        <span className="right">
           <span className="nwt-tag">{roster.length} / {MAX_ROWS}</span>
           <Btn kind="ghost" size="sm" onClick={onToggleEditing}>
             {editing ? "Done" : "Edit roster"}
@@ -750,19 +782,21 @@ function RosterPanel({
         </span>
       </div>
 
-      {/* Pills row — always visible as a summary */}
-      <div className="nwt-roster-row">
-        {roster.map((p, i) => {
-          const sid = (p.steam_id || "").trim();
-          return (
-            <div key={i} className={"nwt-pl-pill" + (sid ? "" : " empty")}>
-              <span className="sw" style={{ background: hexFor(p.color) }} />
-              <span>{p.name || `Player ${i + 1}`}</span>
-              <span className="sid">{sid ? truncateSid(sid) : "no id"}</span>
-            </div>
-          );
-        })}
-      </div>
+      {/* Pills row — hidden when the roster panel is collapsed. */}
+      {!collapsed && (
+        <div className="nwt-roster-row">
+          {roster.map((p, i) => {
+            const sid = (p.steam_id || "").trim();
+            return (
+              <div key={i} className={"nwt-pl-pill" + (sid ? "" : " empty")}>
+                <span className="sw" style={{ background: hexFor(p.color) }} />
+                <span>{p.name || `Player ${i + 1}`}</span>
+                <span className="sid">{sid ? truncateSid(sid) : "no id"}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {editing && (
         <div className="nwt-roster-editor">
@@ -1087,15 +1121,35 @@ function SearchModePanel({
   );
 }
 
-// ── Standings strip ──────────────────────────────────────────────────────
-function GlobalRanksStrip({ standings, neonRanks }) {
+// ── Summary strips ───────────────────────────────────────────────────────
+// Shared shell for the three summary strips. Only the caret is the click
+// target (keeps the Global-rank asterisk tooltip clickable without collapsing
+// the strip). `label` accepts a node; `style` passes through for MedalsStrip's
+// flex-wrap. Children (chips, winbars) are dropped when collapsed.
+function CollapsibleStrip({ label, collapsed, onToggle, style, children }) {
   return (
-    <div className="nwt-sum-strip">
-      <span className="lbl">
+    <div className="nwt-sum-strip" style={style}>
+      <span className={"lbl collapser" + (collapsed ? " collapsed" : "")}>
+        <span className="car" onClick={onToggle} title={collapsed ? "Expand" : "Collapse"}>
+          <McIcon name="caret" size={9} />
+        </span>
+        {label}
+      </span>
+      {!collapsed && children}
+    </div>
+  );
+}
+
+function GlobalRanksStrip({ standings, neonRanks, collapsed, onToggle }) {
+  return (
+    <CollapsibleStrip
+      collapsed={collapsed} onToggle={onToggle}
+      label={<>
         Global rank
         <span title="Steam stores story-level total only. The in-game 'Global Neon Rankings' adds Sidequest level times client-side per player, which is not Steam-queryable — so the rank may differ slightly from in-game."
               style={{ color: "var(--accent)", cursor: "help", marginLeft: 2 }}>*</span>
-      </span>
+      </>}
+    >
       {standings.map((s, i) => {
         const nr = neonRanks[s.sid];
         const label = nr === undefined ? "…" : nr?.ok ? `#${nr.rank.toLocaleString()}` : "—";
@@ -1110,14 +1164,13 @@ function GlobalRanksStrip({ standings, neonRanks }) {
           </React.Fragment>
         );
       })}
-    </div>
+    </CollapsibleStrip>
   );
 }
 
-function StandingsStrip({ standings, totalLevels }) {
+function StandingsStrip({ standings, totalLevels, collapsed, onToggle }) {
   return (
-    <div className="nwt-sum-strip">
-      <span className="lbl">Standings</span>
+    <CollapsibleStrip label="Standings" collapsed={collapsed} onToggle={onToggle}>
       {standings.map((s, i) => (
         <React.Fragment key={s.sid}>
           <span className="nwt-sum-chip">
@@ -1136,16 +1189,18 @@ function StandingsStrip({ standings, totalLevels }) {
           return <div key={s.sid} className="seg" style={{ width: pct + "%", background: hexFor(s.row.color) }} />;
         })}
       </div>
-    </div>
+    </CollapsibleStrip>
   );
 }
 
-function MedalsStrip({ standings, medalsPerPlayer }) {
+function MedalsStrip({ standings, medalsPerPlayer, collapsed, onToggle }) {
   // Iterates in standings order (most wins first). Gradient repaints on
   // moved-node reorders are handled by translateZ(0) in MedalBadge.
   return (
-    <div className="nwt-sum-strip" style={{ flexWrap: "wrap", rowGap: 8, columnGap: 8 }}>
-      <span className="lbl">Medals</span>
+    <CollapsibleStrip
+      label="Medals" collapsed={collapsed} onToggle={onToggle}
+      style={{ flexWrap: "wrap", rowGap: 8, columnGap: 8 }}
+    >
       {standings.map(s => {
         const counts = medalsPerPlayer[s.sid] || {};
         const tiers = MEDAL_TIER_ORDER.filter(t => counts[t]);
@@ -1175,7 +1230,7 @@ function MedalsStrip({ standings, medalsPerPlayer }) {
           </span>
         );
       })}
-    </div>
+    </CollapsibleStrip>
   );
 }
 

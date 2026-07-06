@@ -118,7 +118,10 @@
   cursor: pointer;
   user-select: none;
 }
-.mc-scope .nwt-panel-head .car { color: var(--mc-text-3); font-size: 10px; width: 10px; display: inline-block; }
+.mc-scope .nwt-panel-head .car { color: var(--mc-text-3); font-size: 10px; width: 10px; display: inline-flex; align-items: center; }
+/* Collapse caret: clickable, rotates to point right when the section is hidden. */
+.mc-scope .nwt-panel-head .car.collapser { cursor: pointer; transition: transform 0.15s; }
+.mc-scope .nwt-panel-head .car.collapser.collapsed { transform: rotate(-90deg); }
 .mc-scope .nwt-panel-head .title { color: var(--mc-text-3); font-weight: 500; }
 .mc-scope .nwt-panel-head .right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
 
@@ -229,6 +232,21 @@
   text-transform: uppercase;
   flex-shrink: 0;
 }
+/* Collapsible strip label: only the caret is the click target, so the
+   Global-rank asterisk tooltip stays independently clickable. */
+.mc-scope .nwt-sum-strip .lbl.collapser {
+  display: flex; align-items: center; gap: 6px;
+  /* Pin the label to the top-left and give it the height of a single chip row
+     so collapsing (which drops the taller chips) never shifts it vertically. */
+  align-self: flex-start;
+  min-height: 18px;
+}
+.mc-scope .nwt-sum-strip .lbl.collapser .car {
+  display: inline-flex; align-items: center;
+  cursor: pointer; color: var(--mc-text-3);
+  transition: transform 0.15s;
+}
+.mc-scope .nwt-sum-strip .lbl.collapser.collapsed .car { transform: rotate(-90deg); }
 .mc-scope .nwt-sum-strip .winbars {
   display: flex; gap: 2px;
   height: 8px;
@@ -430,7 +448,12 @@
   display: flex; flex-direction: column;
   z-index: 8;
   box-shadow: -16px 0 32px rgba(0,0,0,0.4);
-  transform: translateX(0);
+  /* No transform at rest. An identity translateX(0) still makes this a
+     compositing/containing context, which nests inside the gradient
+     MedalBadge's own translateZ(0) layer and breaks -webkit-background-clip:
+     text (badges render as a solid gradient block, text mask lost). Only the
+     hidden state needs a transform to slide off-screen. */
+  transform: none;
   transition: transform 0.18s ease;
 }
 .mc-scope .nwt-drill.hidden {
@@ -497,6 +520,10 @@
 }
 .mc-scope .nwt-drill-table thead th {
   position: sticky; top: 0;
+  /* z-index keeps the sticky header above the gradient MedalBadge spans, which
+     carry translateZ(0) (own compositing layer) and would otherwise paint
+     through the header on scroll. Matches the sibling tables' thead. */
+  z-index: 2;
   background: var(--mc-bg-2);
   text-align: left;
   font-size: 10px;
