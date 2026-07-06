@@ -67,6 +67,11 @@ __declspec(dllexport) long long find_seeds_batch(
     int      out_capacity
 ) {
     int seed, count = 0;
+    /* Clamp num_levels into arr[MAX_LEVELS] before any indexing — a caller
+       value > MAX_LEVELS would overrun the stack array. Behaviour-neutral for
+       all real callers (max today is 121, well under 128). */
+    if (num_levels > MAX_LEVELS) num_levels = MAX_LEVELS;
+    if (num_levels < 0)          num_levels = 0;
     if (depth > num_levels) depth = num_levels;
     for (seed = seed_start; seed < seed_end; seed++) {
         int SA[56]; int i, k;
@@ -105,7 +110,7 @@ __declspec(dllexport) long long find_seeds_batch(
         if ((target_mask_lo & seen_lo) == target_mask_lo &&
             (target_mask_hi & seen_hi) == target_mask_hi) {
             out_seeds[count++] = seed;
-            if (count == out_capacity)
+            if (count >= out_capacity)  /* >= not == so a bad capacity can't run past the buffer */
                 return ((long long)count << 32) | (unsigned int)(seed + 1);
         }
     }

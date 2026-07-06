@@ -38,31 +38,40 @@ def _seed_search_worker(args):
         None                   -> sentinel: worker finished
     """
     seed_start, seed_end, num_levels, target_set, depth, result_queue, stop_event = args
-    _load_c_shuffle()
+    # The sentinel MUST be delivered no matter how this worker exits, or the
+    # manager loop (which counts sentinels to know when all workers are done)
+    # waits forever and the UI stays stuck "in progress". A missing/quarantined
+    # DLL makes _load_c_shuffle() return False and find_seeds_batch raise; any
+    # mid-loop exception is the same hazard. try/finally guarantees the sentinel.
+    # (No error channel back to the manager — it only groks ints / ("progress",n)
+    # / None — so a failed load just yields a clean "no matches" for this chunk.)
+    try:
+        if not _load_c_shuffle():
+            return
 
-    target_mask_lo = 0
-    target_mask_hi = 0
-    for idx in target_set:
-        if idx < 64:
-            target_mask_lo |= (1 << idx)
-        else:
-            target_mask_hi |= (1 << (idx - 64))
+        target_mask_lo = 0
+        target_mask_hi = 0
+        for idx in target_set:
+            if idx < 64:
+                target_mask_lo |= (1 << idx)
+            else:
+                target_mask_hi |= (1 << (idx - 64))
 
-    out_buffer = (ctypes.c_int * MATCHES_PER_SLAB)()
+        out_buffer = (ctypes.c_int * MATCHES_PER_SLAB)()
 
-    seed = seed_start
-    while seed < seed_end:
-        if stop_event.is_set():
-            break
-        slab_end   = min(seed + SLAB_SIZE, seed_end)
-        stopped_at, count = find_seeds_batch(
-            num_levels, seed, slab_end,
-            target_mask_lo, target_mask_hi, depth,
-            out_buffer, MATCHES_PER_SLAB,
-        )
-        for i in range(count):
-            result_queue.put(out_buffer[i])
-        result_queue.put(("progress", stopped_at - seed))
-        seed = stopped_at
-
-    result_queue.put(None)  # sentinel — this worker is done
+        seed = seed_start
+        while seed < seed_end:
+            if stop_event.is_set():
+                break
+            slab_end   = min(seed + SLAB_SIZE, seed_end)
+            stopped_at, count = find_seeds_batch(
+                num_levels, seed, slab_end,
+                target_mask_lo, target_mask_hi, depth,
+                out_buffer, MATCHES_PER_SLAB,
+            )
+            for i in range(count):
+                result_queue.put(out_buffer[i])
+            result_queue.put(("progress", stopped_at - seed))
+            seed = stopped_at
+    finally:
+        result_queue.put(None)  # sentinel — this worker is done (even on error)

@@ -76,10 +76,33 @@ def _load_c_shuffle():
         lib.full_shuffle(96, 58685, arr)
         if arr[0] != 95:
             return False  # DLL produces wrong results
-        # Smoke-test find_seeds_batch: 8 levels, seeds 0–99, target={0,1,2} at depth=3
-        out_buf = (ctypes.c_int * 16)()
-        r       = lib.find_seeds_batch(8, 0, 100, 0b111, 0, 3, out_buf, 16)
-        if (r >> 32) < 0:
+        # Real find_seeds_batch smoke test (mirrors verify_dll) — the old
+        # `(r >> 32) < 0` check passed for almost any garbage; a stale DLL whose
+        # find_seeds_batch signature/behaviour drifted would be silently accepted
+        # and every Seed Finder search would return wrong seeds. Cross-check
+        # against full_shuffle so a mismatched/incompatible DLL is rejected and
+        # the caller's fallback path (or a clear error) engages instead.
+        # 8 levels, seeds 0–99, want levels {0,1,2} within the first 3 positions.
+        TGT, DEPTH = {0, 1, 2}, 3
+        out_buf = (ctypes.c_int * 128)()
+        r       = lib.find_seeds_batch(8, 0, 100, 0b111, 0, DEPTH, out_buf, 128)
+        stopped = r & 0xFFFFFFFF
+        n_found = (r >> 32) & 0xFFFFFFFF
+        if stopped != 100:
+            return False  # didn't scan the whole 0–99 range (buffer-full/garbage)
+        probe = (ctypes.c_int * 8)()
+        # Every returned seed must genuinely place the targets in the depth prefix.
+        for i in range(n_found):
+            lib.full_shuffle(8, out_buf[i], probe)
+            if not TGT.issubset(set(probe[:DEPTH])):
+                return False
+        # …and the count must equal the brute-force truth (catches missed matches).
+        expected = 0
+        for s in range(100):
+            lib.full_shuffle(8, s, probe)
+            if TGT.issubset(set(probe[:DEPTH])):
+                expected += 1
+        if n_found != expected:
             return False
         _SHUFFLE_LIB = lib
         return True
@@ -93,6 +116,15 @@ def find_seeds_batch(num_levels, seed_start, seed_end, target_mask_lo, target_ma
     Returns (stopped_at_seed, match_count)."""
     if _SHUFFLE_LIB is None:
         raise RuntimeError("shuffle.dll not loaded — run compile_shuffle.py")
+    # Guards mirroring the C-side clamps: num_levels must fit arr[MAX_LEVELS]
+    # (128), and out_capacity must not exceed the actual buffer or the C loop
+    # could write past it. Neutral for all real callers (num_levels<=121,
+    # out_capacity == len(out_buffer)); a bad call fails loud instead of corrupting memory.
+    if not (0 <= num_levels <= 128):
+        raise ValueError(f"num_levels must be 0..128, got {num_levels}")
+    buf_len = len(out_buffer)
+    if not (0 < out_capacity <= buf_len):
+        raise ValueError(f"out_capacity {out_capacity} outside buffer length {buf_len}")
     r = _SHUFFLE_LIB.find_seeds_batch(
         num_levels, seed_start, seed_end,
         target_mask_lo, target_mask_hi, depth,
