@@ -114,12 +114,18 @@ def _fetch_csv_rows(url: str) -> list[list[str]]:
 def _index_ghosts(rows: list[dict]) -> dict[str, dict[str, list[dict]]]:
     out: dict[str, dict[str, list[dict]]] = {}
     dropped = 0
+    rejected_url = 0
     for r in rows:
         level = r.get("level", "")
         medal = r.get("medal", "").lower()
         url = r.get("drive_url", "")
         if not level or medal not in _VALID_MEDALS or not url:
             dropped += 1
+            continue
+        # Scheme/host allow-list: the sheet is community-edited, so pin ghost
+        # links to Drive rather than trusting arbitrary (javascript:/file:) URLs.
+        if not url.startswith("https://drive.google.com"):
+            rejected_url += 1
             continue
         out.setdefault(level.lower(), {}).setdefault(medal, []).append({
             "level":     level,
@@ -130,6 +136,8 @@ def _index_ghosts(rows: list[dict]) -> dict[str, dict[str, list[dict]]]:
         })
     if dropped:
         logger.warning("Ghosts sheet: %d malformed row(s) dropped", dropped)
+    if rejected_url:
+        logger.info("Ghosts sheet: %d non-Drive URL(s) skipped", rejected_url)
     return out
 
 
@@ -281,6 +289,15 @@ def _parse_stages(rows: list[list[str]]) -> list[dict]:
     return out
 
 
+def _note_error(label: str, e) -> None:
+    """Append a resource-load failure to the shared status (semicolon-joined)
+    and log it at INFO — so guides/helpful-links failures are as visible as the
+    ghosts/videos/WRs ones instead of silently DEBUG-logged."""
+    prev = _STATUS["error"]
+    _STATUS["error"] = (prev + "; " if prev else "") + f"{label}: {e}"
+    logger.info("Could not load %s: %s", label, e)
+
+
 def _fetch_guides() -> None:
     global _GUIDES
     try:
@@ -298,11 +315,21 @@ def _fetch_guides() -> None:
                 out.append({"category": cat, "level": None, "tier": None,
                             "title": title, "author": author, "url": url})
 
+        # Scheme allow-list: null out any non-https link (community-edited sheet
+        # could carry javascript:/file: URLs). The entry survives without a link.
+        rejected = 0
+        for g in out:
+            if g["url"] and not g["url"].startswith("https://"):
+                g["url"] = None
+                rejected += 1
+        if rejected:
+            logger.info("Guides: %d non-https link(s) dropped", rejected)
+
         _GUIDES = out
         _STATUS["guides_loaded"] = True
         logger.debug("Guides loaded: %d entries", len(_GUIDES))
-    except (URLError, TimeoutError, OSError, ValueError) as e:
-        logger.debug("Could not load Guides sheet: %s", e)
+    except Exception as e:
+        _note_error("guides", e)
 
 
 def _fetch_helpful_links() -> None:
@@ -311,6 +338,7 @@ def _fetch_helpful_links() -> None:
     try:
         rows = _fetch_csv_rows(_csv_url(GUIDES_SHEET_ID, _HELPFUL_LINKS_TAB))
         out: list[dict] = []
+        rejected = 0
         for row in rows[1:]:
             if len(row) < 2:
                 continue
@@ -318,26 +346,43 @@ def _fetch_helpful_links() -> None:
             label = row[1].strip()
             if not url or not label:
                 continue
+            # Scheme allow-list: a helpful link with no valid https URL is useless
+            # and potentially hostile (javascript:/file:) — skip and count it.
+            if not url.startswith("https://"):
+                rejected += 1
+                continue
             out.append({"url": url, "label": label})
+        if rejected:
+            logger.info("Helpful links: %d non-https link(s) skipped", rejected)
         _HELPFUL_LINKS = out
         _STATUS["helpful_links_loaded"] = True
         logger.debug("Helpful links loaded: %d entries", len(_HELPFUL_LINKS))
-    except (URLError, TimeoutError, OSError, ValueError) as e:
-        logger.debug("Could not load Helpful Links sheet: %s", e)
+    except Exception as e:
+        _note_error("helpful_links", e)
 
 
 def _fetch_resources_bg() -> None:
     global _GHOSTS, _VIDEOS, _WRS
-    _fetch_guides()
-    _fetch_helpful_links()
+    # Each fetch is fully isolated: an exception in one must never abort the
+    # others (a single csv.Error used to kill the whole thread, leaving every
+    # page stuck "loading"). _fetch_guides/_fetch_helpful_links already guard
+    # internally; the outer wrap catches anything that slips past.
+    try:
+        _fetch_guides()
+    except Exception as e:
+        _note_error("guides", e)
+    try:
+        _fetch_helpful_links()
+    except Exception as e:
+        _note_error("helpful_links", e)
+
     try:
         ghost_rows = _fetch_csv_dict(_csv_url(_GHOSTS_SHEET_ID, _GHOSTS_TAB))
         _GHOSTS = _index_ghosts(ghost_rows)
         _STATUS["ghosts_loaded"] = True
         logger.info("Ghosts loaded: %d stages indexed", len(_GHOSTS))
     except Exception as e:
-        _STATUS["error"] = f"ghosts: {e}"
-        logger.info("Could not load Ghosts sheet: %s", e)
+        _note_error("ghosts", e)
 
     try:
         video_rows = _fetch_csv_rows(_csv_url(_VIDEOS_SHEET_ID, _VIDEOS_TAB))
@@ -346,9 +391,7 @@ def _fetch_resources_bg() -> None:
         total = sum(len(by_medal) for by_medal in _VIDEOS.values())
         logger.info("Videos loaded: %d stages, %d medal-groups indexed", len(_VIDEOS), total)
     except Exception as e:
-        prev = _STATUS["error"]
-        _STATUS["error"] = (prev + "; " if prev else "") + f"videos: {e}"
-        logger.info("Could not load Videos sheet: %s", e)
+        _note_error("videos", e)
 
     try:
         wr_rows = _fetch_csv_rows(_csv_url(_WR_SHEET_ID, _WR_TAB))
@@ -357,9 +400,7 @@ def _fetch_resources_bg() -> None:
         total = sum(len(p) for p in _WRS.values())
         logger.info("WRs loaded: %d rows indexed, %d platform entries", len(_WRS), total)
     except Exception as e:
-        prev = _STATUS["error"]
-        _STATUS["error"] = (prev + "; " if prev else "") + f"wrs: {e}"
-        logger.info("Could not load WR sheet: %s", e)
+        _note_error("wrs", e)
 
 
 def start_background_fetch() -> None:
