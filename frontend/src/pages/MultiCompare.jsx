@@ -515,7 +515,11 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
   // data, not display, so it ignores the on-screen Medals toggle).
   function buildDetailTable() {
     const sids = Object.keys(rosterById);
-    const nameFor = (sid) => rosterById[sid].name || truncateSid(sid);
+    // Steam persona names are attacker-chosen; prefix a leading =,+,-,@ with a
+    // single quote so an exported/pasted name can't execute as a spreadsheet
+    // formula (mirrors bridge._csv_safe). Applies to Copy data (TSV) too.
+    const csvSafeName = (s) => (/^[=+\-@]/.test(s) ? "'" + s : s);
+    const nameFor = (sid) => csvSafeName(rosterById[sid].name || truncateSid(sid));
     const headers = ["chapter", "level", "fastest_time", "fastest_runner"];
     for (const sid of sids) {
       const n = nameFor(sid);

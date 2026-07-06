@@ -396,6 +396,19 @@ def _fmt_ms_clock(score_ms) -> str:
     return f"{minutes:02d}:{seconds:02d}.{millis:03d}"
 
 
+def _csv_safe(value):
+    """Neutralise CSV formula injection.
+
+    Steam persona names are attacker-chosen and flow verbatim into exports; a
+    name like ``=HYPERLINK(...)`` becomes a live formula when the CSV is opened
+    in Excel/Sheets. Prefix a leading ``= + - @`` with a single quote so the
+    cell is treated as text. Non-string / empty / benign values pass through.
+    """
+    if isinstance(value, str) and value and value[0] in ("=", "+", "-", "@"):
+        return "'" + value
+    return value
+
+
 def _guard_output_folder(folder: str, out_mode: str) -> dict | None:
     """Validate CSV export folder before kicking off a worker thread.
 
@@ -407,6 +420,11 @@ def _guard_output_folder(folder: str, out_mode: str) -> dict | None:
     f = str(folder).strip()
     if not f:
         return {"ok": False, "error": "Select an output folder."}
+    if not os.path.isabs(f):
+        # A relative path resolves against the launch CWD, which can be a
+        # non-writable System32 (the class of bug behind the v1.7.0 crash).
+        # Require an absolute destination.
+        return {"ok": False, "error": f"Output folder must be an absolute path: {f}"}
     if not os.path.isdir(f):
         return {"ok": False, "error": f"Output folder does not exist: {f}"}
     return None
@@ -591,7 +609,8 @@ class JsApi:
             if getattr(self, "_finder_running", False):
                 return {"ok": False, "error": "Search already running."}
             self._finder_running = True
-        stop_event = self._finder_stop_event = threading.Event()
+            # Assign inside the gate so a Stop can't target the previous run's event.
+            stop_event = self._finder_stop_event = threading.Event()
         self._finder_user_stopped = False
 
         num_cores = max(1, (__import__("os").cpu_count() or 1) - 1)
@@ -820,9 +839,12 @@ class JsApi:
     def init_steam(self, dll_path: str) -> dict:
         ok, msg = steam.init_steam(dll_path)
         if ok:
-            cfg = _load_config()
-            cfg["dll_path"] = dll_path
-            _save_config(cfg)
+            # Locked read-modify-write so a concurrent boot-time
+            # save_config_field (accent, profiles) isn't clobbered.
+            with _CONFIG_LOCK:
+                cfg = _load_config_raw()
+                cfg["dll_path"] = dll_path
+                _save_config_raw(cfg)
             # The in-process backend has no internal callback pump and doesn't
             # auto-fetch the cheater list, so the bridge drives both here. The
             # worker backend runs its own pump + cheater fetch inside the child,
@@ -1141,9 +1163,10 @@ class JsApi:
             if getattr(self, "_lb_running", False):
                 return {"ok": False, "error": "An operation is already running."}
             self._lb_running = True
-        # Capture the event in a local so a later run that reassigns
-        # self._lb_stop_event can't make this worker poll the wrong event.
-        stop_event = self._lb_stop_event = threading.Event()
+            # Capture the event in a local (inside the gate) so a later run that
+            # reassigns self._lb_stop_event can't make this worker poll the wrong
+            # event, and a Stop can't target the previous run's event.
+            stop_event = self._lb_stop_event = threading.Event()
 
         def worker():
             csv_path = None
@@ -1185,7 +1208,7 @@ class JsApi:
                             })
                         if writer:
                             writer.writerow({"rank": e["rank"], "level": display,
-                                             "name": e["name"], "score_ms": e["score_ms"],
+                                             "name": _csv_safe(e["name"]), "score_ms": e["score_ms"],
                                              "time": e["time"]})
                     all_rows += len(batch)
                     start = end + 1
@@ -1234,9 +1257,10 @@ class JsApi:
             if getattr(self, "_lb_running", False):
                 return {"ok": False, "error": "An operation is already running."}
             self._lb_running = True
-        # Capture the event in a local so a later run that reassigns
-        # self._lb_stop_event can't make this worker poll the wrong event.
-        stop_event = self._lb_stop_event = threading.Event()
+            # Capture the event in a local (inside the gate) so a later run that
+            # reassigns self._lb_stop_event can't make this worker poll the wrong
+            # event, and a Stop can't target the previous run's event.
+            stop_event = self._lb_stop_event = threading.Event()
 
         def worker():
             csv_path = None
@@ -1276,7 +1300,7 @@ class JsApi:
                             "name": e["name"], "time": e["time"], "score_ms": e["score_ms"],
                         })
                     if writer:
-                        writer.writerow({"rank": e["rank"], "name": e["name"],
+                        writer.writerow({"rank": e["rank"], "name": _csv_safe(e["name"]),
                                          "score_ms": e["score_ms"], "time": e["time"]})
                 all_rows += len(batch)
                 start = end + 1
@@ -1394,9 +1418,10 @@ class JsApi:
             if getattr(self, "_lb_running", False):
                 return {"ok": False, "error": "An operation is already running."}
             self._lb_running = True
-        # Capture in a local so a later run reassigning self._lb_stop_event can't
-        # make this worker poll the wrong event.
-        stop_event = self._lb_stop_event = threading.Event()
+            # Capture in a local (inside the gate) so a later run reassigning
+            # self._lb_stop_event can't make this worker poll the wrong event,
+            # and a Stop can't target the previous run's event.
+            stop_event = self._lb_stop_event = threading.Event()
 
         def worker():
             CH = "_nwAvgRankEvent"
@@ -1532,7 +1557,7 @@ class JsApi:
                     w.writeheader()
                     for i, r in enumerate(ranked, 1):
                         w.writerow({
-                            "pos": i, "name": r["name"],
+                            "pos": i, "name": _csv_safe(r["name"]),
                             "avg_rank": round(r["avg_rank"], 2),
                             "avg_pct": "" if r["avg_pct"] is None else round(r["avg_pct"], 6),
                             "median_rank": r["median_rank"],
@@ -1600,9 +1625,10 @@ class JsApi:
             if getattr(self, "_lb_running", False):
                 return {"ok": False, "error": "An operation is already running."}
             self._lb_running = True
-        # Capture the event in a local so a later run that reassigns
-        # self._lb_stop_event can't make this worker poll the wrong event.
-        stop_event = self._lb_stop_event = threading.Event()
+            # Capture the event in a local (inside the gate) so a later run that
+            # reassigns self._lb_stop_event can't make this worker poll the wrong
+            # event, and a Stop can't target the previous run's event.
+            stop_event = self._lb_stop_event = threading.Event()
 
         def worker():
             _emit_to("_nwLevelEvent", {"type": "status", "message": f"Finding {display}..."})
@@ -1644,7 +1670,7 @@ class JsApi:
                     writer = _csv.DictWriter(f, fieldnames=["rank", "name", "score_ms", "time"])
                     writer.writeheader()
                     for e in all_entries:
-                        writer.writerow({"rank": e["rank"], "name": e["name"],
+                        writer.writerow({"rank": e["rank"], "name": _csv_safe(e["name"]),
                                          "score_ms": e["score_ms"], "time": e["time"]})
 
             stopped = stop_event.is_set()
@@ -1709,9 +1735,10 @@ class JsApi:
             if getattr(self, "_lb_running", False):
                 return {"ok": False, "error": "An operation is already running."}
             self._lb_running = True
-        # Capture the event in a local so a later run that reassigns
-        # self._lb_stop_event can't make this worker poll the wrong event.
-        stop_event = self._lb_stop_event = threading.Event()
+            # Capture the event in a local (inside the gate) so a later run that
+            # reassigns self._lb_stop_event can't make this worker poll the wrong
+            # event, and a Stop can't target the previous run's event.
+            stop_event = self._lb_stop_event = threading.Event()
 
         def worker():
             _emit_to("_nwRushEvent", {"type": "status", "message": f"Finding {label} Rush..."})
@@ -1753,7 +1780,7 @@ class JsApi:
                     writer = _csv.DictWriter(f, fieldnames=["rank", "name", "score_ms", "time"])
                     writer.writeheader()
                     for e in all_entries:
-                        writer.writerow({"rank": e["rank"], "name": e["name"],
+                        writer.writerow({"rank": e["rank"], "name": _csv_safe(e["name"]),
                                          "score_ms": e["score_ms"], "time": e["time"]})
 
             stopped = stop_event.is_set()
@@ -2079,9 +2106,10 @@ class JsApi:
             if getattr(self, "_lb_running", False):
                 return {"ok": False, "error": "An operation is already running."}
             self._lb_running = True
-        # Capture the event in a local so a later run that reassigns
-        # self._lb_stop_event can't make this worker poll the wrong event.
-        stop_event = self._lb_stop_event = threading.Event()
+            # Capture the event in a local (inside the gate) so a later run that
+            # reassigns self._lb_stop_event can't make this worker poll the wrong
+            # event, and a Stop can't target the previous run's event.
+            stop_event = self._lb_stop_event = threading.Event()
 
         def worker():
             pname = steam.get_persona_name(sid)
@@ -2172,9 +2200,10 @@ class JsApi:
             if getattr(self, "_lb_running", False):
                 return {"ok": False, "error": "An operation is already running."}
             self._lb_running = True
-        # Capture the event in a local so a later run that reassigns
-        # self._lb_stop_event can't make this worker poll the wrong event.
-        stop_event = self._lb_stop_event = threading.Event()
+            # Capture the event in a local (inside the gate) so a later run that
+            # reassigns self._lb_stop_event can't make this worker poll the wrong
+            # event, and a Stop can't target the previous run's event.
+            stop_event = self._lb_stop_event = threading.Event()
 
         def worker():
             pname1 = steam.get_persona_name(sid1)
@@ -2312,9 +2341,10 @@ class JsApi:
             if getattr(self, "_lb_running", False):
                 return {"ok": False, "error": "An operation is already running."}
             self._lb_running = True
-        # Capture the event in a local so a later run that reassigns
-        # self._lb_stop_event can't make this worker poll the wrong event.
-        stop_event = self._lb_stop_event = threading.Event()
+            # Capture the event in a local (inside the gate) so a later run that
+            # reassigns self._lb_stop_event can't make this worker poll the wrong
+            # event, and a Stop can't target the previous run's event.
+            stop_event = self._lb_stop_event = threading.Event()
 
         def worker():
             total = len(sid_ints) * len(levels_to_search)
@@ -2349,9 +2379,11 @@ class JsApi:
                             multi_compare_cache.put(sid, internal, cache_val)
                             cached[sid] = cache_val
                     else:
-                        # Leaderboard not found / call failed — cache as missing
+                        # Leaderboard not found / call failed. Do NOT cache as
+                        # missing — a transient Steam failure would otherwise
+                        # poison these cells as authoritative "no time" for the
+                        # whole session. Render missing this pass; retry next run.
                         for sid in missing:
-                            multi_compare_cache.put(sid, internal, None)
                             cached[sid] = None
 
                 for sid_str, sid_int in sid_pairs:
@@ -2538,7 +2570,6 @@ class JsApi:
             "https://www.discord.com/",
             "https://www.speedrun.com/",
             "https://speedrun.com/",
-            "https://bit.ly/",
             "https://github.com/",
             "https://www.github.com/",
             "https://raw.githubusercontent.com/",
