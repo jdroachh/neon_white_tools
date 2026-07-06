@@ -457,9 +457,12 @@ def shutdown(timeout: float = 1.0):
     Note: not held under _proc_lock — _request -> _ensure_running needs that lock,
     and threading.Lock isn't reentrant, so holding it here would deadlock."""
     global _intentional_stop
-    if _proc is None:
-        return
-    _intentional_stop = True         # this death is deliberate — don't fire on_lost
+    # Read _proc and set the intentional-stop flag atomically. Release the lock
+    # before _request (its _ensure_running needs _proc_lock; Lock isn't reentrant).
+    with _proc_lock:
+        if _proc is None:
+            return
+        _intentional_stop = True     # this death is deliberate — don't fire on_lost
     try:
         _request("shutdown", timeout=timeout)
     except SteamWorkerError:
@@ -470,10 +473,16 @@ def shutdown(timeout: float = 1.0):
 def kill():
     """Terminate the worker and wait. Safe to call directly."""
     global _proc, _intentional_stop
-    proc = _proc
-    if proc is None:
-        return
-    _intentional_stop = True         # deliberate kill — don't fire on_lost
+    # Snapshot the current worker and mark the stop intentional atomically, so
+    # the reader thread's _on_worker_exit (fired when the pipe closes during
+    # terminate) sees the flag and doesn't fire on_lost for our own kill.
+    with _proc_lock:
+        proc = _proc
+        if proc is None:
+            return
+        _intentional_stop = True     # deliberate kill — don't fire on_lost
+    # Terminate/wait WITHOUT holding _proc_lock so a concurrent _ensure_running
+    # respawn or reader-exit isn't blocked for up to 10s.
     if proc.poll() is None:
         proc.terminate()
         try:
@@ -481,8 +490,14 @@ def kill():
         except subprocess.TimeoutExpired:
             proc.kill()
             proc.wait()
-    _reset_mirror()
-    _proc = None
+    # Only tear down shared state if this is STILL the current worker. A racing
+    # reconnect may have installed a newer _proc while we terminated; nulling it
+    # would orphan a live appid-holding worker (game won't launch — the exact
+    # failure the disconnect feature exists to prevent) and desync the UI.
+    with _proc_lock:
+        if _proc is proc:
+            _reset_mirror()
+            _proc = None
 
 
 def is_running() -> bool:
