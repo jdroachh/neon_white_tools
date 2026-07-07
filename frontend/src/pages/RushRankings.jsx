@@ -136,9 +136,14 @@ export default function RushRankings({ outputFolder: defaultFolder = "" }) {
   async function handleRun() {
     setError(""); setStatus(""); setRows([]); setNameFilter("");
     searchMetaRef.current = { key: keyFor(rushKey, difficulty), count };
-    const r = await runRushSearch(rushKey, difficulty, count, outMode, folder);
-    if (!r.ok) { setError(r.error); return; }
+    // Set running before the await so a double-click can't start two runs.
     setRunning(true);
+    try {
+      const r = await runRushSearch(rushKey, difficulty, count, outMode, folder);
+      if (!r.ok) { setError(r.error); setRunning(false); }
+    } catch (err) {
+      setError("Run failed."); setRunning(false);
+    }
   }
 
   async function handleStop() {

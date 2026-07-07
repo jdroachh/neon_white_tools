@@ -83,9 +83,14 @@ export default function GlobalNeonRankings({ outputFolder: defaultFolder = "" })
 
   async function handleRun() {
     setError(""); setStatus("Starting..."); setRows([]); setProgress(null); setNameFilter("");
-    const r = await runGlobalNeonRankings(count, outMode, folder);
-    if (!r.ok) { setError(r.error); return; }
+    // Set running before the await so a double-click can't start two runs.
     setRunning(true);
+    try {
+      const r = await runGlobalNeonRankings(count, outMode, folder);
+      if (!r.ok) { setError(r.error); setRunning(false); }
+    } catch (err) {
+      setError("Run failed."); setRunning(false);
+    }
   }
 
   async function handleStop() {

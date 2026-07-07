@@ -5,10 +5,17 @@
  */
 
 function waitForApi() {
-  return new Promise((resolve) => {
+  // Cap the poll (~200 × 50ms ≈ 10s) and reject with a tagged error rather than
+  // pending forever — a failed bridge injection used to hang every API call
+  // silently, leaving the whole app on "Loading" with no console noise and no
+  // way for loadWithRetry/callers to catch it.
+  return new Promise((resolve, reject) => {
+    let attempts = 0;
     function check() {
       if (window.pywebview && window.pywebview.api) {
         resolve(window.pywebview.api);
+      } else if (++attempts >= 200) {
+        reject(new Error("pywebview bridge unavailable"));
       } else {
         setTimeout(check, 50);
       }

@@ -207,9 +207,15 @@ export default function ComparePlayers({ outputFolder: defaultFolder = "", visib
                  : mode === "level"   ? levelName
                  : mode === "chapter" ? chapterName
                  : "";
-    const r = await runComparePlayers(steamId1, steamId2, mode, target, outMode, folder);
-    if (!r.ok) { setError(r.error); return; }
+    // Set running synchronously BEFORE the await so a double-click can't fire a
+    // second backend run into the same table; reset on failure or throw.
     setRunning(true);
+    try {
+      const r = await runComparePlayers(steamId1, steamId2, mode, target, outMode, folder);
+      if (!r.ok) { setError(r.error); setRunning(false); }
+    } catch (err) {
+      setError("Run failed."); setRunning(false);
+    }
   }
 
   async function handleStop() {

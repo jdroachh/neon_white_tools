@@ -62,9 +62,14 @@ export default function LevelSearch({ outputFolder: defaultFolder = "" }) {
 
   async function handleRun() {
     setError(""); setStatus(""); setRows([]); setNameFilter("");
-    const r = await runLevelSearch(levelName, count, outMode, folder);
-    if (!r.ok) { setError(r.error); return; }
+    // Set running before the await so a double-click can't start two runs.
     setRunning(true);
+    try {
+      const r = await runLevelSearch(levelName, count, outMode, folder);
+      if (!r.ok) { setError(r.error); setRunning(false); }
+    } catch (err) {
+      setError("Run failed."); setRunning(false);
+    }
   }
 
   async function handleStop() {

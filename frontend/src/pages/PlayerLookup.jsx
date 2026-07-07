@@ -156,9 +156,14 @@ export default function PlayerLookup({ outputFolder: defaultFolder = "", visible
                  : mode === "level"   ? levelName
                  : mode === "chapter" ? chapterName
                  : "";
-    const r = await runPlayerLookup(steamId, mode, target, outMode, folder);
-    if (!r.ok) { setError(r.error); return; }
+    // Set running before the await so a double-click can't start two runs.
     setRunning(true);
+    try {
+      const r = await runPlayerLookup(steamId, mode, target, outMode, folder);
+      if (!r.ok) { setError(r.error); setRunning(false); }
+    } catch (err) {
+      setError("Run failed."); setRunning(false);
+    }
   }
 
   // After a whole-game lookup finishes, fetch the player's GlobalNeonRankings

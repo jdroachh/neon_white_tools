@@ -322,20 +322,29 @@ export default function SeedFinder({ visible = false }) {
       return;
     }
 
-    const res = await startFinder(
-      rushName, levelsStr, depth, mode, maxSeeds,
-      hellRush, hellRushMin,
-      forceFirst ? forceFirstStr : "",
-      excludedOn ? excludedLevels : "",
-      excludedOn ? excludedWindow : "",
-      orderMatters,
-    );
+    // Set running before the await (after the synchronous validations above) so
+    // a double-click can't start two searches interleaving into one table.
+    setRunning(true);
+    let res;
+    try {
+      res = await startFinder(
+        rushName, levelsStr, depth, mode, maxSeeds,
+        hellRush, hellRushMin,
+        forceFirst ? forceFirstStr : "",
+        excludedOn ? excludedLevels : "",
+        excludedOn ? excludedWindow : "",
+        orderMatters,
+      );
+    } catch (err) {
+      setError("Search failed."); setStatus(""); setRunning(false);
+      return;
+    }
     if (!res.ok) {
       setError(res.error);
       setStatus("");
+      setRunning(false);
       return;
     }
-    setRunning(true);
     if (res.expected !== undefined) {
       setExpected(res.expected);
     }

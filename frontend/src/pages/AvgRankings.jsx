@@ -264,11 +264,16 @@ export default function AvgRankings({ outputFolder: defaultFolder = "", visible 
 
   async function start(params) {
     setError(""); setStatus("Starting…"); setRows([]); setAsOf(""); setProgress(null); setNameFilter(""); setEmptyBoards([]); setStoppedEmpty(false);
-    const r = await runAvgRankings(params.k, params.scope, params.outMode, params.folder,
-                                   params.source, params.sids, params.levels);
-    if (!r.ok) { setError(r.error); return; }
-    setLastParams(params);
+    // Set running before the await so a double-click can't start two runs.
     setRunning(true);
+    try {
+      const r = await runAvgRankings(params.k, params.scope, params.outMode, params.folder,
+                                     params.source, params.sids, params.levels);
+      if (!r.ok) { setError(r.error); setRunning(false); return; }
+      setLastParams(params);
+    } catch (err) {
+      setError("Run failed."); setRunning(false);
+    }
   }
 
   function handleRun() {

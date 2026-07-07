@@ -528,6 +528,11 @@ export default function MultiCompare({ visible = false, showMedals = true, setSh
     const rows = [];
     for (const ck of chapterKeys) {
       for (const lvl of mcData[ck] || []) {
+        // Honour the active scope (same predicate the stats strips/footer use)
+        // so a whole-game run flipped to a chapter exports only that chapter's
+        // levels — not all 121 — keeping Copy data / Export CSV consistent with
+        // what's on screen.
+        if (!inScope(lvl.levelDisplay)) continue;
         // Drop levels with no data for anyone — the export should reflect the
         // query, not pad it with empty rows for stages nobody has a time on.
         const hasData = sids.some((sid) => {
