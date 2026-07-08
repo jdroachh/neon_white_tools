@@ -432,3 +432,222 @@ def test_run_compare_players_validates_both_steam_ids():
     res2 = api.run_compare_players("76561198000000001", "notanid", "level", "Movement")
     assert res2["ok"] is False
     assert "Player 2" in res2["error"]
+
+
+# ── Failed-vs-empty Steam fetch signal ───────────────────────────────────────
+#
+# steam.fetch_batch returns None on a genuine Steam failure/timeout (distinct
+# from [] for a real empty window). These tests drive the bridge paging loops and
+# find_rank against a scripted fake steam module and assert the failed-page
+# accounting, the Global-Export skip-to-next-level behavior, the Avg-seed hard
+# error, and _fetch's None-vs-empty routing — the accounting logic pytest is good
+# at pinning. Happy-path find_rank (correct ranks on real boards) stays in-app QA.
+
+import time as _t
+import webview_app.bridge as _bridge
+
+
+def _rows(count, first_rank=1, score_ms=16000):
+    """Build `count` leaderboard-row dicts shaped like fetch_batch output."""
+    return [{"rank": r, "steam_id": 76561198000000000 + r, "name": f"P{r}",
+             "score_ms": score_ms, "time": f"{score_ms / 1000:.3f}"}
+            for r in range(first_rank, first_rank + count)]
+
+
+class _FakeSteam:
+    """Scripted stand-in for steam_backend.steam. `script` is the ordered list of
+    per-call fetch_batch returns (None / [] / [rows]); once exhausted, returns []
+    (a genuine end-of-board). find_leaderboard always resolves."""
+    BATCH_SIZE = 100
+    steam_ready = True
+
+    def __init__(self, script, entry_count=250):
+        self._script = list(script)
+        self._entry_count = entry_count
+        self.calls = []
+
+    def find_leaderboard(self, name):
+        return 111  # truthy handle
+
+    def get_entry_count(self, handle):
+        return self._entry_count
+
+    def fetch_batch(self, handle, start, end, _poll_interval=0.02):
+        self.calls.append((start, end))
+        return self._script.pop(0) if self._script else []
+
+    # avg-rankings sweep touches these on the happy path; unused in these tests
+    def get_player_entries(self, *a, **k):
+        return {}
+
+    def get_persona_name(self, sid):
+        return str(sid)
+
+    def set_on_lost(self, cb):   # JsApi.__init__ wires this under the worker backend
+        pass
+
+
+def _run_and_collect(call, channel_pred, timeout=10.0):
+    """Patch steam + _emit_to, invoke `call`, and collect emitted events until a
+    matching event arrives (or timeout). Returns the captured event list."""
+    events = []
+    orig_emit_to = _bridge._emit_to
+    _bridge._emit_to = lambda handler, data: events.append((handler, data))
+    try:
+        res = call()
+        assert res.get("ok") is True, res
+        deadline = _t.time() + timeout
+        while _t.time() < deadline:
+            if any(channel_pred(h, d) for (h, d) in events):
+                break
+            _t.sleep(0.02)
+    finally:
+        _bridge._emit_to = orig_emit_to
+    return events
+
+
+def _done(events):
+    for h, d in events:
+        if d.get("type") == "done":
+            return d
+    return None
+
+
+def _patch_steam(fake):
+    orig = _bridge.steam
+    _bridge.steam = fake
+    return orig
+
+
+# ---- _fetch_page helper (retry-once) -----------------------------------------
+
+def test_fetch_page_retry_recovers():
+    """None then rows → the retry recovers; helper returns the rows."""
+    fake = _FakeSteam([None, _rows(3)])
+    orig = _patch_steam(fake)
+    try:
+        out = _bridge._fetch_page(111, 1, 100)
+        assert out is not None and len(out) == 3
+        assert len(fake.calls) == 2   # original + one retry
+    finally:
+        _bridge.steam = orig
+
+
+def test_fetch_page_double_failure_returns_none():
+    """None twice → confirmed failure; helper returns None (not [])."""
+    fake = _FakeSteam([None, None])
+    orig = _patch_steam(fake)
+    try:
+        out = _bridge._fetch_page(111, 1, 100)
+        assert out is None
+        assert len(fake.calls) == 2
+    finally:
+        _bridge.steam = orig
+
+
+def test_fetch_page_empty_is_not_retried():
+    """[] is a genuine empty window — no retry, returned verbatim."""
+    fake = _FakeSteam([[]])
+    orig = _patch_steam(fake)
+    try:
+        out = _bridge._fetch_page(111, 1, 100)
+        assert out == []
+        assert len(fake.calls) == 1   # empty is NOT a failure → no retry
+    finally:
+        _bridge.steam = orig
+
+
+# ---- paging loops: failed-page accounting ------------------------------------
+
+def test_level_search_surfaces_failed_page():
+    """A page that fails after its retry is counted and surfaced, not silently
+    truncated. Page 1 = 100 rows, page 2 = None/None → 1 failed page."""
+    fake = _FakeSteam([_rows(100), None, None], entry_count=250)
+    orig = _patch_steam(fake)
+    try:
+        api = JsApi()
+        events = _run_and_collect(
+            lambda: api.run_level_search("Movement", "1000", "display", ""),
+            lambda h, d: d.get("type") == "done")
+        done = _done(events)
+        assert done is not None
+        assert done["failed_pages"] == 1
+        assert done["total"] == 100                      # only the good page's rows
+        assert "page(s) failed" in done["message"]
+    finally:
+        _bridge.steam = orig
+
+
+def test_level_search_retry_recovers_no_failed_page():
+    """A transient blip that the retry clears must NOT count as a failed page."""
+    fake = _FakeSteam([_rows(100), None, _rows(50, first_rank=101)], entry_count=150)
+    orig = _patch_steam(fake)
+    try:
+        api = JsApi()
+        events = _run_and_collect(
+            lambda: api.run_level_search("Movement", "1000", "display", ""),
+            lambda h, d: d.get("type") == "done")
+        done = _done(events)
+        assert done is not None
+        assert done["failed_pages"] == 0
+        assert done["total"] == 150
+        assert "page(s) failed" not in done["message"]
+    finally:
+        _bridge.steam = orig
+
+
+def test_global_export_skips_failed_level_and_continues():
+    """A failed page skips to the next level (outer loop continues) rather than
+    aborting the export; the run-wide counter surfaces it. entry_count=50 → one
+    page per level: level 1 fails, level 2 yields a row, the rest end empty."""
+    fake = _FakeSteam([None, None, _rows(1)], entry_count=50)
+    orig = _patch_steam(fake)
+    try:
+        api = JsApi()
+        events = _run_and_collect(
+            lambda: api.run_global_export("1000", "display", ""),
+            lambda h, d: d.get("type") == "done")
+        done = _done(events)
+        assert done is not None
+        assert done["failed_pages"] == 1
+        assert done["total_rows"] == 1                   # level 2's single row survived
+        assert "page(s) failed" in done["message"]
+    finally:
+        _bridge.steam = orig
+
+
+# ---- Avg Placement seed: hard error (NOT warn-and-continue) -------------------
+
+def test_avg_seed_hard_errors_on_failure():
+    """A failed seed page shrinks the candidate population and biases every board,
+    so it must abort with an error — never warn-and-continue like a display loop."""
+    fake = _FakeSteam([None, None])   # seed page fails after retry
+    orig = _patch_steam(fake)
+    try:
+        api = JsApi()
+        events = _run_and_collect(
+            lambda: api.run_avg_rankings("50", "story", "display", ""),
+            lambda h, d: d.get("type") in ("error", "done"))
+        kinds = [d.get("type") for _, d in events]
+        assert "error" in kinds, kinds
+        err = next(d for _, d in events if d.get("type") == "error")
+        assert "Steam failed" in err["message"] or "top-k" in err["message"]
+    finally:
+        _bridge.steam = orig
+
+
+# ---- find_rank: None → Stalled, never a confidently-wrong rank ----------------
+
+def test_find_rank_stalls_on_failure_not_wrong_rank():
+    """A genuine fetch failure in the bisect must surface as 'Steam stopped
+    responding', not get absorbed as empty data and yield a wrong rank."""
+    fake = _FakeSteam([None] * 20, entry_count=100)   # every window fails
+    orig = _patch_steam(fake)
+    try:
+        api = JsApi()
+        res = api.find_rank("level", "Movement", "16.000")
+        assert "error" in res
+        assert "stopped responding" in res["error"].lower()
+        assert "rank" not in res
+    finally:
+        _bridge.steam = orig

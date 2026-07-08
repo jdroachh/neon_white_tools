@@ -328,7 +328,12 @@ def fetch_batch(lb_handle, start, end, _poll_interval=0.02):
     )
     result = LeaderboardScoresDownloaded()
     if not wait_for_call(call, result, LEADERBOARD_SCORES_CALLBACK, poll_interval=_poll_interval):
-        return []
+        # None = genuine Steam failure/timeout, distinct from [] for a real empty
+        # window (past end of board / all-cheater page). Callers must treat None as
+        # failure and never fold it into empty-streak/end-of-board data. None → JSON
+        # null → survives the worker RPC untouched (steam_worker/steam_client are
+        # pass-throughs), so this needs no protocol change.
+        return None
     entries = []
     for i in range(result.entry_count):
         entry = LeaderboardEntry()

@@ -430,6 +430,30 @@ def _guard_output_folder(folder: str, out_mode: str) -> dict | None:
     return None
 
 
+def _fetch_page(lb_handle, start, end):
+    """steam.fetch_batch with retry-once on a genuine Steam failure.
+
+    steam.fetch_batch returns None on a failed/timed-out call, distinct from []
+    for a genuine empty window (past end of board / all-cheater page). On None we
+    sleep briefly and retry once — a fast ``failed``-flag return would otherwise
+    retry straight into the same transient. Returns:
+
+      * None  → confirmed failure after the retry (caller counts a failed page)
+      * []    → genuine empty window / end of board (caller breaks)
+      * [...] → rows
+
+    NOTE: this bridge-side retry-once would compound with any future
+    steam_api-internal backoff/retry layer. If one is added, drop this retry
+    (single edit here) or exclude fetch_batch from it — never both.
+    """
+    import time as _time
+    batch = steam.fetch_batch(lb_handle, start, end)
+    if batch is None:
+        _time.sleep(0.5)
+        batch = steam.fetch_batch(lb_handle, start, end)
+    return batch
+
+
 class JsApi:
     """pywebview js_api bridge. Instantiated once in main.py."""
 
@@ -1181,6 +1205,7 @@ class JsApi:
 
             total_levels = len(LEVELS)
             all_rows = 0
+            failed_pages = 0   # run-wide count of pages that failed after a retry
             for idx, (display, internal) in enumerate(LEVELS, 1):
                 if stop_event.is_set():
                     break
@@ -1196,9 +1221,15 @@ class JsApi:
                 start = 1
                 while start <= fetch and not stop_event.is_set():
                     end = min(start + steam.BATCH_SIZE - 1, fetch)
-                    batch = steam.fetch_batch(lb, start, end)
-                    if not batch:
+                    batch = _fetch_page(lb, start, end)
+                    if batch is None:
+                        # Steam failed this page (after a retry). Skip to the next
+                        # level rather than aborting the whole export; count it so
+                        # the done message can warn the data is incomplete.
+                        failed_pages += 1
                         break
+                    if not batch:
+                        break   # genuine end of this board
                     for e in batch:
                         if out_mode in ("display", "both"):
                             _emit_to("_nwGlobalEvent", {
@@ -1219,11 +1250,14 @@ class JsApi:
             if csv_file:
                 csv_file.close()
             stopped = stop_event.is_set()
+            msg = (f"Stopped. {all_rows} entries fetched." if stopped
+                   else f"Done. {all_rows} entries fetched.")
+            if failed_pages:
+                msg += f" {failed_pages} page(s) failed — data may be incomplete."
             _emit_to("_nwGlobalEvent", {
                 "type": "done", "total_rows": all_rows, "stopped": stopped,
-                "csv_path": csv_path or "",
-                "message": (f"Stopped. {all_rows} entries fetched." if stopped
-                            else f"Done. {all_rows} entries fetched."),
+                "csv_path": csv_path or "", "failed_pages": failed_pages,
+                "message": msg,
             })
             self._lb_running = False
 
@@ -1285,14 +1319,18 @@ class JsApi:
             total_lb = steam.get_entry_count(lb)
             fetch = min(total_lb, count_int)
             all_rows = 0
+            failed_pages = 0
             start = 1
             while start <= fetch and not stop_event.is_set():
                 end = min(start + steam.BATCH_SIZE - 1, fetch)
                 _emit_to("_nwNeonRankingsEvent", {"type": "progress",
                                                   "current": end, "total": fetch})
-                batch = steam.fetch_batch(lb, start, end)
+                batch = _fetch_page(lb, start, end)
+                if batch is None:
+                    failed_pages += 1
+                    break   # Steam failed this page (after retry) — surface below
                 if not batch:
-                    break
+                    break   # genuine end of board
                 for e in batch:
                     if out_mode in ("display", "both"):
                         _emit_to("_nwNeonRankingsEvent", {
@@ -1311,11 +1349,14 @@ class JsApi:
             if csv_file:
                 csv_file.close()
             stopped = stop_event.is_set()
+            msg = (f"Stopped. {all_rows} entries fetched." if stopped
+                   else f"Done. {all_rows} entries fetched.")
+            if failed_pages:
+                msg += f" {failed_pages} page(s) failed — data may be incomplete."
             _emit_to("_nwNeonRankingsEvent", {
                 "type": "done", "total_rows": all_rows, "stopped": stopped,
-                "csv_path": csv_path or "",
-                "message": (f"Stopped. {all_rows} entries fetched." if stopped
-                            else f"Done. {all_rows} entries fetched."),
+                "csv_path": csv_path or "", "failed_pages": failed_pages,
+                "message": msg,
             })
             self._lb_running = False
 
@@ -1457,9 +1498,20 @@ class JsApi:
                 start = 1
                 while start <= k_int and not stop_event.is_set():
                     end = min(start + steam.BATCH_SIZE - 1, k_int)
-                    batch = steam.fetch_batch(glb, start, end)
+                    batch = _fetch_page(glb, start, end)
+                    if batch is None:
+                        # Hard error, NOT warn-and-continue: a failed seed page
+                        # silently shrinks the candidate *population*, biasing every
+                        # board's placement stats for the whole run. Abort so the
+                        # user re-runs against the full top-k (matches the
+                        # no-candidates hard error just below).
+                        _emit_to(CH, {"type": "error",
+                                      "message": "Couldn't fetch the full top-k candidate set — "
+                                                 "Steam failed. Please try again."})
+                        self._lb_running = False
+                        return
                     if not batch:
-                        break
+                        break   # genuine end of the Global Rankings board
                     candidates.extend(batch)
                     start = end + 1
                 if not candidates:
@@ -1644,12 +1696,16 @@ class JsApi:
                 "message": f"Total: {total_lb:,}  |  Fetching top {fetch:,}...",
             })
             all_entries = []
+            failed_pages = 0
             start = 1
             while start <= fetch and not stop_event.is_set():
                 end = min(start + steam.BATCH_SIZE - 1, fetch)
-                batch = steam.fetch_batch(lb, start, end)
+                batch = _fetch_page(lb, start, end)
+                if batch is None:
+                    failed_pages += 1
+                    break   # Steam failed this page (after retry) — surface below
                 if not batch:
-                    break
+                    break   # genuine end of board
                 for e in batch:
                     if out_mode in ("display", "both"):
                         _emit_to("_nwLevelEvent", {
@@ -1675,10 +1731,13 @@ class JsApi:
 
             stopped = stop_event.is_set()
             total = len(all_entries) if out_mode in ("csv", "both") else (start - 1)
+            msg = (f"Stopped. {total} entries." if stopped else f"Done. {total} entries.")
+            if failed_pages:
+                msg += f" {failed_pages} page(s) failed — data may be incomplete."
             _emit_to("_nwLevelEvent", {
                 "type": "done", "total": total, "stopped": stopped,
-                "csv_path": csv_path or "",
-                "message": (f"Stopped. {total} entries." if stopped else f"Done. {total} entries."),
+                "csv_path": csv_path or "", "failed_pages": failed_pages,
+                "message": msg,
             })
             self._lb_running = False
 
@@ -1754,12 +1813,16 @@ class JsApi:
                 "message": f"Total: {total_lb:,}  |  Fetching top {fetch:,}...",
             })
             all_entries = []
+            failed_pages = 0
             start = 1
             while start <= fetch and not stop_event.is_set():
                 end = min(start + steam.BATCH_SIZE - 1, fetch)
-                batch = steam.fetch_batch(lb, start, end)
+                batch = _fetch_page(lb, start, end)
+                if batch is None:
+                    failed_pages += 1
+                    break   # Steam failed this page (after retry) — surface below
                 if not batch:
-                    break
+                    break   # genuine end of board
                 for e in batch:
                     clock = _fmt_ms_clock(e["score_ms"])
                     if out_mode in ("display", "both"):
@@ -1785,10 +1848,13 @@ class JsApi:
 
             stopped = stop_event.is_set()
             total = len(all_entries) if out_mode in ("csv", "both") else (start - 1)
+            msg = (f"Stopped. {total} entries." if stopped else f"Done. {total} entries.")
+            if failed_pages:
+                msg += f" {failed_pages} page(s) failed — data may be incomplete."
             _emit_to("_nwRushEvent", {
                 "type": "done", "total": total, "stopped": stopped,
-                "csv_path": csv_path or "",
-                "message": (f"Stopped. {total} entries." if stopped else f"Done. {total} entries."),
+                "csv_path": csv_path or "", "failed_pages": failed_pages,
+                "message": msg,
             })
             self._lb_running = False
 
@@ -1894,11 +1960,13 @@ class JsApi:
                         "target_ms": target_ms, "above": None, "below": None,
                         "next_medal": None}
 
-            # Guard the bisect against a flaky / rate-limited Steam. A failed fetch_batch
-            # returns [] (indistinguishable from an all-cheater window), and the bisect would
-            # otherwise absorb those as real data and grind one 10s wait_for_call timeout at a
-            # time — minutes of silent spinning. An overall wall-clock budget plus a cancel
-            # flag (set by stop_find_rank) turn that into a fast, surfaced bail.
+            # Guard the bisect against a flaky / rate-limited Steam. Two distinct
+            # failure shapes: fetch_batch returns None on a genuine Steam
+            # failure/timeout and [] for a real empty/all-cheater window.
+            # A failed window must NOT be absorbed as real data (the bisect would
+            # narrow on false emptiness → confidently wrong rank). An overall
+            # wall-clock budget plus a cancel flag (set by stop_find_rank) turn a
+            # grind into a fast, surfaced bail.
             class _Cancelled(Exception):
                 pass
 
@@ -1909,17 +1977,26 @@ class JsApi:
             empty_streak = [0]
 
             def _fetch(a, b):
-                """fetch_batch with cancel + stall guards (used only in the bisect loops)."""
+                """fetch_batch with cancel + stall guards (used only in the bisect loops).
+
+                None (genuine failure) → retry-once via _fetch_page → still None →
+                _Stalled immediately: two consecutive failures end the bisect
+                rather than tolerating up to 8, because the retry IS the tolerance
+                and Stalled beats a confidently wrong rank. [] is still a real
+                empty window and feeds empty_streak as before.
+                """
                 if getattr(self, "_rank_cancel", False):
                     raise _Cancelled()
                 if time.time() > deadline:
                     raise _Stalled()
-                batch = steam.fetch_batch(handle, a, b, _poll_interval=0.02)
+                batch = _fetch_page(handle, a, b)   # retry-once; None = confirmed failure
+                if batch is None:
+                    raise _Stalled()
                 if batch:
                     empty_streak[0] = 0
                 else:
                     empty_streak[0] += 1
-                    if empty_streak[0] >= 8:        # 8 windows of nothing → Steam isn't answering
+                    if empty_streak[0] >= 8:        # 8 real-empty windows → Steam isn't answering
                         raise _Stalled()
                 return batch
 
@@ -1956,7 +2033,10 @@ class JsApi:
                 # Probe rank lo_right-1 (slot directly above) — also our ▼below source at lo_right.
                 below = None
                 probe_lo, probe_hi = max(1, lo_right - 1), min(N, lo_right)
-                nb = steam.fetch_batch(handle, probe_lo, probe_hi, _poll_interval=0.02)
+                # MUST route through _fetch: this iterates nb with no falsy check,
+                # so a raw None (Steam failure) would TypeError out of find_rank's
+                # try. _fetch turns a genuine failure into _Stalled instead.
+                nb = _fetch(probe_lo, probe_hi)
                 by_rank = {e["rank"]: e for e in nb}
                 if lo_right <= N and lo_right in by_rank:
                     e = by_rank[lo_right]
@@ -1993,7 +2073,7 @@ class JsApi:
                         e = by_rank[lo_left - 1]
                         above = {"rank": e["rank"], "score_ms": e["score_ms"]}
                 elif lo_left - 1 >= 1:
-                    ab = steam.fetch_batch(handle, lo_left - 1, lo_left - 1, _poll_interval=0.02)
+                    ab = _fetch(lo_left - 1, lo_left - 1)   # _Stalled on genuine failure, not a dropped ▲above
                     if ab:
                         e = ab[0]
                         above = {"rank": e["rank"], "score_ms": e["score_ms"]}
