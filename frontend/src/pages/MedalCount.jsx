@@ -128,47 +128,47 @@ export default function MedalCount() {
 
         <div className="panel-right" style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
           {result && !result.stopped ? (
-            <div style={{ textAlign: "center", width: "100%", maxWidth: 380, margin: "auto 0" }}>
-              <div style={{ marginBottom: 10, display: "flex", justifyContent: "center" }}>
+            <div style={{ textAlign: "center", width: "100%", maxWidth: 440, margin: "auto 0" }}>
+              <div style={{ marginBottom: 12, display: "flex", justifyContent: "center" }}>
                 <div style={{
-                  padding: "8px 20px", borderRadius: 2,
+                  padding: "10px 24px", borderRadius: 2,
                   background: "rgba(255,255,255,0.06)",
                   border: "1px solid rgba(255,255,255,0.20)",
-                  fontSize: "1.4em", lineHeight: 1,
+                  fontSize: "1.7em", lineHeight: 1,
                 }}>
                   <MedalBadge medal={result.tier} plain />
                 </div>
               </div>
-              <div className="muted" style={{ fontSize: 12, marginBottom: 18 }}>
+              <div className="muted" style={{ fontSize: 14, marginBottom: 22 }}>
                 on {result.level} · cutoff ≤ {result.cutoff_time}
               </div>
 
-              <div style={{ display: "flex", gap: 24, justifyContent: "center", flexWrap: "wrap" }}>
-                <div style={{ minWidth: 130 }}>
+              <div style={{ display: "flex", gap: 32, justifyContent: "center", flexWrap: "wrap" }}>
+                <div style={{ minWidth: 150 }}>
                   <div style={{
-                    fontSize: "3em", fontWeight: 700, lineHeight: 1,
+                    fontSize: "3.8em", fontWeight: 700, lineHeight: 1,
                     fontFamily: "var(--display-font)", color: "var(--accent)",
                   }}>
                     {result.at_least.toLocaleString()}
                   </div>
-                  <div style={{ fontSize: "0.82em", color: "var(--text-3)", marginTop: 6 }}>
+                  <div style={{ fontSize: "0.98em", color: "var(--text-3)", marginTop: 8 }}>
                     have <strong style={{ color: "var(--text-2)" }}>at least</strong> this tier
                   </div>
                 </div>
-                <div style={{ minWidth: 130 }}>
+                <div style={{ minWidth: 150 }}>
                   <div style={{
-                    fontSize: "3em", fontWeight: 700, lineHeight: 1,
+                    fontSize: "3.8em", fontWeight: 700, lineHeight: 1,
                     fontFamily: "var(--display-font)", color: "var(--text-1)",
                   }}>
                     {result.exactly.toLocaleString()}
                   </div>
-                  <div style={{ fontSize: "0.82em", color: "var(--text-3)", marginTop: 6 }}>
+                  <div style={{ fontSize: "0.98em", color: "var(--text-3)", marginTop: 8 }}>
                     have <strong style={{ color: "var(--text-2)" }}>exactly</strong> this tier
                   </div>
                 </div>
               </div>
 
-              <div style={{ fontSize: "0.78em", color: "var(--text-3)", marginTop: 22 }}>
+              <div style={{ fontSize: "0.92em", color: "var(--text-3)", marginTop: 26 }}>
                 scanned {result.total_scanned.toLocaleString()} entries
                 {result.failed_pages > 0 && " · a page failed, result may be incomplete"}
               </div>

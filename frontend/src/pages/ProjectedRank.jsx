@@ -187,9 +187,9 @@ export default function ProjectedRank() {
 
         <div className="panel-right" style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
           {result && (
-            <div style={{ textAlign: "center", width: "100%", maxWidth: 360, margin: "auto 0" }}>
+            <div style={{ textAlign: "center", width: "100%", maxWidth: 400, margin: "auto 0" }}>
               <div style={{
-                fontSize: "3em", fontWeight: 700,
+                fontSize: "3.8em", fontWeight: 700,
                 fontFamily: "var(--display-font)",
                 color: "var(--accent)", lineHeight: 1,
               }}>
@@ -197,38 +197,38 @@ export default function ProjectedRank() {
                   ? `${result.rank_low.toLocaleString()}–${result.rank_high.toLocaleString()}`
                   : result.rank.toLocaleString()}
               </div>
-              <div style={{ fontSize: "1em", color: "var(--text-3)", marginTop: 6 }}>
+              <div style={{ fontSize: "1.15em", color: "var(--text-3)", marginTop: 8 }}>
                 of {result.total.toLocaleString()} entries
                 {result.rank > result.total && result.total > 0 && !result.tie_count && (
                   <span style={{ marginLeft: 6, opacity: 0.7 }}>(below last)</span>
                 )}
               </div>
               {result.tie_count > 0 && (
-                <div style={{ fontSize: "0.82em", color: "var(--text-3)", marginTop: 4 }}>
+                <div style={{ fontSize: "0.95em", color: "var(--text-3)", marginTop: 6 }}>
                   tied with {result.tie_count.toLocaleString()} {result.tie_count === 1 ? "run" : "runs"} at {fmtMs(result.target_ms)}
                 </div>
               )}
 
               {result.medal && (
-                <div style={{ marginTop: 16, display: "flex", justifyContent: "center" }}>
+                <div style={{ marginTop: 18, display: "flex", justifyContent: "center" }}>
                   <div style={{
-                    padding: "10px 24px", borderRadius: 2,
+                    padding: "12px 28px", borderRadius: 2,
                     background: "rgba(255,255,255,0.06)",
                     border: "1px solid rgba(255,255,255,0.20)",
-                    fontSize: "1.8em", lineHeight: 1,
+                    fontSize: "2.1em", lineHeight: 1,
                   }}>
                     <MedalBadge medal={result.medal} plain />
                   </div>
                 </div>
               )}
               {result.board_kind === "level" && !result.medal && result.total > 0 && (
-                <div style={{ marginTop: 10, fontSize: "0.82em", color: "var(--text-3)" }}>
+                <div style={{ marginTop: 12, fontSize: "0.95em", color: "var(--text-3)" }}>
                   No medal at this time
                 </div>
               )}
 
               {result.next_medal && (
-                <div style={{ marginTop: 12, fontSize: "0.86em", color: "var(--text-2)" }}>
+                <div style={{ marginTop: 14, fontSize: "1em", color: "var(--text-2)" }}>
                   <span style={{ color: "var(--accent)", fontWeight: 700 }}>
                     {fmtGap(result.next_medal.gap_secs * 1000)}
                   </span>{" "}
@@ -239,10 +239,10 @@ export default function ProjectedRank() {
 
               {(result.above || result.below) && (
                 <div style={{
-                  marginTop: 20, paddingTop: 16,
+                  marginTop: 22, paddingTop: 18,
                   borderTop: "1px solid var(--border)",
                   display: "flex", flexDirection: "column", gap: 6,
-                  fontVariantNumeric: "tabular-nums",
+                  fontVariantNumeric: "tabular-nums", fontSize: "1.08em",
                 }}>
                   {result.above && (
                     <NeighborRow
