@@ -15,6 +15,7 @@ const ACCENT_PRESETS = [
   { hex: "#fb923c", label: "Orange"  },
   { hex: "#fbbf24", label: "Amber"   },
   { hex: "#fb7185", label: "Rose"    },
+  { hex: "#ffffff", label: "White"   },
 ];
 
 export default function Settings({ onSteamConnected, onFolderChange, steamReady = false, onDisconnect, visible = false }) {
