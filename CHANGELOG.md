@@ -8,6 +8,25 @@ All notable changes to Neon White Tools are documented here.
 
 ---
 
+## [1.9.0] — 2026-07-08
+
+### Added
+- Medal Count — new Leaderboard Tools page: pick a level and a community medal tier (Emerald, Amethyst, Sapphire, Topaz, or Blood Diamond) and see how many players have at least that tier and exactly that tier; counts are cheater-filtered (0fe02d3)
+- Multi Compare: raised the player cap from 10 to 16, with a collapsible roster and collapsible summary strips so large comparisons stay readable (5a23deb, 01b738a)
+- Multi Compare: richer CSV export and a "Copy data" option through a save dialog (b976632)
+- Saved profiles cap raised to 200 with a type-to-filter dropdown; saved-roster cap raised to 100 (ed5240e)
+- A pure-white accent swatch in the Settings color picker (e21c5d0)
+
+### Fixed
+- Steam fetches now distinguish a failed leaderboard call from a genuinely empty one, so incomplete results are flagged instead of silently looking complete — improves Projected Rank, Global Export, and Level Search on flaky or rate-limited connections (aa5f11b)
+- Reliability & security hardening: resource pages load independently (one failing community sheet can't blank the others), Guides and Helpful Links surface load errors, stricter allow-lists on external links, a hardened Steam worker shutdown, and fixes for several race conditions (Multi Compare cache, config writes, output-folder and stop handling); shuffle.dll rebuilt with added safety guards (c8d9096, 153f45a, 73be217, acc0d45, f86844d)
+- Multi Compare: header stays stable when the window is narrow (1ed8d8a)
+
+### Docs
+- Scrubbed internal vault-path pointers from public docstrings (4be2ed8)
+
+---
+
 ## [1.8.1] — 2026-06-28
 
 ### Added
