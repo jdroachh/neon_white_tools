@@ -6,7 +6,7 @@ reads as steam_api.steam_ready / player_name / logged_in_steam_id / cheater_ids)
 but answers every Steam call by RPC to steam_worker.py over a pipe instead of
 loading steam_api64.dll in-process. This process NEVER imports steam_api and
 NEVER loads the DLL — that is what keeps the appid unbound here so the worker can
-be killed to release it (see plans/steam-worker-subprocess-2026-06-12.md).
+be killed to release it.
 
 steam_backend.py picks this vs steam_api by the NW_STEAM_WORKER env var. Phase 1
 ships dark: the selector defaults to in-process, so nothing reaches this unless a

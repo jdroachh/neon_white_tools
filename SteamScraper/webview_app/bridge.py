@@ -1404,7 +1404,6 @@ class JsApi:
         get_player_entries, and score the average. The consistency counterpart to the
         sum-of-times GlobalNeonRankings page. Players without a complete game have no
         GlobalNeonRankings entry and are unrankable here (known v1 exclusion).
-        See plans/2026-06-22-avg-rankings-in-app.md.
         """
         import time as _time, csv as _csv, datetime as _dt
         if not steam.steam_ready:

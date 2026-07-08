@@ -9,8 +9,7 @@ players on mode-switch.
 
 Lifetime: the pywebview window. Cleared implicitly when the process exits.
 No disk persistence in v1 — times go stale fast as players set new PBs, and
-disk-cache with TTL is its own design problem (see plans/multi-compare-graduation.md
-"Out of scope").
+disk-cache with TTL is its own design problem, out of scope for v1.
 
 Designed to be swappable to a disk-backed implementation later without
 changing callers — the get/put/clear surface stays the same.

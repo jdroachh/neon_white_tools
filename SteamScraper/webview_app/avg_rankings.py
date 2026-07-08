@@ -4,7 +4,7 @@ Leaderboard page.
 
 Ranks players by their AVERAGE per-level placement (consistency), the counterpart
 to the GlobalNeonRankings sum-of-times board. Ported from the validated
-`avg_rankings_beta/` (seed mode); see plans/2026-06-22-avg-rankings-in-app.md.
+`avg_rankings_beta/` prototype (seed mode).
 
 No Steam / webview imports on purpose — everything here is plain dicts/lists so
 the scoring can be unit-checked on fixtures. bridge.run_avg_rankings does all the

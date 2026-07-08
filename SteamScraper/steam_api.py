@@ -9,7 +9,7 @@ succeeds — callers reference them as e.g. `steam_api.steam_ready`.
 Also owns the cheater-list fetch (it's used by fetch_batch to filter known
 cheaters out of leaderboard entries).
 
-Future home (see 00_Inbox/todo.md) for:
+Future home for:
 - Per-session find_leaderboard handle cache
 - Self-imposed rate limiter on bulk operations
 - Result cache with short TTL

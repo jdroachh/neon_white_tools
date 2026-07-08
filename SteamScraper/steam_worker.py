@@ -3,7 +3,7 @@ steam_worker — the isolated Steam subprocess.
 
 Owns the Steamworks session: it is the ONLY process that loads steam_api64.dll
 and calls SteamAPI_Init. Steam binds the Neon White appid to the PID that called
-Init until that PID dies (see plans/steam-worker-subprocess-2026-06-12.md), so
+Init until that PID dies, so
 running the session here means killing this process cleanly frees the appid while
 the main app keeps living — the whole point of the refactor.
 
