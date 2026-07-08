@@ -1818,7 +1818,11 @@ class JsApi:
         harder_ths = [th for t in _EXTENDED_TIERS
                       if (th := _medal_threshold(code, t)) is not None and th < selected_th]
         harder_th = max(harder_ths) if harder_ths else None
-        cutoff_time = _format_secs(selected_th / 1_000_000)
+        # Community thresholds are often encoded a hair under the round ms (e.g.
+        # 7949999µs). A run qualifies iff score_ms*1000 <= selected_th, i.e.
+        # score_ms <= selected_th // 1000 — so the slowest *qualifying* time is
+        # that ms-grid value (7.949), not the rounded 7.950 the raw µs would show.
+        cutoff_time = _format_secs((selected_th // 1000) / 1000)
 
         with self._run_gate:
             if getattr(self, "_lb_running", False):

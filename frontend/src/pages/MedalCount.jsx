@@ -48,11 +48,18 @@ export default function MedalCount() {
     let attempts = 0;
     function poll() {
       if (cancelled) return;
-      getMedalDataReady().then(ready => {
-        if (cancelled) return;
-        if (ready || ++attempts >= 40) setDataReady(true);   // give up after ~12s
-        else setTimeout(poll, 300);
-      }).catch(() => {});
+      // Advance on BOTH resolve and reject — a swallowed rejection here (bridge
+      // not ready on the first tick, or a transient) must not kill the loop and
+      // leave the page stuck on "Loading medal data…". Force-ready after ~12s so
+      // the picker never hangs even if the readiness call keeps failing.
+      getMedalDataReady()
+        .then(ready => !!ready)
+        .catch(() => false)
+        .then(ready => {
+          if (cancelled) return;
+          if (ready || ++attempts >= 40) setDataReady(true);
+          else setTimeout(poll, 300);
+        });
     }
     poll();
     return () => { cancelled = true; };
@@ -133,7 +140,7 @@ export default function MedalCount() {
                 </div>
               </div>
               <div className="muted" style={{ fontSize: 12, marginBottom: 18 }}>
-                on {result.level} · cutoff {result.cutoff_time}
+                on {result.level} · cutoff ≤ {result.cutoff_time}
               </div>
 
               <div style={{ display: "flex", gap: 24, justifyContent: "center", flexWrap: "wrap" }}>
