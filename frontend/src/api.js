@@ -279,6 +279,23 @@ export async function getMedalTimes(level) {
   return api.get_medal_times(level);
 }
 
+// ── Medal Count ──────────────────────────────────────────────────────────────
+
+export async function getMedalDataReady() {
+  const api = await waitForApi();
+  return api.get_medal_data_ready();
+}
+
+export async function countMedals(level, tier) {
+  const api = await waitForApi();
+  return api.count_medals(level, tier);
+}
+
+export async function stopCountMedals() {
+  const api = await waitForApi();
+  return api.stop_count_medals();
+}
+
 // ── Resources (Ghosts + Route Videos) ────────────────────────────────────────
 
 export async function getResourcesStatus() {

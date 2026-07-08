@@ -60,13 +60,18 @@ def _parse_version_tuple(v: str) -> tuple:
 _COMMUNITY_MEDAL_DATA: dict = {}
 _TOPAZ_MEDAL_DATA: dict = {}
 _BD_MEDAL_DATA: dict = {}
+# Flips True once all three fetches have been *attempted* (success or failure),
+# so a consumer can tell "not loaded yet" from "genuinely absent". Medal Count's
+# tier-availability greying waits on this — otherwise a fast boot queries before
+# topaz2/bd2 land and wrongly reports Topaz/BD as having no cutoff.
+_MEDAL_DATA_READY: bool = False
 
 _COMMUNITY_MEDALS_URL = "https://raw.githubusercontent.com/Faustas156/NeonLite/main/Resources/communitymedals.json"
 _TOPAZ_MEDALS_URL     = "https://raw.githubusercontent.com/DerelictJade/NeonLite/main/Resources/topaz2.json"
 _BD_MEDALS_URL        = "https://raw.githubusercontent.com/DerelictJade/NeonLite/main/Resources/bd2.json"
 
 def _fetch_medal_data_bg():
-    global _COMMUNITY_MEDAL_DATA, _TOPAZ_MEDAL_DATA, _BD_MEDAL_DATA
+    global _COMMUNITY_MEDAL_DATA, _TOPAZ_MEDAL_DATA, _BD_MEDAL_DATA, _MEDAL_DATA_READY
     for url, target in (
         (_COMMUNITY_MEDALS_URL, "_COMMUNITY_MEDAL_DATA"),
         (_TOPAZ_MEDALS_URL,     "_TOPAZ_MEDAL_DATA"),
@@ -79,6 +84,7 @@ def _fetch_medal_data_bg():
                 globals()[target] = data
         except Exception:
             pass
+    _MEDAL_DATA_READY = True
 
 threading.Thread(target=_fetch_medal_data_bg, daemon=True).start()
 
@@ -300,6 +306,31 @@ def _next_medal(level_name: str, secs: float) -> dict | None:
         return None
     name, th = max(candidates, key=lambda t: t[1])
     return {"name": name, "gap_secs": (us - th) / 1_000_000}
+
+
+# Medal Count selector: the community/extended tiers only, hardest → easiest.
+# Standard tiers (DEV/ACE/GOLD/SILVER/BRONZE) are excluded — Bronze is the whole
+# board by definition (get_entry_count), and restricting to Emerald+ keeps every
+# query near the top of a sorted board so the paging loop early-stops cheaply.
+_EXTENDED_TIERS = ["BLOOD DIAMOND", "TOPAZ", "SAPPHIRE", "AMETHYST", "EMERALD"]
+
+
+def _medal_threshold(code: str, tier: str) -> int | None:
+    """Inverse of _get_medal: the µs cutoff for `tier` on level `code`, or None if
+    that tier has no threshold data on this level (BD/Topaz are sparse; the three
+    community tiers are near-complete). Thresholds are inclusive (us <= threshold)."""
+    if tier == "BLOOD DIAMOND":
+        bd = _BD_MEDAL_DATA.get(code)
+        return bd[0] if bd else None
+    if tier == "TOPAZ":
+        tz = _TOPAZ_MEDAL_DATA.get(code)
+        return tz[0] if tz else None
+    comm = _COMMUNITY_MEDAL_DATA.get(code)
+    if comm and len(comm) >= 3:
+        if tier == "SAPPHIRE": return comm[2]
+        if tier == "AMETHYST": return comm[1]
+        if tier == "EMERALD":  return comm[0]
+    return None
 
 
 def _parse_time_to_secs(raw: str) -> float | None:
@@ -1744,6 +1775,144 @@ class JsApi:
             target=lambda: self._run_worker_safe(worker, "_nwLevelEvent"),
             daemon=True,
         ).start()
+        return {"ok": True}
+
+    # ── Medal Count ───────────────────────────────────────────────────────────
+
+    def get_medal_data_ready(self) -> bool:
+        """True once the background community-medal fetch has attempted all three
+        JSONs. The Medal Count page waits on this before enabling the tier picker
+        so a fast boot doesn't try to count against not-yet-loaded Topaz/BD data.
+        Every stage carries all five extended tiers, so there's no per-tier
+        availability to report — just whether the data is in yet."""
+        return _MEDAL_DATA_READY
+
+    def count_medals(self, level_name: str, tier: str) -> dict:
+        """Count charted players AT LEAST `tier` and EXACTLY `tier` on a level.
+
+        The board is sorted ascending by time and `tier` is one of the extended
+        tiers (Emerald+), so we page from rank 1 and STOP once an entry is slower
+        than the selected cutoff — the running count is "at least". We also count
+        entries under the next-harder available tier in the same pass, so
+        exactly = at_least_selected − at_least_harder. Streams _nwMedalCountEvent.
+        """
+        import time as _time
+        if not steam.steam_ready:
+            return {"ok": False, "error": "Steam not connected. Connect in Settings first."}
+        if getattr(self, "_lb_running", False):
+            return {"ok": False, "error": "An operation is already running."}
+
+        tier = str(tier).strip().upper()
+        if tier not in _EXTENDED_TIERS:
+            return {"ok": False, "error": f"Unknown tier '{tier}'."}
+        match = LEVEL_LOOKUP.get(str(level_name).strip().lower())
+        if not match:
+            return {"ok": False, "error": f"Level '{level_name}' not found."}
+        display, internal = match
+        code = _resolve_level_code(display)
+        selected_th = _medal_threshold(code, tier) if code else None
+        if selected_th is None:
+            return {"ok": False, "error": f"No {tier.title()} cutoff on {display}."}
+        # Next-harder available tier = largest threshold still faster than selected
+        # (robust to missing BD/Topaz and to any tier-overlap in the source data).
+        harder_ths = [th for t in _EXTENDED_TIERS
+                      if (th := _medal_threshold(code, t)) is not None and th < selected_th]
+        harder_th = max(harder_ths) if harder_ths else None
+        cutoff_time = _format_secs(selected_th / 1_000_000)
+
+        with self._run_gate:
+            if getattr(self, "_lb_running", False):
+                return {"ok": False, "error": "An operation is already running."}
+            self._lb_running = True
+            stop_event = self._lb_stop_event = threading.Event()
+
+        def worker():
+            _emit_to("_nwMedalCountEvent",
+                     {"type": "status", "message": f"Finding {display}..."})
+            lb = steam.find_leaderboard(internal)
+            if not lb:
+                _emit_to("_nwMedalCountEvent",
+                         {"type": "error", "message": "Leaderboard not found."})
+                self._lb_running = False
+                return
+            total_lb = steam.get_entry_count(lb)
+            _emit_to("_nwMedalCountEvent", {
+                "type": "status",
+                "message": f"Scanning {tier.title()} runs on {display}...",
+            })
+            at_least = 0
+            at_least_harder = 0
+            scanned = 0
+            failed_pages = 0
+            done_scanning = False
+            start = 1
+            deadline = _time.time() + 25   # same stall budget as find_rank
+            while not done_scanning and not stop_event.is_set():
+                if _time.time() > deadline:
+                    _emit_to("_nwMedalCountEvent", {
+                        "type": "error",
+                        "message": "Steam stopped responding. Try again.",
+                    })
+                    self._lb_running = False
+                    return
+                end = min(start + steam.BATCH_SIZE - 1, total_lb) if total_lb else start + steam.BATCH_SIZE - 1
+                if total_lb and start > total_lb:
+                    break
+                batch = _fetch_page(lb, start, end)
+                if batch is None:
+                    failed_pages += 1
+                    break   # confirmed failed page (after retry)
+                if not batch:
+                    # [] = an all-cheater / empty raw-rank window, NOT necessarily
+                    # the end of the board — fetch_batch strips cheaters, so a page
+                    # can come back empty with legit entries still below it. Only
+                    # total_lb (raw count, includes cheaters) bounds the true end.
+                    # Without a count we can't tell them apart, so treat [] as end.
+                    if not total_lb:
+                        break
+                    start = end + 1
+                    continue
+                for e in batch:
+                    us = e["score_ms"] * 1000
+                    if us > selected_th:
+                        done_scanning = True
+                        break
+                    at_least += 1
+                    if harder_th is not None and us <= harder_th:
+                        at_least_harder += 1
+                    scanned += 1
+                start = end + 1
+                _emit_to("_nwMedalCountEvent",
+                         {"type": "progress", "scanned": scanned})
+                _time.sleep(0.05)
+
+            exactly = at_least - at_least_harder
+            stopped = stop_event.is_set()
+            if stopped:
+                msg = "Stopped."
+            elif failed_pages:
+                msg = "A page failed — result may be incomplete."
+            else:
+                msg = "Done."
+            _emit_to("_nwMedalCountEvent", {
+                "type": "done", "stopped": stopped,
+                "level": display, "tier": tier, "cutoff_time": cutoff_time,
+                "at_least": at_least, "exactly": exactly,
+                "total_scanned": scanned, "failed_pages": failed_pages,
+                "message": msg,
+            })
+            self._lb_running = False
+
+        threading.Thread(
+            target=lambda: self._run_worker_safe(worker, "_nwMedalCountEvent"),
+            daemon=True,
+        ).start()
+        return {"ok": True}
+
+    def stop_count_medals(self) -> dict:
+        # Mirror stop_leaderboard: signal the worker, let it clear _lb_running.
+        if hasattr(self, "_lb_stop_event"):
+            self._lb_stop_event.set()
         return {"ok": True}
 
     # ── Rush Rankings ─────────────────────────────────────────────────────────

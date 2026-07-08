@@ -40,6 +40,7 @@ export const Icon = ({ name, size = 14 }) => {
     case "ghost":    return <svg viewBox="0 0 16 16" style={s}><g {...sp}><path d="M3 13V7a5 5 0 0110 0v6l-2-1.5L9 13l-2-1.5L5 13l-2-1.5z"/><circle cx="6" cy="7" r="0.7" fill="currentColor"/><circle cx="10" cy="7" r="0.7" fill="currentColor"/></g></svg>;
     case "video":    return <svg viewBox="0 0 16 16" style={s}><g {...sp}><rect x="2" y="4" width="9" height="8" rx="1"/><path d="M11 7l3-2v6l-3-2z"/></g></svg>;
     case "trophy":   return <svg viewBox="0 0 16 16" style={s}><g {...sp}><path d="M5 2h6v5a3 3 0 01-6 0z"/><path d="M2 3h3M11 3h3"/><path d="M8 9v3M5 13h6"/></g></svg>;
+    case "medal":    return <svg viewBox="0 0 16 16" style={s}><g {...sp}><path d="M5 2l3 5M11 2L8 7"/><circle cx="8" cy="11" r="3.2"/></g></svg>;
     case "link":     return <svg viewBox="0 0 16 16" style={s}><g {...sp}><path d="M6 10l4-4M7 4l1-1a3 3 0 014 4l-1 1M9 12l-1 1a3 3 0 01-4-4l1-1"/></g></svg>;
     case "globe":    return <svg viewBox="0 0 16 16" style={s}><g {...sp}><circle cx="8" cy="8" r="5.5"/><ellipse cx="8" cy="8" rx="5.5" ry="2.2"/><ellipse cx="8" cy="8" rx="2.2" ry="5.5"/></g></svg>;
     case "crown":    return <svg viewBox="0 0 16 16" style={s}><g {...sp}><path d="M2 11l1-5 2.5 3L8 4l2.5 5L13 6l1 5z"/><path d="M2.5 13.5h11"/></g></svg>;
@@ -58,6 +59,7 @@ const NAV_ITEMS = {
     { key: "levelsearch",    label: "Level Search",     icn: "search" },
     { key: "rushrankings",   label: "Rush Rankings",    icn: "timer"  },
     { key: "projectedrank",  label: "Projected Rank",   icn: "trend"  },
+    { key: "medalcount",     label: "Medal Count",      icn: "medal"  },
     { key: "lookup",         label: "Player Lookup",    icn: "user"   },
     { key: "compare",        label: "Compare Players",  icn: "compare" },
     { key: "multicompare",   label: "Multi Compare",    icn: "multicompare" },

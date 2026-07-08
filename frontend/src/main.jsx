@@ -21,6 +21,7 @@ import PlayerLookup   from "./pages/PlayerLookup.jsx";
 import ComparePlayers from "./pages/ComparePlayers.jsx";
 import MultiCompare   from "./pages/MultiCompare.jsx";
 import ProjectedRank  from "./pages/ProjectedRank.jsx";
+import MedalCount     from "./pages/MedalCount.jsx";
 import Ghosts           from "./pages/Ghosts.jsx";
 import RouteVideos      from "./pages/RouteVideos.jsx";
 import WorldRecordVods  from "./pages/WorldRecordVods.jsx";
@@ -41,6 +42,7 @@ const PAGE_TITLES = {
   levelsearch:    "Level Search",
   rushrankings:   "Rush Rankings",
   projectedrank:  "Projected Rank",
+  medalcount:     "Medal Count",
   lookup:         "Player Lookup",
   compare:     "Compare Players",
   multicompare: "Multi Compare",
@@ -68,6 +70,7 @@ const LB_PAGES = [
   { key: "levelsearch", Component: LevelSearch    },
   { key: "rushrankings",  Component: RushRankings   },
   { key: "projectedrank", Component: ProjectedRank  },
+  { key: "medalcount",    Component: MedalCount     },
   { key: "lookup",        Component: PlayerLookup   },
   { key: "compare",     Component: ComparePlayers },
   { key: "multicompare", Component: MultiCompare   },
@@ -132,7 +135,7 @@ function Placeholder({ pageName }) {
 
 const VALID_LAST_TABS = new Set([
   "parse", "splits", "std", "find", "timer",
-  "global", "neonrankings", "avgplacement", "levelsearch", "rushrankings", "projectedrank", "lookup", "compare", "multicompare",
+  "global", "neonrankings", "avgplacement", "levelsearch", "rushrankings", "projectedrank", "medalcount", "lookup", "compare", "multicompare",
   "ghosts", "videos", "wrs", "guides", "links",
 ]);
 
