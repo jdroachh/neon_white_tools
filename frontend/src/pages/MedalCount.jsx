@@ -223,7 +223,7 @@ export default function MedalCount() {
           </div>
         </div>
 
-        <div className="panel-right">
+        <div className="panel-right" style={{ overflowY: "auto" }}>
           {running ? (
             <div className="muted" style={{ padding: 32, fontSize: 12, textAlign: "center", margin: "auto" }}>
               <div>{status || "Scanning…"}</div>
