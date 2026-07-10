@@ -8,6 +8,17 @@ All notable changes to Neon White Tools are documented here.
 
 ---
 
+## [1.9.1] — 2026-07-09
+
+### Added
+- Medal Count v2 — the page now counts multiple community tiers at once (Blood Diamond, Topaz, Sapphire, Amethyst, Emerald) and across a chosen scope: a single Level, a whole Chapter, the entire Game (121 levels), or a Custom hand-picked set. Shows a grand total plus a per-stage table, with Copy and Export-CSV. Counts stay cheater-filtered, and a note clarifies only listed cheaters are excluded (dc9ebd1)
+- Medal Count: on multi-level scopes, a "Per-level highlights" table showing the level with the most and fewest of each tier (by medals earned and by exactly-this-tier) (0236788)
+
+### Internal
+- Medal Count scan reworked to a hybrid forward-scan + rank binary-search: near-the-top tiers stay as fast as the single-tier v1, deep tiers and whole-game scans stay bounded; the superseded single-tier code path was removed (dc9ebd1)
+
+---
+
 ## [1.9.0] — 2026-07-08
 
 ### Added
