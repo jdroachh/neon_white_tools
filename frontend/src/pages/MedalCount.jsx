@@ -297,6 +297,28 @@ function buildTable(result) {
   return [header, ...body, totals];
 }
 
+// Per-tier extremes across the scanned levels (multi-level highlights block).
+// Ranks by both "at least" (medal earned, incl. faster tiers) and "exactly".
+// Levels where a tier doesn't chart are skipped for that tier; ties resolve to
+// the first level in scan order.
+function computeExtremes(result) {
+  const tiers = result.tiers || [];
+  const rows = (result.rows || []).filter(r => r.tiers);
+  return tiers.map(t => {
+    const pts = rows
+      .filter(r => r.tiers[t])
+      .map(r => ({ level: r.level, al: r.tiers[t].at_least, ex: r.tiers[t].exactly }));
+    if (!pts.length) return { tier: t, empty: true };
+    const pick = (key, dir) => pts.reduce((best, p) =>
+      (dir === "max" ? p[key] > best[key] : p[key] < best[key]) ? p : best, pts[0]);
+    return {
+      tier: t,
+      mostAl: pick("al", "max"), leastAl: pick("al", "min"),
+      mostEx: pick("ex", "max"), leastEx: pick("ex", "min"),
+    };
+  });
+}
+
 // ── Results: grand-total tier cards + per-stage table ────────────────────────
 function MedalResult({ result }) {
   const tiers = result.tiers || [];
@@ -432,6 +454,47 @@ function MedalResult({ result }) {
           </div>
         </div>
       )}
+
+      {/* Per-level highlights — most/fewest per tier across the scope */}
+      {multi && (() => {
+        const ext = computeExtremes(result).filter(e => !e.empty);
+        if (!ext.length) return null;
+        const cell = (p, key) => (
+          <>{p.level} <span style={{ color: "var(--text-3)" }}>· {p[key].toLocaleString()}</span></>
+        );
+        return (
+          <div style={{ marginTop: 22 }}>
+            <div className="muted" style={{ fontSize: 10, textTransform: "uppercase",
+                                            letterSpacing: 0.5, textAlign: "center", marginBottom: 8 }}>
+              Per-level highlights
+            </div>
+            <div style={{ overflowX: "auto" }}>
+              <table className="nwt-hover-rows" style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead style={{ position: "sticky", top: 0, background: "var(--bg-2)", zIndex: 2 }}>
+                  <tr>
+                    <th style={TH}>Tier</th>
+                    <th style={{ ...TH, whiteSpace: "nowrap" }}>Most earned (≥)</th>
+                    <th style={{ ...TH, whiteSpace: "nowrap" }}>Fewest earned (≥)</th>
+                    <th style={{ ...TH, whiteSpace: "nowrap" }}>Most (exactly)</th>
+                    <th style={{ ...TH, whiteSpace: "nowrap" }}>Fewest (exactly)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ext.map(e => (
+                    <tr key={e.tier} style={{ borderBottom: "1px solid var(--border)" }}>
+                      <td style={{ ...TD, whiteSpace: "nowrap" }}><MedalBadge medal={e.tier} plain /></td>
+                      <td style={{ ...TD, whiteSpace: "nowrap" }}>{cell(e.mostAl, "al")}</td>
+                      <td style={{ ...TD, whiteSpace: "nowrap" }}>{cell(e.leastAl, "al")}</td>
+                      <td style={{ ...TD, whiteSpace: "nowrap" }}>{cell(e.mostEx, "ex")}</td>
+                      <td style={{ ...TD, whiteSpace: "nowrap" }}>{cell(e.leastEx, "ex")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
