@@ -286,14 +286,16 @@ export async function getMedalDataReady() {
   return api.get_medal_data_ready();
 }
 
-export async function countMedals(level, tier) {
-  const api = await waitForApi();
-  return api.count_medals(level, tier);
-}
-
 export async function stopCountMedals() {
   const api = await waitForApi();
   return api.stop_count_medals();
+}
+
+// Medal Count v2 — multi-tier + Level/Chapter/Game/Custom scope. `tiers` and (for
+// custom) `target` are JSON strings so they survive api.js's String() wrapping.
+export async function countMedalsScope(mode, target, tiers) {
+  const api = await waitForApi();
+  return api.count_medals_scope(mode, target, tiers);
 }
 
 // ── Resources (Ghosts + Route Videos) ────────────────────────────────────────

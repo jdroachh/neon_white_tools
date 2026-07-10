@@ -8,6 +8,7 @@ const LAST_KEYS = {
   cp: "custom_levels_last_cp",
   mc: "custom_levels_last_mc",
   avg: "custom_levels_last_avg",
+  medal: "custom_levels_last_medal",
 };
 const PRESETS_KEY = "custom_level_presets";
 const MAX_PRESETS = 50;

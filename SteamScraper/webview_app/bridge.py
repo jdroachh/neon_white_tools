@@ -1787,14 +1787,42 @@ class JsApi:
         availability to report — just whether the data is in yet."""
         return _MEDAL_DATA_READY
 
-    def count_medals(self, level_name: str, tier: str) -> dict:
-        """Count charted players AT LEAST `tier` and EXACTLY `tier` on a level.
+    def stop_count_medals(self) -> dict:
+        # Mirror stop_leaderboard: signal the worker, let it clear _lb_running.
+        if hasattr(self, "_lb_stop_event"):
+            self._lb_stop_event.set()
+        return {"ok": True}
 
-        The board is sorted ascending by time and `tier` is one of the extended
-        tiers (Emerald+), so we page from rank 1 and STOP once an entry is slower
-        than the selected cutoff — the running count is "at least". We also count
-        entries under the next-harder available tier in the same pass, so
-        exactly = at_least_selected − at_least_harder. Streams _nwMedalCountEvent.
+    def count_medals_scope(self, mode: str, target: str, tiers: str) -> dict:
+        """Multi-tier + multi-scope Medal Count (v2).
+
+        For each selected community tier, count how many charted (cheater-filtered)
+        players land EXACTLY in that tier and AT LEAST that tier, across a scope of
+        levels resolved by `_resolve_levels_for_mode` (Level / Chapter / Game /
+        Custom). Streams `_nwMedalCountEvent`; shares `_lb_running` + `_lb_stop_event`
+        with the other leaderboard ops, so `stop_count_medals` cancels it too.
+
+        HYBRID scan (fast for the common case, bounded for the deep one):
+          * FORWARD pass — page from rank 1 stripping cheaters (a straight
+            cheater-stripped page-scan), finalizing at_least[t] = # real entries with
+            score_us <= threshold[t] the moment the first slower entry appears. One
+            page resolves near-the-top tiers (BD/Topaz/Sapphire), so a single-level
+            single-tier query costs ~1 Steam call — matching V1's speed. Fully
+            cheater-robust (every cheater in the scanned prefix is stripped).
+          * DEEP tail — if a needed cutoff is still unresolved after FORWARD_MAX_PAGES,
+            binary-search its boundary rank R[t] (`fetch_batch` takes ABSOLUTE ranks,
+            board is time-sorted → ~log2(N) probes). C = last_rank - real_count at the
+            forward frontier = the board's cheater count (top-of-board model), so
+            at_least[t] = R[t] - C. Only Emerald / whole-game scale reaches here.
+        We resolve only the SELECTED tiers plus each one's next-harder present
+        neighbor (for the exactly band), not all five.
+
+          exactly[t] = at_least[t] - at_least[next-harder-PRESENT tier]   (a true band)
+
+        `exactly` uses the next-harder PRESENT extended tier (not next-harder
+        *selected*) so each band is a true mutually-exclusive best-medal count —
+        identical to what a straight sequential cheater-stripped page-scan of the
+        board would yield.
         """
         import time as _time
         if not steam.steam_ready:
@@ -1802,27 +1830,20 @@ class JsApi:
         if getattr(self, "_lb_running", False):
             return {"ok": False, "error": "An operation is already running."}
 
-        tier = str(tier).strip().upper()
-        if tier not in _EXTENDED_TIERS:
-            return {"ok": False, "error": f"Unknown tier '{tier}'."}
-        match = LEVEL_LOOKUP.get(str(level_name).strip().lower())
-        if not match:
-            return {"ok": False, "error": f"Level '{level_name}' not found."}
-        display, internal = match
-        code = _resolve_level_code(display)
-        selected_th = _medal_threshold(code, tier) if code else None
-        if selected_th is None:
-            return {"ok": False, "error": f"No {tier.title()} cutoff on {display}."}
-        # Next-harder available tier = largest threshold still faster than selected
-        # (robust to missing BD/Topaz and to any tier-overlap in the source data).
-        harder_ths = [th for t in _EXTENDED_TIERS
-                      if (th := _medal_threshold(code, t)) is not None and th < selected_th]
-        harder_th = max(harder_ths) if harder_ths else None
-        # Community thresholds are often encoded a hair under the round ms (e.g.
-        # 7949999µs). A run qualifies iff score_ms*1000 <= selected_th, i.e.
-        # score_ms <= selected_th // 1000 — so the slowest *qualifying* time is
-        # that ms-grid value (7.949), not the rounded 7.950 the raw µs would show.
-        cutoff_time = _format_secs((selected_th // 1000) / 1000)
+        levels_to_scan, context, err = self._resolve_levels_for_mode(mode, target)
+        if err:
+            return err
+
+        # Selected tiers: JSON list from the frontend; keep _EXTENDED_TIERS order
+        # (hardest -> easiest) regardless of pick order.
+        try:
+            requested = tiers if isinstance(tiers, list) else json.loads(tiers or "[]")
+        except (ValueError, TypeError):
+            requested = []
+        wanted = {str(x).strip().upper() for x in requested}
+        sel_tiers = [t for t in _EXTENDED_TIERS if t in wanted]
+        if not sel_tiers:
+            return {"ok": False, "error": "Pick at least one medal tier."}
 
         with self._run_gate:
             if getattr(self, "_lb_running", False):
@@ -1830,80 +1851,202 @@ class JsApi:
             self._lb_running = True
             stop_event = self._lb_stop_event = threading.Event()
 
-        def worker():
-            _emit_to("_nwMedalCountEvent",
-                     {"type": "status", "message": f"Finding {display}..."})
-            lb = steam.find_leaderboard(internal)
-            if not lb:
-                _emit_to("_nwMedalCountEvent",
-                         {"type": "error", "message": "Leaderboard not found."})
-                self._lb_running = False
-                return
-            total_lb = steam.get_entry_count(lb)
-            _emit_to("_nwMedalCountEvent", {
-                "type": "status",
-                "message": f"Scanning {tier.title()} runs on {display}...",
-            })
-            at_least = 0
-            at_least_harder = 0
-            scanned = 0
-            failed_pages = 0
-            done_scanning = False
-            start = 1
-            deadline = _time.time() + 25   # same stall budget as find_rank
-            while not done_scanning and not stop_event.is_set():
-                if _time.time() > deadline:
-                    _emit_to("_nwMedalCountEvent", {
-                        "type": "error",
-                        "message": "Steam stopped responding. Try again.",
-                    })
-                    self._lb_running = False
-                    return
-                end = min(start + steam.BATCH_SIZE - 1, total_lb) if total_lb else start + steam.BATCH_SIZE - 1
-                if total_lb and start > total_lb:
-                    break
-                batch = _fetch_page(lb, start, end)
-                if batch is None:
-                    failed_pages += 1
-                    break   # confirmed failed page (after retry)
-                if not batch:
-                    # [] = an all-cheater / empty raw-rank window, NOT necessarily
-                    # the end of the board — fetch_batch strips cheaters, so a page
-                    # can come back empty with legit entries still below it. Only
-                    # total_lb (raw count, includes cheaters) bounds the true end.
-                    # Without a count we can't tell them apart, so treat [] as end.
-                    if not total_lb:
-                        break
-                    start = end + 1
-                    continue
-                for e in batch:
-                    us = e["score_ms"] * 1000
-                    if us > selected_th:
-                        done_scanning = True
-                        break
-                    at_least += 1
-                    if harder_th is not None and us <= harder_th:
-                        at_least_harder += 1
-                    scanned += 1
-                start = end + 1
-                _emit_to("_nwMedalCountEvent",
-                         {"type": "progress", "scanned": scanned})
-                _time.sleep(0.05)
+        total_levels = len(levels_to_scan)
 
-            exactly = at_least - at_least_harder
+        def worker():
+            FORWARD_MAX_PAGES = 8              # forward-scan depth before the deep tail goes to binary-search
+            PROBE_W = 10                       # widen window when a probe hits a cheater gap
+            deadline = [_time.time() + 25]     # per-fetch STALL budget (reset on any success)
+            grand = {t: {"at_least": 0, "exactly": 0} for t in sel_tiers}
+            rows = []
+            failed_levels = 0
+
+            def probe(lb, k, total):
+                """First real (cheater-stripped) entry at raw rank >= k. Returns the
+                entry dict, None (empty region / past end), or "FAIL" (Steam died)."""
+                if total < k:
+                    return None
+                batch = _fetch_page(lb, k, k)          # single rank — cheap, 1 name lookup
+                if batch is None:
+                    return "FAIL"
+                if batch:
+                    deadline[0] = _time.time() + 25
+                    return batch[0]
+                # [] on a single rank = a stripped cheater / gap; widen once to skip it.
+                batch = _fetch_page(lb, k, min(k + PROBE_W - 1, total))
+                if batch is None:
+                    return "FAIL"
+                deadline[0] = _time.time() + 25
+                return batch[0] if batch else None
+
+            def binsearch(lb, total, threshold, lo, best_init):
+                """Largest raw rank of a real entry with score_us <= threshold, in
+                [lo, total]. best_init is returned if none qualify. Second return is
+                True on a Steam stall/failure."""
+                hi = total
+                best = best_init
+                while lo <= hi:
+                    if stop_event.is_set():
+                        return best, False
+                    if _time.time() > deadline[0]:
+                        return None, True
+                    mid = (lo + hi) // 2
+                    e = probe(lb, mid, total)
+                    if e == "FAIL":
+                        return None, True
+                    if e is None:                      # no real entry at/after mid
+                        hi = mid - 1
+                        continue
+                    r = e["rank"]
+                    if e["score_ms"] * 1000 <= threshold:
+                        best = r
+                        lo = r + 1
+                    else:
+                        hi = mid - 1
+                    _time.sleep(0.02)
+                return best, False
+
+            def fail_out():
+                _emit_to("_nwMedalCountEvent", {
+                    "type": "error", "message": "Steam stopped responding. Try again."})
+                self._lb_running = False
+
+            def level_done(idx):
+                _emit_to("_nwMedalCountEvent", {
+                    "type": "progress", "scanned": idx + 1, "total": total_levels})
+
+            for idx, (display, internal) in enumerate(levels_to_scan):
+                if stop_event.is_set():
+                    break
+                _emit_to("_nwMedalCountEvent", {
+                    "type": "status",
+                    "message": f"Scanning {display} ({idx + 1}/{total_levels})..."})
+
+                code = _resolve_level_code(display)
+                # Present extended tiers on this level, hardest -> easiest, w/ thresholds.
+                present = [(t, th) for t in _EXTENDED_TIERS
+                           if (th := _medal_threshold(code, t)) is not None]
+                present_tiers = [t for t, _ in present]
+                th_of = dict(present)
+                sel_present = [t for t in present_tiers if t in sel_tiers]
+
+                # None of the selected tiers chart here → all-null row, zero Steam calls.
+                if not sel_present:
+                    rows.append({"level": display, "tiers": {t: None for t in sel_tiers}})
+                    level_done(idx)
+                    continue
+
+                lb = steam.find_leaderboard(internal)
+                if not lb:
+                    failed_levels += 1
+                    rows.append({"level": display, "error": "board not found"})
+                    level_done(idx)
+                    continue
+                total = steam.get_entry_count(lb) or 0
+
+                # Tiers whose cheater-clean at_least we must resolve: each selected tier
+                # + its next-harder PRESENT neighbor (needed for the exactly band). Harder
+                # neighbors are always shallower, so they resolve for free in the forward pass.
+                needed = set()
+                for i, t in enumerate(present_tiers):
+                    if t in sel_tiers:
+                        needed.add(t)
+                        if i > 0:
+                            needed.add(present_tiers[i - 1])
+
+                # ── Forward pass (V1-style): page from rank 1, stripping cheaters, and
+                # finalize at_least[t] = real entries with us <= th_t the moment we see
+                # the first entry past that cutoff. Fast + fully cheater-robust for
+                # shallow tiers (the common case). Stops once every NEEDED cutoff is
+                # resolved, or hands the deep tail to binary-search after the page cap.
+                at_least = {}
+                real_count = 0
+                last_rank = 0
+                start = 1
+                pages = 0
+                ended = False
+                while True:
+                    if stop_event.is_set():
+                        break
+                    if _time.time() > deadline[0]:
+                        return fail_out()
+                    if total and start > total:
+                        ended = True
+                        break
+                    end = (min(start + steam.BATCH_SIZE - 1, total) if total
+                           else start + steam.BATCH_SIZE - 1)
+                    batch = _fetch_page(lb, start, end)
+                    if batch is None:
+                        return fail_out()
+                    deadline[0] = _time.time() + 25
+                    if not batch:
+                        if not total:
+                            ended = True
+                            break
+                        start = end + 1
+                        continue
+                    for e in batch:
+                        us = e["score_ms"] * 1000
+                        for t, th in present:
+                            if t not in at_least and us > th:
+                                at_least[t] = real_count   # all counted so far had us <= th
+                        real_count += 1
+                        last_rank = e["rank"]
+                    pages += 1
+                    start = end + 1
+                    if all(t in at_least for t in needed) or pages >= FORWARD_MAX_PAGES:
+                        break
+                    _time.sleep(0.02)
+
+                if stop_event.is_set():
+                    break
+
+                # Board ended before some cutoffs → everyone (real_count) qualifies.
+                if ended:
+                    for t, _th in present:
+                        at_least.setdefault(t, real_count)
+
+                # Deep tail: binary-search any still-unresolved NEEDED tier. C = cheaters
+                # above the forward frontier (all of them under the top-of-board model);
+                # every cheater shallower than last_rank was already stripped by the pass.
+                if not all(t in at_least for t in needed):
+                    C = last_rank - real_count
+                    for t, th in present:
+                        if t in needed and t not in at_least:
+                            R, ferr = binsearch(lb, total, th, last_rank + 1, last_rank)
+                            if ferr:
+                                return fail_out()
+                            at_least[t] = max(0, R - C)
+
+                # exactly[t] = at_least[t] − at_least[next-harder-PRESENT] (a true band;
+                # the harder neighbor is in `needed`, hence resolved).
+                row_tiers = {t: None for t in sel_tiers}
+                for i, t in enumerate(present_tiers):
+                    if t not in sel_tiers:
+                        continue
+                    al = at_least[t]
+                    harder_al = at_least[present_tiers[i - 1]] if i > 0 else 0
+                    exactly = max(0, al - harder_al)
+                    row_tiers[t] = {
+                        "at_least": al, "exactly": exactly,
+                        "cutoff": _format_secs((th_of[t] // 1000) / 1000),
+                    }
+                    grand[t]["at_least"] += al
+                    grand[t]["exactly"] += exactly
+                rows.append({"level": display, "tiers": row_tiers})
+                level_done(idx)
+                _time.sleep(0.03)
+
             stopped = stop_event.is_set()
-            if stopped:
-                msg = "Stopped."
-            elif failed_pages:
-                msg = "A page failed — result may be incomplete."
-            else:
-                msg = "Done."
+            grand_total = sum(v["exactly"] for v in grand.values())
             _emit_to("_nwMedalCountEvent", {
                 "type": "done", "stopped": stopped,
-                "level": display, "tier": tier, "cutoff_time": cutoff_time,
-                "at_least": at_least, "exactly": exactly,
-                "total_scanned": scanned, "failed_pages": failed_pages,
-                "message": msg,
+                "mode": mode, "scope": context, "tiers": sel_tiers,
+                "rows": rows, "grand": grand, "grand_total": grand_total,
+                "level_count": total_levels, "failed_levels": failed_levels,
+                "message": ("Stopped." if stopped
+                            else ("Some boards were unavailable." if failed_levels
+                                  else "Done.")),
             })
             self._lb_running = False
 
@@ -1911,12 +2054,6 @@ class JsApi:
             target=lambda: self._run_worker_safe(worker, "_nwMedalCountEvent"),
             daemon=True,
         ).start()
-        return {"ok": True}
-
-    def stop_count_medals(self) -> dict:
-        # Mirror stop_leaderboard: signal the worker, let it clear _lb_running.
-        if hasattr(self, "_lb_stop_event"):
-            self._lb_stop_event.set()
         return {"ok": True}
 
     # ── Rush Rankings ─────────────────────────────────────────────────────────
