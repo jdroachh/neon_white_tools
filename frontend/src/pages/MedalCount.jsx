@@ -283,7 +283,7 @@ function buildTable(result) {
   const rows = result.rows || [];
   const grand = result.grand || {};
   const header = ["Level"];
-  tiers.forEach(t => header.push(`${t} exactly`, `${t} at least`));
+  tiers.forEach(t => header.push(`${t} in-tier`, `${t} at least`));
   const body = rows.map(r => {
     const line = [r.level];
     tiers.forEach(t => {
@@ -379,7 +379,7 @@ function MedalResult({ result }) {
                 {g.exactly.toLocaleString()}
               </div>
               <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 6 }}>
-                exactly this tier
+                in this tier
               </div>
               <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 2 }}>
                 at least this tier: {g.at_least.toLocaleString()}
@@ -450,7 +450,7 @@ function MedalResult({ result }) {
             </tfoot>
           </table>
           <div className="muted" style={{ fontSize: 10, marginTop: 8, textAlign: "center" }}>
-            Cell = <strong>exactly</strong> / at-least this tier. Cheater-filtered.
+            Cell = <strong>in this tier</strong> / at least this tier (≥). Cheater-filtered.
           </div>
         </div>
       )}
@@ -473,10 +473,10 @@ function MedalResult({ result }) {
                 <thead style={{ position: "sticky", top: 0, background: "var(--bg-2)", zIndex: 2 }}>
                   <tr>
                     <th style={TH}>Tier</th>
-                    <th style={{ ...TH, whiteSpace: "nowrap" }}>Most earned (≥)</th>
-                    <th style={{ ...TH, whiteSpace: "nowrap" }}>Fewest earned (≥)</th>
-                    <th style={{ ...TH, whiteSpace: "nowrap" }}>Most (exactly)</th>
-                    <th style={{ ...TH, whiteSpace: "nowrap" }}>Fewest (exactly)</th>
+                    <th style={{ ...TH, whiteSpace: "nowrap" }}>Most (≥ tier)</th>
+                    <th style={{ ...TH, whiteSpace: "nowrap" }}>Fewest (≥ tier)</th>
+                    <th style={{ ...TH, whiteSpace: "nowrap" }}>Most in-tier</th>
+                    <th style={{ ...TH, whiteSpace: "nowrap" }}>Fewest in-tier</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -491,6 +491,9 @@ function MedalResult({ result }) {
                   ))}
                 </tbody>
               </table>
+            </div>
+            <div className="muted" style={{ fontSize: 10, marginTop: 6, textAlign: "center" }}>
+              ≥ tier = earned this tier or better · in-tier = top medal is exactly this tier
             </div>
           </div>
         );
