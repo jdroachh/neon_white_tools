@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { PageHead, Field, Seg, Cb, Btn, ErrorBanner, MedalBadge } from "../shared.jsx";
 import {
-  getLevels, getChapters, getMedalDataReady, countMedalsScope, stopCountMedals, saveTextFile,
+  getLevels, getChapters, getMedalDataStatus, countMedalsScope, stopCountMedals, saveTextFile,
 } from "../api.js";
 import { loadLevelsWithRetry, loadWithRetry } from "../lib/retryLevels.js";
 import LevelPickerModal from "../components/LevelPickerModal.jsx";
@@ -25,6 +25,8 @@ export default function MedalCount() {
   const [levels, setLevels]       = useState([]);
   const [chapters, setChapters]   = useState([]);
   const [dataReady, setDataReady] = useState(false);
+  const [dataError, setDataError] = useState(false);   // ready, but nothing loaded → block
+  const [partialData, setPartialData] = useState(false); // community loaded, topaz/bd missing
 
   const [scope, setScope]         = useState("Level");
   const [levelName, setLevel]     = useState("");
@@ -70,20 +72,30 @@ export default function MedalCount() {
 
   // The community medal tables load in a background thread at bridge import, so
   // poll until the backend reports them ready before enabling the tier picker —
-  // otherwise a fast boot would count against not-yet-loaded Topaz/BD data. Same
-  // resilient poll the shipped single-tier page used.
+  // otherwise a fast boot would count against not-yet-loaded data. `ready` means
+  // "fetch attempted", not "loaded", so branch on the per-source flags: nothing
+  // loaded (offline boot / GitHub outage) blocks with a banner rather than
+  // reporting confident zeros; community-but-not-topaz/bd enables with a note.
+  // Cap at 100 attempts (30s > the ~24s backend worst case); exhaustion blocks too.
   useEffect(() => {
     let cancelled = false;
     let attempts = 0;
     function poll() {
       if (cancelled) return;
-      getMedalDataReady()
-        .then(ready => !!ready)
-        .catch(() => false)
-        .then(ready => {
+      getMedalDataStatus()
+        .then(s => s || {})
+        .catch(() => ({}))
+        .then(s => {
           if (cancelled) return;
-          if (ready || ++attempts >= 40) setDataReady(true);
-          else setTimeout(poll, 300);
+          if (s.ready) {
+            if (!s.community) { setDataError(true); return; }
+            if (!s.topaz || !s.bd) setPartialData(true);
+            setDataReady(true);
+          } else if (++attempts >= 100) {
+            setDataError(true);
+          } else {
+            setTimeout(poll, 300);
+          }
         });
     }
     poll();
@@ -124,7 +136,7 @@ export default function MedalCount() {
     scope === "Custom"  ? customLevels.length > 0 :
     true;
 
-  const canRun = !running && dataReady && scopeReady && selectedTiers.length > 0;
+  const canRun = !running && dataReady && !dataError && scopeReady && selectedTiers.length > 0;
 
   async function handleRun() {
     setError(""); setStatus(""); setResult(null); setProgress(null);
@@ -205,13 +217,24 @@ export default function MedalCount() {
                       label={t} />
                 ))}
               </div>
-              {!dataReady && (
+              {!dataReady && !dataError && (
                 <div className="field-hint" style={{ color: "var(--text-3)" }}>
                   Loading medal data…
                 </div>
               )}
+              {partialData && (
+                <div className="field-hint" style={{ color: "var(--text-3)" }}>
+                  Topaz/Blood Diamond data didn't load — those tiers will read as absent.
+                </div>
+              )}
             </Field>
 
+            {dataError && (
+              <ErrorBanner message={
+                "Community medal data couldn't be loaded (offline?). " +
+                "Counts would be wrong — check your connection and restart the app."
+              } />
+            )}
             <ErrorBanner message={error} />
 
             <div style={{ display: "flex", gap: 8 }}>

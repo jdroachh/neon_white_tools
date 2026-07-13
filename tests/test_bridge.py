@@ -651,3 +651,63 @@ def test_find_rank_stalls_on_failure_not_wrong_rank():
         assert "rank" not in res
     finally:
         _bridge.steam = orig
+
+
+# ---- S1: get_medal_data_ready status dict ------------------------------------
+
+def _patch_medal_globals(community, topaz, bd, ready=True):
+    """Swap the three module-level medal dicts + the ready flag, returning a
+    restore thunk. loaded-ness is derived from these dicts, not a separate flag."""
+    saved = (_bridge._COMMUNITY_MEDAL_DATA, _bridge._TOPAZ_MEDAL_DATA,
+             _bridge._BD_MEDAL_DATA, _bridge._MEDAL_DATA_READY)
+    _bridge._COMMUNITY_MEDAL_DATA = community
+    _bridge._TOPAZ_MEDAL_DATA = topaz
+    _bridge._BD_MEDAL_DATA = bd
+    _bridge._MEDAL_DATA_READY = ready
+    def restore():
+        (_bridge._COMMUNITY_MEDAL_DATA, _bridge._TOPAZ_MEDAL_DATA,
+         _bridge._BD_MEDAL_DATA, _bridge._MEDAL_DATA_READY) = saved
+    return restore
+
+
+def test_medal_data_status_all_loaded():
+    """Every source populated → all four flags True."""
+    restore = _patch_medal_globals({"a": [1, 2, 3]}, {"a": [1]}, {"a": [1]})
+    try:
+        s = JsApi().get_medal_data_ready()
+        assert s == {"ready": True, "community": True, "topaz": True, "bd": True}
+    finally:
+        restore()
+
+
+def test_medal_data_status_nothing_loaded():
+    """Attempted-but-empty (offline boot) → ready True, every source False. This
+    is the case the frontend blocks on rather than reporting confident zeros."""
+    restore = _patch_medal_globals({}, {}, {}, ready=True)
+    try:
+        s = JsApi().get_medal_data_ready()
+        assert s["ready"] is True
+        assert s["community"] is False and s["topaz"] is False and s["bd"] is False
+    finally:
+        restore()
+
+
+def test_medal_data_status_community_only():
+    """Community loaded but topaz/bd absent → enable with a note; community True,
+    topaz/bd False."""
+    restore = _patch_medal_globals({"a": [1, 2, 3]}, {}, {})
+    try:
+        s = JsApi().get_medal_data_ready()
+        assert s["ready"] is True and s["community"] is True
+        assert s["topaz"] is False and s["bd"] is False
+    finally:
+        restore()
+
+
+def test_medal_data_status_not_ready_yet():
+    """Before the fetch thread finishes, ready False regardless of dict contents."""
+    restore = _patch_medal_globals({}, {}, {}, ready=False)
+    try:
+        assert JsApi().get_medal_data_ready()["ready"] is False
+    finally:
+        restore()

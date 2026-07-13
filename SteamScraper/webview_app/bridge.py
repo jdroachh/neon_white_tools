@@ -60,10 +60,11 @@ def _parse_version_tuple(v: str) -> tuple:
 _COMMUNITY_MEDAL_DATA: dict = {}
 _TOPAZ_MEDAL_DATA: dict = {}
 _BD_MEDAL_DATA: dict = {}
-# Flips True once all three fetches have been *attempted* (success or failure),
-# so a consumer can tell "not loaded yet" from "genuinely absent". Medal Count's
-# tier-availability greying waits on this — otherwise a fast boot queries before
-# topaz2/bd2 land and wrongly reports Topaz/BD as having no cutoff.
+# Flips True once all three fetches have been *attempted* (success or failure).
+# It means "attempted", not "loaded" — so get_medal_data_ready pairs it with the
+# per-source dicts' truthiness to tell "still loading" from "genuinely absent"
+# (offline boot / GitHub outage). Medal Count waits on ready before enabling the
+# tier picker, and refuses to count when nothing loaded rather than report zeros.
 _MEDAL_DATA_READY: bool = False
 
 _COMMUNITY_MEDALS_URL = "https://raw.githubusercontent.com/Faustas156/NeonLite/main/Resources/communitymedals.json"
@@ -1779,13 +1780,20 @@ class JsApi:
 
     # ── Medal Count ───────────────────────────────────────────────────────────
 
-    def get_medal_data_ready(self) -> bool:
-        """True once the background community-medal fetch has attempted all three
-        JSONs. The Medal Count page waits on this before enabling the tier picker
-        so a fast boot doesn't try to count against not-yet-loaded Topaz/BD data.
-        Every stage carries all five extended tiers, so there's no per-tier
-        availability to report — just whether the data is in yet."""
-        return _MEDAL_DATA_READY
+    def get_medal_data_ready(self) -> dict:
+        """Status of the background community-medal fetch. `ready` flips True once
+        all three JSONs have been *attempted* (success or failure); the per-source
+        bools report which actually loaded. Medal Count waits on `ready`, then
+        distinguishes "community loaded" (enable) from "nothing loaded" (offline
+        boot / GitHub outage — show a blocking banner instead of confident zeros).
+        Every stage carries all five extended tiers, so availability is global,
+        not per-tier; topaz/bd falseness just means those two tiers read as absent."""
+        return {
+            "ready": _MEDAL_DATA_READY,
+            "community": bool(_COMMUNITY_MEDAL_DATA),
+            "topaz": bool(_TOPAZ_MEDAL_DATA),
+            "bd": bool(_BD_MEDAL_DATA),
+        }
 
     def stop_count_medals(self) -> dict:
         # Mirror stop_leaderboard: signal the worker, let it clear _lb_running.

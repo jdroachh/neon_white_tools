@@ -281,7 +281,7 @@ export async function getMedalTimes(level) {
 
 // ── Medal Count ──────────────────────────────────────────────────────────────
 
-export async function getMedalDataReady() {
+export async function getMedalDataStatus() {
   const api = await waitForApi();
   return api.get_medal_data_ready();
 }
