@@ -370,6 +370,15 @@
 }
 .hifi .btn.lg { padding: 12px 20px; font-size: 12px; }
 .hifi .btn.sm { padding: 5px 10px; font-size: 10px; }
+/* Disabled buttons read as disabled everywhere (primary/danger/ghost). Opacity
+   applies regardless of variant colors; hover effects are neutralized. */
+.hifi .btn:disabled,
+.hifi .btn:disabled:hover {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: none;
+  border-color: var(--border);
+}
 
 /* Conditional badge — for fields that only apply to certain rushes */
 .hifi .conditional-pill {
