@@ -851,3 +851,29 @@ def test_e1_binsearch_stall_surfaces_error():
     assert "error" in kinds, kinds
     err = next(d for _, d in events if d.get("type") == "error")
     assert "stopped responding" in err["message"].lower()
+
+
+# ---- E2: empty forward pages count toward the cap + throttle ------------------
+
+def test_e2_empty_pages_count_toward_forward_cap():
+    """A cheater-dense head (ranks 1-500 all stripped → 5 empty pages) must count
+    toward FORWARD_MAX_PAGES and get throttled, not page the board unthrottled.
+    Post-E2 the forward pass caps at 8 aligned pages (5 empty + 3 real) then hands to
+    binsearch; counts stay exact because C picks up the 500 head cheaters (all sit
+    below the frontier). Pre-E2 the empty pages skipped the cap and kept paging, so a
+    forward page 9 (start=801) would appear."""
+    fake = _BoardFakeSteam(total=2000, cheaters=set(range(1, 501)))
+    events = _run_count(fake, ["AMETHYST", "EMERALD"])
+    done = _done(events)
+    assert done is not None and not done.get("stopped")
+    g = done["grand"]
+    assert g["EMERALD"]["at_least"] == 801      # real ranks 501-1301 (<= emerald cutoff)
+    assert g["AMETHYST"]["at_least"] == 501      # real ranks 501-1001
+    assert g["EMERALD"]["exactly"] == 300        # 801 - 501 (AMETHYST is emerald's harder neighbor)
+    starts = [s for s, _ in fake.calls]
+    # forward pass fetched at most FORWARD_MAX_PAGES batch-aligned pages (empties
+    # counted); pre-E2 it would have paged past the cap into start=801+.
+    aligned = [s for s in starts if (s - 1) % 100 == 0]
+    assert len(aligned) <= 8
+    assert 801 not in starts                     # forward page 9 never happens
+    assert max(starts) > 800                      # binsearch still ran the deep tail

@@ -1990,15 +1990,19 @@ class JsApi:
                         if not total:
                             ended = True
                             break
-                        start = end + 1
-                        continue
-                    for e in batch:
-                        us = e["score_ms"] * 1000
-                        for t, th in present:
-                            if t not in at_least and us > th:
-                                at_least[t] = real_count   # all counted so far had us <= th
-                        real_count += 1
-                        last_rank = e["rank"]
+                        # A fully-cheater-stripped page still cost a round-trip: fall
+                        # through to the shared tail (pages += 1 / cap / sleep) so a
+                        # cheater-dense region can't page the board unthrottled and
+                        # uncapped. When the cap trips here, the deep-tail binsearch
+                        # takes over — exactly what it's for.
+                    else:
+                        for e in batch:
+                            us = e["score_ms"] * 1000
+                            for t, th in present:
+                                if t not in at_least and us > th:
+                                    at_least[t] = real_count   # all counted so far had us <= th
+                            real_count += 1
+                            last_rank = e["rank"]
                     pages += 1
                     start = end + 1
                     if all(t in at_least for t in needed) or pages >= FORWARD_MAX_PAGES:
