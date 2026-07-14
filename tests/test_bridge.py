@@ -711,3 +711,143 @@ def test_medal_data_status_not_ready_yet():
         assert JsApi().get_medal_data_ready()["ready"] is False
     finally:
         restore()
+
+
+# ---- E1: windowed deep-tail binary search ------------------------------------
+#
+# The binsearch tail only runs when a NEEDED tier stays unresolved past
+# FORWARD_MAX_PAGES (8 pages = 800 real entries) on a board that hasn't ended.
+# These drive the whole count_medals_scope pipeline against a RANK-ADDRESSED board
+# model (unlike the FIFO _FakeSteam) so the window probes see the correct entries
+# for the ranks they request. `_medal_threshold` is patched to fixed cutoffs so the
+# expected at_least/exactly are analytic. Board is sorted ascending by score.
+
+# Fixed tier cutoffs in µs (hardest -> easiest), decoupled from live medal data.
+_E1_TH_US = {
+    "BLOOD DIAMOND": 5_000_000, "TOPAZ": 8_000_000, "SAPPHIRE": 11_000_000,
+    "AMETHYST": 14_000_000, "EMERALD": 17_000_000,
+}
+# score_ms(rank) = 4000 + (rank-1)*10 → crossings (score_ms <= th_us/1000):
+#   BD r<=101, TOPAZ r<=401, SAPPHIRE r<=701, AMETHYST r<=1001, EMERALD r<=1301.
+def _e1_score(rank):
+    return 4000 + (rank - 1) * 10
+
+
+class _BoardFakeSteam:
+    """Rank-addressed board: `total` raw ranks, score from `score_of(rank)`, minus a
+    set of stripped `cheaters`. fetch_batch returns the REAL entries whose raw rank
+    is in [start, end] (cheaters removed → rank gaps, exactly like the worker). After
+    `fail_after` total calls, fetch_batch returns None (to drive the stall path)."""
+    BATCH_SIZE = 100
+    steam_ready = True
+
+    def __init__(self, total, score_of=_e1_score, cheaters=(), fail_after=None):
+        self._total = total
+        self._score_of = score_of
+        self._cheaters = set(cheaters)
+        self._fail_after = fail_after
+        self.calls = []
+
+    def find_leaderboard(self, name):
+        return 111
+
+    def get_entry_count(self, handle):
+        return self._total
+
+    def fetch_batch(self, handle, start, end, _poll_interval=0.02):
+        self.calls.append((start, end))
+        if self._fail_after is not None and len(self.calls) > self._fail_after:
+            return None
+        out = []
+        for r in range(start, min(end, self._total) + 1):
+            if r in self._cheaters:
+                continue
+            ms = self._score_of(r)
+            out.append({"rank": r, "steam_id": 76561198000000000 + r,
+                        "name": f"P{r}", "score_ms": ms, "time": f"{ms / 1000:.3f}"})
+        return out
+
+    def get_player_entries(self, *a, **k):
+        return {}
+
+    def get_persona_name(self, sid):
+        return str(sid)
+
+    def set_on_lost(self, cb):
+        pass
+
+
+def _patch_medal_threshold():
+    """Force every level to carry all five tiers at the fixed _E1_TH_US cutoffs."""
+    orig = _bridge._medal_threshold
+    _bridge._medal_threshold = lambda code, tier: _E1_TH_US.get(tier)
+    return orig
+
+
+def _run_count(fake, tiers, mode="level", target="Movement"):
+    orig_steam = _patch_steam(fake)
+    orig_th = _patch_medal_threshold()
+    try:
+        api = JsApi()
+        events = _run_and_collect(
+            lambda: api.count_medals_scope(mode, target, __import__("json").dumps(tiers)),
+            lambda h, d: d.get("type") in ("done", "error"))
+        return events
+    finally:
+        _bridge.steam = orig_steam
+        _bridge._medal_threshold = orig_th
+
+
+def test_e1_binsearch_resolves_deep_crossing():
+    """AMETHYST (r<=1001) and EMERALD (r<=1301) cross past the 800-entry forward
+    frontier → binsearch. No cheaters, so at_least == the analytic real count and
+    the crossing is pinned inside a straddling window."""
+    fake = _BoardFakeSteam(total=2000)
+    events = _run_count(fake, ["AMETHYST", "EMERALD"])
+    done = _done(events)
+    assert done is not None and not done.get("stopped")
+    g = done["grand"]
+    assert g["AMETHYST"]["at_least"] == 1001
+    assert g["EMERALD"]["at_least"] == 1301
+    assert g["AMETHYST"]["exactly"] == 300     # 1001 - at_least(SAPPHIRE 701)
+    assert g["EMERALD"]["exactly"] == 300      # 1301 - 1001
+    # binsearch actually probed past the forward frontier (rank 800)
+    assert max(s for s, _ in fake.calls) > 800
+
+
+def test_e1_binsearch_all_qualify_runs_to_board_end():
+    """Every entry beats every cutoff (score 1000ms) but the board (1500) doesn't end
+    inside the forward pass → binsearch walks all-qualifying windows to the board end;
+    at_least == full board."""
+    fake = _BoardFakeSteam(total=1500, score_of=lambda r: 1000)
+    events = _run_count(fake, ["EMERALD"])
+    done = _done(events)
+    assert done is not None
+    assert done["grand"]["EMERALD"]["at_least"] == 1500
+    assert done["grand"]["EMERALD"]["exactly"] == 0   # AMETHYST also 1500
+
+
+def test_e1_binsearch_cheater_gap_around_crossing():
+    """Cheaters at ranks 1000 & 1001 (the AMETHYST boundary) are stripped, so the
+    window straddling the crossing skips them and pins R=999. Confirms window probes
+    handle rank gaps around the boundary."""
+    fake = _BoardFakeSteam(total=2000, cheaters={1000, 1001})
+    events = _run_count(fake, ["AMETHYST"])
+    done = _done(events)
+    assert done is not None
+    # cheaters are beyond the forward frontier (800) so C=0; largest real qualifying
+    # raw rank is 999 (1000/1001 stripped, 1002 is over threshold).
+    assert done["grand"]["AMETHYST"]["at_least"] == 999
+    assert done["grand"]["AMETHYST"]["exactly"] == 298   # 999 - SAPPHIRE 701
+
+
+def test_e1_binsearch_stall_surfaces_error():
+    """A fetch that fails (None after retry) inside the binsearch tail surfaces the
+    stall as an error event, never a confidently-wrong count. Forward pass uses 8
+    calls; the first binsearch window fetch (call 9+) fails."""
+    fake = _BoardFakeSteam(total=2000, fail_after=8)
+    events = _run_count(fake, ["EMERALD"])
+    kinds = [d.get("type") for _, d in events]
+    assert "error" in kinds, kinds
+    err = next(d for _, d in events if d.get("type") == "error")
+    assert "stopped responding" in err["message"].lower()

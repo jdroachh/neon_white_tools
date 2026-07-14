@@ -1863,34 +1863,31 @@ class JsApi:
 
         def worker():
             FORWARD_MAX_PAGES = 8              # forward-scan depth before the deep tail goes to binary-search
-            PROBE_W = 10                       # widen window when a probe hits a cheater gap
             deadline = [_time.time() + 25]     # per-fetch STALL budget (reset on any success)
             grand = {t: {"at_least": 0, "exactly": 0} for t in sel_tiers}
             rows = []
             failed_levels = 0
 
-            def probe(lb, k, total):
-                """First real (cheater-stripped) entry at raw rank >= k. Returns the
-                entry dict, None (empty region / past end), or "FAIL" (Steam died)."""
+            def probe_window(lb, k, total):
+                """Real (cheater-stripped) entries in raw ranks [k, k+BATCH_SIZE-1]
+                (capped at total), sorted ascending by score. Returns the list
+                (possibly []), or "FAIL" (Steam died). One page fetch per call — same
+                wire cost the old single-rank probe paid, but it resolves the crossing
+                in-window instead of one rank per round-trip."""
                 if total < k:
-                    return None
-                batch = _fetch_page(lb, k, k)          # single rank — cheap, 1 name lookup
-                if batch is None:
-                    return "FAIL"
-                if batch:
-                    deadline[0] = _time.time() + 25
-                    return batch[0]
-                # [] on a single rank = a stripped cheater / gap; widen once to skip it.
-                batch = _fetch_page(lb, k, min(k + PROBE_W - 1, total))
+                    return []
+                batch = _fetch_page(lb, k, min(k + steam.BATCH_SIZE - 1, total))
                 if batch is None:
                     return "FAIL"
                 deadline[0] = _time.time() + 25
-                return batch[0] if batch else None
+                return batch
 
             def binsearch(lb, total, threshold, lo, best_init):
                 """Largest raw rank of a real entry with score_us <= threshold, in
                 [lo, total]. best_init is returned if none qualify. Second return is
-                True on a Steam stall/failure."""
+                True on a Steam stall/failure. The board is sorted ascending, so each
+                window's qualifying entries are a prefix; a window that straddles the
+                threshold pins the crossing directly (no further round-trips)."""
                 hi = total
                 best = best_init
                 while lo <= hi:
@@ -1899,18 +1896,20 @@ class JsApi:
                     if _time.time() > deadline[0]:
                         return None, True
                     mid = (lo + hi) // 2
-                    e = probe(lb, mid, total)
-                    if e == "FAIL":
+                    win = probe_window(lb, mid, total)
+                    if win == "FAIL":
                         return None, True
-                    if e is None:                      # no real entry at/after mid
-                        hi = mid - 1
+                    if not win:                        # no real entries in [mid, mid+BS-1]
+                        hi = mid - 1                   # (BATCH_SIZE-wide miss → strictly safer than old 10-wide)
                         continue
-                    r = e["rank"]
-                    if e["score_ms"] * 1000 <= threshold:
-                        best = r
-                        lo = r + 1
-                    else:
+                    qual = [e for e in win if e["score_ms"] * 1000 <= threshold]
+                    if not qual:                       # first real entry already over → crossing below mid
                         hi = mid - 1
+                    elif len(qual) == len(win):        # whole window qualifies → crossing at/after window end
+                        best = win[-1]["rank"]
+                        lo = best + 1
+                    else:                              # window straddles the threshold → definitive
+                        return qual[-1]["rank"], False
                     _time.sleep(0.02)
                 return best, False
 
