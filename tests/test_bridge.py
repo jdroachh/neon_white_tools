@@ -877,3 +877,83 @@ def test_e2_empty_pages_count_toward_forward_cap():
     assert len(aligned) <= 8
     assert 801 not in starts                     # forward page 9 never happens
     assert max(starts) > 800                      # binsearch still ran the deep tail
+
+
+# ── resources.py bounded-retry + per-source errors ───────────────────────────
+import webview_app.resources as _resources
+
+_RES_LOADED_KEY = {
+    "guides": "guides_loaded", "helpful_links": "helpful_links_loaded",
+    "ghosts": "ghosts_loaded", "videos": "videos_loaded", "wrs": "wrs_loaded",
+}
+
+
+def _reset_resources():
+    _resources._STATUS.update({
+        "guides_loaded": False, "helpful_links_loaded": False,
+        "ghosts_loaded": False, "videos_loaded": False, "wrs_loaded": False,
+        "errors": {}, "error": None,
+    })
+
+
+def _flaky(fail_times):
+    """A fetch fn that raises on its first `fail_times` calls, then succeeds."""
+    state = {"n": 0}
+    def fn():
+        state["n"] += 1
+        if state["n"] <= fail_times:
+            raise RuntimeError(f"boom {state['n']}")
+    fn.calls = state
+    return fn
+
+
+def _run_resources(behaviors):
+    """Drive _run_fetch_rounds with a fake _SOURCES table (label -> fetch fn) and
+    a no-op sleep, restoring module state afterward. Returns get_status()."""
+    _reset_resources()
+    fake_sources = [(label, _RES_LOADED_KEY[label], behaviors[label])
+                    for label in _RES_LOADED_KEY]  # dict is insertion-ordered
+    orig_sources, orig_sleep = _resources._SOURCES, _resources.time.sleep
+    _resources._SOURCES = fake_sources
+    _resources.time.sleep = lambda *_: None
+    try:
+        _resources._run_fetch_rounds()
+        return _resources.get_status()
+    finally:
+        _resources._SOURCES = orig_sources
+        _resources.time.sleep = orig_sleep
+        _reset_resources()
+
+
+def test_resources_transient_failure_recovers_without_restart():
+    """A source that fails round 1 but succeeds round 2 ends loaded with NO error —
+    the reported incident (guides timed out once) now self-heals."""
+    behaviors = {l: (lambda: None) for l in _RES_LOADED_KEY}
+    behaviors["guides"] = _flaky(1)  # fails attempt 1, ok attempt 2
+    s = _run_resources(behaviors)
+    assert s["guides_loaded"] is True
+    assert all(s[k] for k in _RES_LOADED_KEY.values())
+    assert s["errors"] == {} and s["error"] is None
+    assert behaviors["guides"].calls["n"] == 2  # retried exactly once
+
+
+def test_resources_conclusive_failure_is_isolated():
+    """One source failing every round records ONLY its own error; siblings load —
+    kills the cross-contamination that stuck every resource page."""
+    behaviors = {l: (lambda: None) for l in _RES_LOADED_KEY}
+    behaviors["guides"] = _flaky(99)  # never succeeds
+    s = _run_resources(behaviors)
+    assert s["guides_loaded"] is False
+    assert all(s[k] for lbl, k in _RES_LOADED_KEY.items() if lbl != "guides")
+    assert set(s["errors"]) == {"guides"}
+    assert "guides" in (s["error"] or "")
+    assert behaviors["guides"].calls["n"] == 3  # 3 rounds, then gave up
+
+
+def test_resources_all_fail_joins_legacy_error():
+    """Every source dead → all five in `errors`, legacy `error` semicolon-joins them."""
+    behaviors = {l: _flaky(99) for l in _RES_LOADED_KEY}
+    s = _run_resources(behaviors)
+    assert set(s["errors"]) == set(_RES_LOADED_KEY)
+    assert not any(s[k] for k in _RES_LOADED_KEY.values())
+    assert s["error"] and s["error"].count(";") == 4  # 5 messages joined

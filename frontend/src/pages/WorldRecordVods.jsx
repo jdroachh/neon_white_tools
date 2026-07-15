@@ -49,11 +49,11 @@ export default function WorldRecordVods() {
       getResourcesStatus().then(s => {
         if (cancelled) return;
         setStatus(s);
-        if (s.wrs_loaded || s.error) return;
+        if (s.wrs_loaded || s.errors?.wrs) return;
         setTimeout(poll, 1000);
       }).catch(() => { if (!cancelled) setTimeout(poll, 1000); });
     }
-    if (!status.wrs_loaded && !status.error) poll();
+    if (!status.wrs_loaded && !status.errors?.wrs) poll();
     return () => { cancelled = true; };
   }, []);
 
@@ -79,7 +79,7 @@ export default function WorldRecordVods() {
   const videoId = wr ? extractYouTubeId(wr.youtube_url) : null;
 
   const headerNote = !status.wrs_loaded
-    ? (status.error ? "Could not reach WR sheet — check connection." : "Loading resources…")
+    ? (status.errors?.wrs ? "Could not reach WR sheet — check connection." : "Loading resources…")
     : null;
 
   return (

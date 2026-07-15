@@ -62,11 +62,11 @@ export default function RouteVideos() {
       getResourcesStatus().then(s => {
         if (cancelled) return;
         setStatus(s);
-        if (s.videos_loaded || s.error) return;
+        if (s.videos_loaded || s.errors?.videos) return;
         setTimeout(poll, 1000);
       }).catch(() => { if (!cancelled) setTimeout(poll, 1000); });
     }
-    if (!status.videos_loaded && !status.error) poll();
+    if (!status.videos_loaded && !status.errors?.videos) poll();
     return () => { cancelled = true; };
   }, []);
 
@@ -100,7 +100,7 @@ export default function RouteVideos() {
   const displayTarget = targetSecs != null ? targetSecs - 0.001 : targetSecs;
 
   const headerNote = !status.videos_loaded
-    ? (status.error ? "Could not reach Videos sheet — check connection." : "Loading resources…")
+    ? (status.errors?.videos ? "Could not reach Videos sheet — check connection." : "Loading resources…")
     : null;
 
   return (

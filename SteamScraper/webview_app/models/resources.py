@@ -33,6 +33,7 @@ class ResourcesStatus(BaseModel):
     wrs_loaded: bool = False
     guides_loaded: bool = False
     helpful_links_loaded: bool = False
+    errors: dict[str, str] = {}
     error: str | None = None
 
 

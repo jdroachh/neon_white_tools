@@ -94,7 +94,7 @@ export default function Guides() {
             .catch(() => {});
           return;
         }
-        if (s.error) return;
+        if (s.errors?.guides) return;
         setTimeout(poll, 1000);
       }).catch(() => { if (!cancelled) setTimeout(poll, 1000); });
     }

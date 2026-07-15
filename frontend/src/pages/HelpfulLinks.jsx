@@ -35,7 +35,7 @@ export default function HelpfulLinks() {
             .catch(() => {});
           return;
         }
-        if (s.error) return;
+        if (s.errors?.helpful_links) return;
         setTimeout(poll, 1000);
       }).catch(() => { if (!cancelled) setTimeout(poll, 1000); });
     }

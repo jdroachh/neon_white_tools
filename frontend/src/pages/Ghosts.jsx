@@ -51,11 +51,11 @@ export default function Ghosts() {
       getResourcesStatus().then(s => {
         if (cancelled) return;
         setStatus(s);
-        if (s.ghosts_loaded || s.error) return;
+        if (s.ghosts_loaded || s.errors?.ghosts) return;
         setTimeout(poll, 1000);
       }).catch(() => { if (!cancelled) setTimeout(poll, 1000); });
     }
-    if (!status.ghosts_loaded && !status.error) poll();
+    if (!status.ghosts_loaded && !status.errors?.ghosts) poll();
     return () => { cancelled = true; };
   }, []);
 
@@ -70,7 +70,7 @@ export default function Ghosts() {
   const displayTarget = targetSecs != null ? targetSecs - 0.001 : targetSecs;
 
   const headerNote = !status.ghosts_loaded
-    ? (status.error ? "Could not reach Ghosts sheet — check connection." : "Loading resources…")
+    ? (status.errors?.ghosts ? "Could not reach Ghosts sheet — check connection." : "Loading resources…")
     : null;
 
   return (

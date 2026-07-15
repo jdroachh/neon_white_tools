@@ -21,6 +21,7 @@ Schemas (sheet column headers, lowercase, case-insensitive on read):
 import csv
 import io
 import threading
+import time
 from urllib.error import URLError
 from urllib.parse import quote
 from urllib.request import urlopen, Request
@@ -81,8 +82,21 @@ _STATUS = {
     "wrs_loaded":            False,
     "guides_loaded":         False,
     "helpful_links_loaded":  False,
+    # Per-source conclusive-failure map (label -> message), populated only after
+    # a source exhausts every retry round; cleared on any later success. Lets each
+    # resource page key its own error off `errors[<its source>]` instead of the
+    # cross-contaminating legacy `error` string below.
+    "errors": {},
+    # Legacy joined string, derived from `errors` — kept for one-glance "anything
+    # wrong?" logging/debugging. Now means "these sources conclusively failed",
+    # not "something hiccuped once".
     "error": None,
 }
+
+# Sleeps between retry rounds (round 1->2, 2->3). len + 1 = total attempts.
+# Worst case (all sources dead, 8s timeouts) stays a couple of minutes in the
+# daemon thread — acceptable, and zero cost on the all-load-first-try happy path.
+_RETRY_BACKOFF_S = (3, 10)
 
 
 def _csv_url(sheet_id: str, tab: str) -> str:
@@ -289,118 +303,157 @@ def _parse_stages(rows: list[list[str]]) -> list[dict]:
     return out
 
 
+def _rebuild_legacy_error() -> None:
+    """Derive the joined `error` string from the per-source `errors` map."""
+    errs = _STATUS["errors"]
+    _STATUS["error"] = ("; ".join(f"{k}: {v}" for k, v in errs.items())
+                        if errs else None)
+
+
 def _note_error(label: str, e) -> None:
-    """Append a resource-load failure to the shared status (semicolon-joined)
-    and log it at INFO — so guides/helpful-links failures are as visible as the
-    ghosts/videos/WRs ones instead of silently DEBUG-logged."""
-    prev = _STATUS["error"]
-    _STATUS["error"] = (prev + "; " if prev else "") + f"{label}: {e}"
-    logger.info("Could not load %s: %s", label, e)
+    """Record a source's *conclusive* failure (after all retry rounds). Replaces
+    the errors dict rather than mutating in place, preserving the single-writer /
+    atomic-swap posture the readers rely on."""
+    _STATUS["errors"] = {**_STATUS["errors"], label: str(e)}
+    _rebuild_legacy_error()
+
+
+def _clear_error(label: str) -> None:
+    """Drop a source's error after a (re)load succeeds — no-op if none present."""
+    if label in _STATUS["errors"]:
+        _STATUS["errors"] = {k: v for k, v in _STATUS["errors"].items() if k != label}
+        _rebuild_legacy_error()
 
 
 def _fetch_guides() -> None:
+    """Fetch + index the guides sheets. Raises on any failure; the retry loop
+    (`_run_fetch_rounds`) owns the loaded flag and error status."""
     global _GUIDES
-    try:
-        out: list[dict] = []
-        stage_rows = _fetch_csv_rows(_csv_url(GUIDES_SHEET_ID, _GUIDES_STAGES_TAB))
-        out.extend(_parse_stages(stage_rows))
+    out: list[dict] = []
+    stage_rows = _fetch_csv_rows(_csv_url(GUIDES_SHEET_ID, _GUIDES_STAGES_TAB))
+    out.extend(_parse_stages(stage_rows))
 
-        for tab, cat in ((_GUIDES_TECHNICAL_TAB, "technical"), (_GUIDES_PLAYLIST_TAB, "playlist")):
-            tab_rows = _fetch_csv_rows(_csv_url(GUIDES_SHEET_ID, tab))
-            for row in tab_rows[1:]:
-                if len(row) < 2 or not row[1].strip():
-                    continue
-                url = row[0].strip() or None
-                author, title = _split_author(row[1].strip())
-                out.append({"category": cat, "level": None, "tier": None,
-                            "title": title, "author": author, "url": url})
+    for tab, cat in ((_GUIDES_TECHNICAL_TAB, "technical"), (_GUIDES_PLAYLIST_TAB, "playlist")):
+        tab_rows = _fetch_csv_rows(_csv_url(GUIDES_SHEET_ID, tab))
+        for row in tab_rows[1:]:
+            if len(row) < 2 or not row[1].strip():
+                continue
+            url = row[0].strip() or None
+            author, title = _split_author(row[1].strip())
+            out.append({"category": cat, "level": None, "tier": None,
+                        "title": title, "author": author, "url": url})
 
-        # Scheme allow-list: null out any non-https link (community-edited sheet
-        # could carry javascript:/file: URLs). The entry survives without a link.
-        rejected = 0
-        for g in out:
-            if g["url"] and not g["url"].startswith("https://"):
-                g["url"] = None
-                rejected += 1
-        if rejected:
-            logger.info("Guides: %d non-https link(s) dropped", rejected)
+    # Scheme allow-list: null out any non-https link (community-edited sheet
+    # could carry javascript:/file: URLs). The entry survives without a link.
+    rejected = 0
+    for g in out:
+        if g["url"] and not g["url"].startswith("https://"):
+            g["url"] = None
+            rejected += 1
+    if rejected:
+        logger.info("Guides: %d non-https link(s) dropped", rejected)
 
-        _GUIDES = out
-        _STATUS["guides_loaded"] = True
-        logger.debug("Guides loaded: %d entries", len(_GUIDES))
-    except Exception as e:
-        _note_error("guides", e)
+    _GUIDES = out
+    logger.debug("Guides loaded: %d entries", len(_GUIDES))
 
 
 def _fetch_helpful_links() -> None:
-    """Parse the 'helpful_links' tab — header: Link | Value. Flat list."""
+    """Parse the 'helpful_links' tab — header: Link | Value. Flat list.
+    Raises on failure; the retry loop owns status."""
     global _HELPFUL_LINKS
-    try:
-        rows = _fetch_csv_rows(_csv_url(GUIDES_SHEET_ID, _HELPFUL_LINKS_TAB))
-        out: list[dict] = []
-        rejected = 0
-        for row in rows[1:]:
-            if len(row) < 2:
-                continue
-            url = row[0].strip()
-            label = row[1].strip()
-            if not url or not label:
-                continue
-            # Scheme allow-list: a helpful link with no valid https URL is useless
-            # and potentially hostile (javascript:/file:) — skip and count it.
-            if not url.startswith("https://"):
-                rejected += 1
-                continue
-            out.append({"url": url, "label": label})
-        if rejected:
-            logger.info("Helpful links: %d non-https link(s) skipped", rejected)
-        _HELPFUL_LINKS = out
-        _STATUS["helpful_links_loaded"] = True
-        logger.debug("Helpful links loaded: %d entries", len(_HELPFUL_LINKS))
-    except Exception as e:
-        _note_error("helpful_links", e)
+    rows = _fetch_csv_rows(_csv_url(GUIDES_SHEET_ID, _HELPFUL_LINKS_TAB))
+    out: list[dict] = []
+    rejected = 0
+    for row in rows[1:]:
+        if len(row) < 2:
+            continue
+        url = row[0].strip()
+        label = row[1].strip()
+        if not url or not label:
+            continue
+        # Scheme allow-list: a helpful link with no valid https URL is useless
+        # and potentially hostile (javascript:/file:) — skip and count it.
+        if not url.startswith("https://"):
+            rejected += 1
+            continue
+        out.append({"url": url, "label": label})
+    if rejected:
+        logger.info("Helpful links: %d non-https link(s) skipped", rejected)
+    _HELPFUL_LINKS = out
+    logger.debug("Helpful links loaded: %d entries", len(_HELPFUL_LINKS))
+
+
+def _fetch_ghosts() -> None:
+    """Fetch + index the Ghosts sheet. Raises on failure; retry loop owns status."""
+    global _GHOSTS
+    ghost_rows = _fetch_csv_dict(_csv_url(_GHOSTS_SHEET_ID, _GHOSTS_TAB))
+    _GHOSTS = _index_ghosts(ghost_rows)
+    logger.info("Ghosts loaded: %d stages indexed", len(_GHOSTS))
+
+
+def _fetch_videos() -> None:
+    """Fetch + index the Route Videos sheet. Raises on failure; loop owns status."""
+    global _VIDEOS
+    video_rows = _fetch_csv_rows(_csv_url(_VIDEOS_SHEET_ID, _VIDEOS_TAB))
+    _VIDEOS = _index_videos(video_rows)
+    total = sum(len(by_medal) for by_medal in _VIDEOS.values())
+    logger.info("Videos loaded: %d stages, %d medal-groups indexed", len(_VIDEOS), total)
+
+
+def _fetch_wrs() -> None:
+    """Fetch + index the WR VODs sheet. Raises on failure; loop owns status."""
+    global _WRS
+    wr_rows = _fetch_csv_rows(_csv_url(_WR_SHEET_ID, _WR_TAB))
+    _WRS = _index_wrs(wr_rows)
+    total = sum(len(p) for p in _WRS.values())
+    logger.info("WRs loaded: %d rows indexed, %d platform entries", len(_WRS), total)
+
+
+# (label, loaded-flag key, fetch fn) in fetch order. `label` is the key each
+# frontend page reads from `errors` (guides -> Guides page, etc.).
+_SOURCES = [
+    ("guides",        "guides_loaded",        _fetch_guides),
+    ("helpful_links", "helpful_links_loaded", _fetch_helpful_links),
+    ("ghosts",        "ghosts_loaded",        _fetch_ghosts),
+    ("videos",        "videos_loaded",        _fetch_videos),
+    ("wrs",           "wrs_loaded",           _fetch_wrs),
+]
+
+
+def _run_fetch_rounds(labels: set[str] | None = None) -> None:
+    """Attempt each source, retrying only the ones still unloaded, up to
+    len(_RETRY_BACKOFF_S)+1 rounds with backoff sleeps between rounds.
+
+    Each source is fully isolated: an exception in one never aborts the others.
+    A per-source error is recorded ONLY after its final round fails, and cleared
+    the moment it (re)loads — so a transient first-boot hiccup self-heals without
+    a restart and one dead source never poisons its siblings' status.
+
+    `labels` scopes the run to a subset of sources (used by retry_failed());
+    None runs all five.
+    """
+    rounds = len(_RETRY_BACKOFF_S) + 1
+    sources = [s for s in _SOURCES if labels is None or s[0] in labels]
+    for round_idx in range(rounds):
+        pending = [s for s in sources if not _STATUS[s[1]]]
+        if not pending:
+            break
+        for label, loaded_key, fetch_fn in pending:
+            try:
+                fetch_fn()
+                _STATUS[loaded_key] = True
+                _clear_error(label)
+            except Exception as e:
+                logger.info("Could not load %s (attempt %d/%d): %s",
+                            label, round_idx + 1, rounds, e)
+                if round_idx == rounds - 1:
+                    _note_error(label, e)
+        if round_idx < rounds - 1 and any(not _STATUS[s[1]] for s in sources):
+            time.sleep(_RETRY_BACKOFF_S[round_idx])
 
 
 def _fetch_resources_bg() -> None:
-    global _GHOSTS, _VIDEOS, _WRS
-    # Each fetch is fully isolated: an exception in one must never abort the
-    # others (a single csv.Error used to kill the whole thread, leaving every
-    # page stuck "loading"). _fetch_guides/_fetch_helpful_links already guard
-    # internally; the outer wrap catches anything that slips past.
-    try:
-        _fetch_guides()
-    except Exception as e:
-        _note_error("guides", e)
-    try:
-        _fetch_helpful_links()
-    except Exception as e:
-        _note_error("helpful_links", e)
-
-    try:
-        ghost_rows = _fetch_csv_dict(_csv_url(_GHOSTS_SHEET_ID, _GHOSTS_TAB))
-        _GHOSTS = _index_ghosts(ghost_rows)
-        _STATUS["ghosts_loaded"] = True
-        logger.info("Ghosts loaded: %d stages indexed", len(_GHOSTS))
-    except Exception as e:
-        _note_error("ghosts", e)
-
-    try:
-        video_rows = _fetch_csv_rows(_csv_url(_VIDEOS_SHEET_ID, _VIDEOS_TAB))
-        _VIDEOS = _index_videos(video_rows)
-        _STATUS["videos_loaded"] = True
-        total = sum(len(by_medal) for by_medal in _VIDEOS.values())
-        logger.info("Videos loaded: %d stages, %d medal-groups indexed", len(_VIDEOS), total)
-    except Exception as e:
-        _note_error("videos", e)
-
-    try:
-        wr_rows = _fetch_csv_rows(_csv_url(_WR_SHEET_ID, _WR_TAB))
-        _WRS = _index_wrs(wr_rows)
-        _STATUS["wrs_loaded"] = True
-        total = sum(len(p) for p in _WRS.values())
-        logger.info("WRs loaded: %d rows indexed, %d platform entries", len(_WRS), total)
-    except Exception as e:
-        _note_error("wrs", e)
+    _run_fetch_rounds()
 
 
 def start_background_fetch() -> None:
@@ -432,4 +485,6 @@ def get_helpful_links() -> list[dict]:
 
 
 def get_status() -> dict:
-    return dict(_STATUS)
+    s = dict(_STATUS)
+    s["errors"] = dict(_STATUS["errors"])  # copy the nested map too
+    return s
