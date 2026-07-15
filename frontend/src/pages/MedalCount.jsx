@@ -307,16 +307,19 @@ function buildTable(result) {
   const grand = result.grand || {};
   const header = ["Level"];
   tiers.forEach(t => header.push(`${t} in-tier`, `${t} at least`));
+  header.push("Board total");   // appended last → keeps the Level+10-tier column layout intact
   const body = rows.map(r => {
     const line = [r.level];
     tiers.forEach(t => {
       const c = r.tiers && r.tiers[t];
       line.push(c ? c.exactly : "", c ? c.at_least : "");
     });
+    line.push(r.total ?? "");   // raw board size (incl. any cheaters); blank if the board wasn't scanned
     return line;
   });
   const totals = ["Total"];
   tiers.forEach(t => { const g = grand[t] || {}; totals.push(g.exactly ?? 0, g.at_least ?? 0); });
+  totals.push("");              // board totals don't sum meaningfully across levels
   return [header, ...body, totals];
 }
 
@@ -342,6 +345,17 @@ function computeExtremes(result) {
   });
 }
 
+// Penetration = count / raw board size, as a %. Keeps more precision when rare so a
+// 3-of-4,800 Blood Diamond doesn't collapse to "0.1%".
+function penPct(n, total) {
+  if (!total || n == null) return null;
+  const p = (n / total) * 100;
+  if (p === 0) return "0%";
+  if (p < 1) return p.toFixed(2) + "%";
+  if (p < 10) return p.toFixed(1) + "%";
+  return Math.round(p) + "%";
+}
+
 // ── Results: grand-total tier cards + per-stage table ────────────────────────
 function MedalResult({ result }) {
   const tiers = result.tiers || [];
@@ -349,6 +363,8 @@ function MedalResult({ result }) {
   const grand = result.grand || {};
   const multi = (result.level_count || rows.length) > 1;
   const [flash, setFlash] = useState("");
+  const [tableView, setTableView] = useState("Counts");   // "Counts" | "% of board"
+  const showPct = tableView === "% of board";
 
   function ping(msg) { setFlash(msg); setTimeout(() => setFlash(""), 1500); }
 
@@ -422,9 +438,30 @@ function MedalResult({ result }) {
         that list yet still counts toward these totals.
       </div>
 
+      {/* Single-level penetration readout — % of the board earning each tier or better */}
+      {!multi && rows[0] && rows[0].total > 0 && (
+        <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap",
+                      alignItems: "center", fontSize: 11, color: "var(--text-3)", marginBottom: 14 }}>
+          <span>Board: <strong>{rows[0].total.toLocaleString()}</strong> players</span>
+          {tiers.map(t => {
+            const c = rows[0].tiers && rows[0].tiers[t];
+            if (!c) return null;
+            return (
+              <span key={t} style={{ whiteSpace: "nowrap" }}>
+                <MedalBadge medal={t} plain /> {penPct(c.at_least, rows[0].total)}
+              </span>
+            );
+          })}
+          <span className="muted" style={{ fontSize: 10 }}>(≥ this tier)</span>
+        </div>
+      )}
+
       {/* Per-stage breakdown */}
       {multi && (
         <div style={{ overflowX: "auto" }}>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
+            <Seg options={["Counts", "% of board"]} value={tableView} onChange={setTableView} />
+          </div>
           <table className="nwt-hover-rows" style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead style={{ position: "sticky", top: 0, background: "var(--bg-2)", zIndex: 2 }}>
               <tr>
@@ -434,6 +471,7 @@ function MedalResult({ result }) {
                     <MedalBadge medal={t} plain />
                   </th>
                 ))}
+                <th style={{ ...TH, textAlign: "right", whiteSpace: "nowrap" }}>Board</th>
               </tr>
             </thead>
             <tbody>
@@ -445,15 +483,21 @@ function MedalResult({ result }) {
                   </td>
                   {tiers.map(t => {
                     const cell = r.tiers && r.tiers[t];
+                    const pen = cell && penPct(cell.at_least, r.total);
                     return (
                       <td key={t} style={{ ...TD, textAlign: "right", whiteSpace: "nowrap" }}>
-                        {cell
-                          ? <><strong>{cell.exactly.toLocaleString()}</strong>
-                              <span style={{ color: "var(--text-3)" }}> / {cell.at_least.toLocaleString()}≥</span></>
-                          : <span style={{ color: "var(--text-3)" }}>—</span>}
+                        {!cell
+                          ? <span style={{ color: "var(--text-3)" }}>—</span>
+                          : showPct
+                            ? (pen || <span style={{ color: "var(--text-3)" }}>—</span>)
+                            : <><strong>{cell.exactly.toLocaleString()}</strong>
+                                <span style={{ color: "var(--text-3)" }}> / {cell.at_least.toLocaleString()}≥</span></>}
                       </td>
                     );
                   })}
+                  <td style={{ ...TD, textAlign: "right", whiteSpace: "nowrap", color: "var(--text-3)" }}>
+                    {r.total != null ? r.total.toLocaleString() : "—"}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -464,16 +508,21 @@ function MedalResult({ result }) {
                   const g = grand[t] || { exactly: 0, at_least: 0 };
                   return (
                     <td key={t} style={{ ...TD, textAlign: "right", whiteSpace: "nowrap" }}>
-                      {g.exactly.toLocaleString()}
-                      <span style={{ color: "var(--text-3)", fontWeight: 400 }}> / {g.at_least.toLocaleString()}≥</span>
+                      {showPct
+                        ? <span style={{ color: "var(--text-3)", fontWeight: 400 }}>—</span>
+                        : <>{g.exactly.toLocaleString()}
+                            <span style={{ color: "var(--text-3)", fontWeight: 400 }}> / {g.at_least.toLocaleString()}≥</span></>}
                     </td>
                   );
                 })}
+                <td style={{ ...TD, textAlign: "right", color: "var(--text-3)", fontWeight: 400 }}>—</td>
               </tr>
             </tfoot>
           </table>
           <div className="muted" style={{ fontSize: 10, marginTop: 8, textAlign: "center" }}>
-            Cell = <strong>in this tier</strong> / at least this tier (≥). Cheater-filtered.
+            {showPct
+              ? <>Cell = <strong>% of the board that earned ≥ this tier</strong>. Board = total leaderboard entries (cheaters not removed); counts are cheater-filtered, so % is slightly conservative.</>
+              : <>Cell = <strong>in this tier</strong> / at least this tier (≥). Board = total leaderboard entries. Cheater-filtered counts.</>}
           </div>
         </div>
       )}

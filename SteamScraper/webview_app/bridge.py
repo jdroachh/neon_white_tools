@@ -2044,7 +2044,10 @@ class JsApi:
                     }
                     grand[t]["at_least"] += al
                     grand[t]["exactly"] += exactly
-                rows.append({"level": display, "tiers": row_tiers})
+                # `total` (raw board size incl. any cheaters) is already fetched at
+                # the top of the loop for the binary-search bound — expose it so the
+                # frontend can show per-stage penetration. Zero extra Steam calls.
+                rows.append({"level": display, "tiers": row_tiers, "total": total})
                 level_done(idx)
                 _time.sleep(0.03)
 
