@@ -8,6 +8,22 @@ All notable changes to Neon White Tools are documented here.
 
 ---
 
+## [1.9.2] — 2026-07-14
+
+### Added
+- Medal Count "% of board" view: single-level results show each tier's ≥ percentage of the board; multi-level tables gain a Counts | % of board toggle and a Board column with per-stage leaderboard size; Copy and CSV export gain a "Board total" column. No extra Steam calls — the board size was already fetched for the scan bound (106eecc)
+
+### Fixed
+- Resource pages (Guides, Route Videos, WR VODs, Ghosts) retry a slow or failed first-boot fetch and recover without an app restart (4ee3156)
+- Medal Count no longer reports confident zero counts when community medal data can't be fetched offline (00ccf79)
+- Medal Count deep scans on cheater-dense boards respect the forward-pass cap and throttle correctly (05189b7)
+- Disabled buttons render as disabled app-wide (86b53c7)
+
+### Internal
+- Medal Count windowed deep-tail probes cut binary-search round-trips (5df6949)
+
+---
+
 ## [1.9.1] — 2026-07-09
 
 ### Added
